@@ -5,9 +5,9 @@
     "version": "1.0.0",
     "scheme": "sihsmart",
     "orientation": "portrait",
-    "icon": "./assets/icon.jpg",
+    "icon": "./assets/icon.png",
     "splash": {
-      "image": "./assets/splash.jpg",
+      "image": "./assets/splash.png",
       "backgroundColor": "#ffffff",
       "resizeMode": "contain"
     },
@@ -19,17 +19,18 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#ffffff",
-          "image": "./assets/splash.jpg",
+          "image": "./assets/splash.png",
           "imageWidth": 200
         }
-      ]
+      ],
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.jpg",
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.example.sihsmartsafety"

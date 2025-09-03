@@ -26,7 +26,8 @@
     "react-native-paper": "^5.12.5",
     "react-native-safe-area-context": "5.4.0",
     "react-native-screens": "~4.11.1",
-    "react-native-web": "^0.20.0"
+    "react-native-web": "^0.20.0",
+    "expo-font": "~13.3.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
