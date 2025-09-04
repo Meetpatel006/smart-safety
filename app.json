@@ -2,7 +2,7 @@
   "expo": {
     "name": "SIH Smart Safety",
     "slug": "smart-safety",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "scheme": "sihsmart",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -28,6 +28,13 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "This app needs access to location to share your current location in emergency situations."
+        }
+      ],
+      [
+        "expo-maps",
+        {
+          "requestLocationPermission": true,
+          "locationPermission": "Allow $(PRODUCT_NAME) to access your location for emergency services and safety features"
         }
       ]
     ],

@@ -1,10 +1,11 @@
 name: Expo Doctor
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  schedule:
+    # Run every 7 days at 2:00 AM UTC (0 2 */7 * *)
+    - cron: '0 2 */7 * *'
+  # Allow manual triggering of the workflow
+  workflow_dispatch:
 
 jobs:
   expo-doctor:
