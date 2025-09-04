@@ -9,15 +9,24 @@ on:
 jobs:
   expo-doctor:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
+
       - name: Install dependencies
         run: npm ci
+
+      # Ensure correct Expo SDK 53 dependency versions
+      - name: Fix Expo config-plugins version
+        run: |
+          npx expo install @expo/config-plugins
+
       - name: Run expo doctor
         run: npx expo-doctor
