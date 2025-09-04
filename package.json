@@ -1,6 +1,6 @@
 {
   "name": "sih-smart-safety",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "sih-smart-safety",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
