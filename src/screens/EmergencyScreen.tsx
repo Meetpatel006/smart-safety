@@ -2,7 +2,7 @@ import { View, ScrollView } from "react-native"
 import { Appbar } from "react-native-paper"
 import PanicActions from "../components/PanicActions"
 import GeoFenceList from "../components/GeoFenceList"
-import MockMap from "../components/MockMap"
+import MapplsMap from "../components/MapplsMap"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
@@ -15,7 +15,7 @@ export default function EmergencyScreen() {
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
         <PanicActions />
-        <MockMap />
+        <MapplsMap />
         <GeoFenceList />
       </ScrollView>
     </View>
