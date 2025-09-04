@@ -38,5 +38,8 @@
     "@babel/core": "^7.25.2",
     "@types/react": "~19.0.10",
     "typescript": "~5.8.3"
+  },
+  "overrides": {
+    "@expo/config-plugins": "~10.1.1"
   }
 }

@@ -32,4 +32,4 @@ jobs:
         run: npx expo install
 
       - name: Run expo doctor
-        run: npx expo-doctor --verbose
+        run: npx expo-doctor
