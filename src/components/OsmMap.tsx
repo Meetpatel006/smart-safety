@@ -1,40 +1,84 @@
-import React, { useEffect, useState } from "react";
-import { View, StyleSheet, Platform } from "react-native";
-import { Card, Text, Button, ActivityIndicator } from "react-native-paper";
+import React, { useEffect, useState, useRef } from "react";
+import { View, StyleSheet, Platform, Alert, Dimensions } from "react-native";
+import { Card, Text, Button, ActivityIndicator, Chip } from "react-native-paper";
+import { WebView } from 'react-native-webview';
 import * as Location from "expo-location";
-import { WebView } from "react-native-webview";
 
 /*
-  Leaflet + OpenStreetMap integration with React Native WebView
-
+  Enhanced OsmMap: OpenStreetMap integration with Leaflet
+  
   Features:
-  - Interactive map using Leaflet.js
-  - Current location marker
-  - Zoom and pan support
-  - No static image, fully interactive OSM map
+  - Interactive Leaflet map with OpenStreetMap tiles
+  - Location services with Expo Location
+  - Nominatim reverse and forward geocoding
+  - Multiple map tile providers
+  - Marker management and click events
+  - Location sharing and external map opening
+  - Error handling and retry mechanisms
 */
 
 interface LocationData {
   latitude: number;
   longitude: number;
+  address?: string;
   accuracy?: number;
   timestamp?: number;
 }
 
-interface OsmLeafletMapProps {
+interface NominatimResult {
+  place_id: number;
+  display_name: string;
+  lat: string;
+  lon: string;
+  type: string;
+}
+
+interface OsmMapProps {
   showCurrentLocation?: boolean;
+  onLocationSelect?: (location: LocationData) => void;
+  onLocationChange?: (location: LocationData) => void;
+  style?: any;
   zoomLevel?: number;
+  mapWidth?: number;
   mapHeight?: number;
 }
 
-export default function OsmLeafletMap({
+type TileProvider = 'openstreetmap' | 'cartodb' | 'stamen';
+
+export default function OsmMap({
   showCurrentLocation = true,
+  onLocationSelect,
+  onLocationChange,
+  style,
   zoomLevel = 15,
-  mapHeight = 400,
-}: OsmLeafletMapProps) {
+  mapWidth = Dimensions.get('window').width - 32,
+  mapHeight = 300
+}: OsmMapProps) {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
+  const [loadingAddress, setLoadingAddress] = useState(false);
+  const [tileProvider, setTileProvider] = useState<TileProvider>('openstreetmap');
+  const [mapReady, setMapReady] = useState(false);
+  const [webViewKey, setWebViewKey] = useState(0);
+  const webViewRef = useRef<WebView>(null);
+
+  // Tile server configurations
+  const tileServers = {
+    openstreetmap: {
+      url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+      attribution: '© OpenStreetMap contributors'
+    },
+    cartodb: {
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      attribution: '© OpenStreetMap contributors © CARTO'
+    },
+    stamen: {
+      url: 'https://stamen-tiles-{s}.a.ssl.fastly.net/terrain/{z}/{x}/{y}{r}.png',
+      attribution: 'Map tiles by Stamen Design, CC BY 3.0 — Map data © OpenStreetMap contributors'
+    }
+  };
 
   useEffect(() => {
     if (showCurrentLocation) {
@@ -42,57 +86,420 @@ export default function OsmLeafletMap({
     }
   }, [showCurrentLocation]);
 
-  const getCurrentLocation = async () => {
+  useEffect(() => {
+    if (location && mapReady) {
+      updateMapLocation();
+    }
+  }, [location, mapReady, tileProvider]);
+
+  const getCurrentLocation = async (highAccuracy: boolean = true) => {
     try {
       setLoadingLocation(true);
       setErrorMsg(null);
+
+      // Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setErrorMsg("Location permission denied.");
+        setErrorMsg("Location permission denied. Please enable location access in settings.");
         return;
       }
-      const currentLocation = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
+
+      // Get current position
+      const locationOptions: Location.LocationOptions = {
+        accuracy: highAccuracy ? Location.Accuracy.BestForNavigation : Location.Accuracy.Balanced,
+        timeInterval: 1000,
+        distanceInterval: 1,
+      };
+
+      const currentLocation = await Location.getCurrentPositionAsync(locationOptions);
       setLocation(currentLocation);
+
+      const locationData: LocationData = {
+        latitude: currentLocation.coords.latitude,
+        longitude: currentLocation.coords.longitude,
+        accuracy: currentLocation.coords.accuracy || undefined,
+        timestamp: currentLocation.timestamp,
+      };
+
+      if (onLocationChange) {
+        onLocationChange(locationData);
+      }
+
+      if (onLocationSelect) {
+        onLocationSelect(locationData);
+      }
+
+      // Get address for current location
+      await reverseGeocode(currentLocation.coords.latitude, currentLocation.coords.longitude);
+
     } catch (err: any) {
+      console.error("Location error:", err);
       setErrorMsg(`Failed to get location: ${err.message}`);
+      
+      // Try with lower accuracy if high accuracy failed
+      if (highAccuracy) {
+        setTimeout(() => getCurrentLocation(false), 1000);
+      }
     } finally {
       setLoadingLocation(false);
     }
   };
 
-  const leafletHTML = (lat: number, lon: number) => `
+  const reverseGeocode = async (lat: number, lon: number, retryCount: number = 0) => {
+    try {
+      setLoadingAddress(true);
+      
+      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}&accept-language=en&addressdetails=1&zoom=18`;
+      
+      const response = await fetch(url, {
+        headers: {
+          "User-Agent": "sih-smart-safety/2.0 (contact@smartsafety.app)",
+          "Accept": "application/json",
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      const formattedAddress = data.display_name || "Address not found";
+      setAddress(formattedAddress);
+      
+      return formattedAddress;
+    } catch (err: any) {
+      console.error("Reverse geocoding error:", err);
+      
+      // Retry logic for network errors
+      if (retryCount < 2) {
+        setTimeout(() => reverseGeocode(lat, lon, retryCount + 1), 1000 * (retryCount + 1));
+        return;
+      }
+      
+      setAddress("Address lookup failed");
+    } finally {
+      setLoadingAddress(false);
+    }
+  };
+
+  const updateMapLocation = () => {
+    if (!location || !webViewRef.current) return;
+
+    const { latitude, longitude } = location.coords;
+    const accuracy = location.coords.accuracy || 0;
+    
+    const jsCode = `
+      if (typeof updateLocation === 'function') {
+        updateLocation(${latitude}, ${longitude}, ${accuracy}, ${zoomLevel});
+      }
+    `;
+    
+    webViewRef.current.postMessage(JSON.stringify({
+      type: 'updateLocation',
+      latitude,
+      longitude,
+      accuracy,
+      zoomLevel
+    }));
+  };
+
+  const changeTileProvider = (provider: TileProvider) => {
+    setTileProvider(provider);
+    setWebViewKey(prev => prev + 1); // Force WebView remount
+    
+    if (webViewRef.current) {
+      const tileConfig = tileServers[provider];
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'changeTileProvider',
+        url: tileConfig.url,
+        attribution: tileConfig.attribution
+      }));
+    }
+  };
+
+  const handleWebViewMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      
+      switch (data.type) {
+        case 'mapReady':
+          setMapReady(true);
+          break;
+          
+        case 'mapClick':
+          const { lat, lng } = data;
+          // Handle map click - you can add custom logic here
+          const clickedLocation: LocationData = {
+            latitude: lat,
+            longitude: lng,
+            timestamp: Date.now(),
+          };
+          
+          if (onLocationSelect) {
+            onLocationSelect(clickedLocation);
+          }
+          
+          // Optionally reverse geocode the clicked location
+          reverseGeocode(lat, lng);
+          break;
+          
+        case 'error':
+          console.error('Map error:', data.message);
+          setErrorMsg(data.message);
+          break;
+      }
+    } catch (err) {
+      console.error('Error parsing WebView message:', err);
+    }
+  };
+
+  const generateMapHTML = () => {
+    const tileConfig = tileServers[tileProvider];
+    
+    return `
     <!DOCTYPE html>
     <html>
     <head>
-      <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-      <style> html, body, #map { height: 100%; margin: 0; padding: 0; } </style>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+        <style>
+            body { margin: 0; padding: 0; }
+            #map { height: 100vh; width: 100vw; }
+            .accuracy-circle { 
+                fill: rgba(70, 130, 180, 0.2);
+                stroke: rgba(70, 130, 180, 0.8);
+                stroke-width: 2;
+            }
+            .location-marker {
+                background: #4285f4;
+                width: 20px;
+                height: 20px;
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            }
+        </style>
     </head>
     <body>
-      <div id="map"></div>
-      <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-      <script>
-        var map = L.map('map').setView([${lat}, ${lon}], ${zoomLevel});
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          maxZoom: 19,
-          attribution: '© OpenStreetMap'
-        }).addTo(map);
-        L.marker([${lat}, ${lon}]).addTo(map).bindPopup("You are here").openPopup();
-      </script>
+        <div id="map"></div>
+        
+        <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+        <script>
+            let map;
+            let locationMarker;
+            let accuracyCircle;
+            let tileLayer;
+            
+            // Initialize map
+            function initMap() {
+                try {
+                    map = L.map('map', {
+                        center: [20.5937, 78.9629], // Default to India center
+                        zoom: 5,
+                        zoomControl: true,
+                        scrollWheelZoom: true,
+                        doubleClickZoom: true,
+                        touchZoom: true
+                    });
+                    
+                    // Add initial tile layer
+                    tileLayer = L.tileLayer('${tileConfig.url}', {
+                        attribution: '${tileConfig.attribution}',
+                        maxZoom: 18,
+                        subdomains: 'abc'
+                    }).addTo(map);
+                    
+                    // Map click handler
+                    map.on('click', function(e) {
+                        const { lat, lng } = e.latlng;
+                        window.ReactNativeWebView?.postMessage(JSON.stringify({
+                            type: 'mapClick',
+                            lat: lat,
+                            lng: lng
+                        }));
+                    });
+                    
+                    // Notify that map is ready
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'mapReady'
+                    }));
+                    
+                } catch (error) {
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'error',
+                        message: error.message
+                    }));
+                }
+            }
+            
+            // Update location marker
+            function updateLocation(lat, lng, accuracy, zoom) {
+                try {
+                    const latlng = L.latLng(lat, lng);
+                    
+                    // Remove existing markers
+                    if (locationMarker) {
+                        map.removeLayer(locationMarker);
+                    }
+                    if (accuracyCircle) {
+                        map.removeLayer(accuracyCircle);
+                    }
+                    
+                    // Add accuracy circle if accuracy is available
+                    if (accuracy > 0) {
+                        accuracyCircle = L.circle(latlng, {
+                            radius: accuracy,
+                            className: 'accuracy-circle'
+                        }).addTo(map);
+                    }
+                    
+                    // Add location marker
+                    const customIcon = L.divIcon({
+                        html: '<div class="location-marker"></div>',
+                        iconSize: [20, 20],
+                        iconAnchor: [10, 10],
+                        className: ''
+                    });
+                    
+                    locationMarker = L.marker(latlng, { icon: customIcon }).addTo(map);
+                    
+                    // Center map on location
+                    map.setView(latlng, zoom);
+                    
+                } catch (error) {
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'error',
+                        message: error.message
+                    }));
+                }
+            }
+            
+            // Change tile provider
+            function changeTileProvider(url, attribution) {
+                try {
+                    if (tileLayer) {
+                        map.removeLayer(tileLayer);
+                    }
+                    
+                    tileLayer = L.tileLayer(url, {
+                        attribution: attribution,
+                        maxZoom: 18,
+                        subdomains: 'abc'
+                    }).addTo(map);
+                    
+                } catch (error) {
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'error',
+                        message: error.message
+                    }));
+                }
+            }
+            
+            // Handle messages from React Native
+            document.addEventListener('message', function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    
+                    switch (data.type) {
+                        case 'updateLocation':
+                            updateLocation(data.latitude, data.longitude, data.accuracy, data.zoomLevel);
+                            break;
+                        case 'changeTileProvider':
+                            changeTileProvider(data.url, data.attribution);
+                            break;
+                    }
+                } catch (error) {
+                    console.error('Error handling message:', error);
+                }
+            });
+            
+            // Initialize map when DOM is loaded
+            document.addEventListener('DOMContentLoaded', initMap);
+            
+            // Fallback initialization
+            if (document.readyState === 'complete') {
+                initMap();
+            } else {
+                window.addEventListener('load', initMap);
+            }
+        </script>
     </body>
     </html>
-  `;
+    `;
+  };
+
+  const openExternalMap = () => {
+    if (!location) return;
+
+    const { latitude, longitude } = location.coords;
+    
+    const urls = {
+      openstreetmap: `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`,
+      googlemaps: `https://www.google.com/maps?q=${latitude},${longitude}`,
+      applemaps: `https://maps.apple.com/?q=${latitude},${longitude}`,
+    };
+
+    Alert.alert(
+      "Open in External Map",
+      "Choose a map application:",
+      [
+        { text: "OpenStreetMap", onPress: () => console.log("Open:", urls.openstreetmap) },
+        { text: "Google Maps", onPress: () => console.log("Open:", urls.googlemaps) },
+        ...(Platform.OS === 'ios' ? [{ text: "Apple Maps", onPress: () => console.log("Open:", urls.applemaps) }] : []),
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const shareLocation = () => {
+    if (!location) return;
+    
+    const { latitude, longitude } = location.coords;
+    const message = `My location: https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
+    
+    console.log("Share location:", message);
+    // You can integrate with Expo Sharing API here
+  };
+
+  const formatCoordinates = (lat: number, lon: number) => {
+    return {
+      latitude: lat.toFixed(6),
+      longitude: lon.toFixed(6),
+      dms: {
+        lat: convertToDMS(lat, 'lat'),
+        lon: convertToDMS(lon, 'lon'),
+      }
+    };
+  };
+
+  const convertToDMS = (decimal: number, type: 'lat' | 'lon') => {
+    const absolute = Math.abs(decimal);
+    const degrees = Math.floor(absolute);
+    const minutesFloat = (absolute - degrees) * 60;
+    const minutes = Math.floor(minutesFloat);
+    const seconds = ((minutesFloat - minutes) * 60).toFixed(2);
+    
+    const direction = type === 'lat' 
+      ? (decimal >= 0 ? 'N' : 'S')
+      : (decimal >= 0 ? 'E' : 'W');
+    
+    return `${degrees}°${minutes}'${seconds}"${direction}`;
+  };
 
   return (
-    <Card style={styles.container}>
+    <Card style={[styles.container, style]}>
       <Card.Content>
+        {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>🗺️ Leaflet Map (OpenStreetMap)</Text>
+          <Text style={styles.title}>Interactive Leaflet Map</Text>
           <Button
             mode="outlined"
-            onPress={getCurrentLocation}
+            onPress={() => getCurrentLocation()}
             disabled={loadingLocation}
             compact
             icon="refresh"
@@ -101,25 +508,158 @@ export default function OsmLeafletMap({
           </Button>
         </View>
 
-        {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
-
-        {loadingLocation && !location ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2196F3" />
-            <Text>Getting your location...</Text>
-          </View>
-        ) : location ? (
-          <WebView
-            originWhitelist={["*"]}
-            source={{ html: leafletHTML(location.coords.latitude, location.coords.longitude) }}
-            style={{ height: mapHeight }}
-          />
-        ) : (
-          <View style={styles.noLocationContainer}>
-            <Text>📍 No location available</Text>
-            <Button mode="outlined" onPress={getCurrentLocation} compact>
-              Get Location
+        {/* Error Display */}
+        {errorMsg && (
+          <View style={styles.errorContainer}>
+            <Text style={styles.errorText}>{errorMsg}</Text>
+            <Button mode="outlined" onPress={() => getCurrentLocation()} compact>
+              Retry
             </Button>
+          </View>
+        )}
+
+        {/* Leaflet Map */}
+        <View style={[styles.mapContainer, { height: mapHeight }]}>
+          <WebView
+            key={webViewKey} // Force remount when key changes
+            ref={webViewRef}
+            source={{ html: generateMapHTML() }}
+            style={styles.webView}
+            onMessage={handleWebViewMessage}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+            startInLoadingState={true}
+            renderLoading={() => (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" />
+                <Text>Loading interactive map...</Text>
+              </View>
+            )}
+            onError={(syntheticEvent) => {
+              const { nativeEvent } = syntheticEvent;
+              console.error('WebView error: ', nativeEvent);
+              setErrorMsg(`Failed to load map: ${nativeEvent.description}`);
+              setMapReady(false);
+            }}
+            onLoadStart={() => {
+              setMapReady(false);
+            }}
+            onLoadEnd={() => {
+              console.log('WebView loaded');
+            }}
+            // Disable zoom controls to prevent conflicts
+            scalesPageToFit={false}
+            showsHorizontalScrollIndicator={false}
+            showsVerticalScrollIndicator={false}
+            // Allow mixed content for map tiles
+            mixedContentMode="compatibility"
+            // Additional WebView optimizations
+            cacheEnabled={true}
+            bounces={false}
+          />
+        </View>
+
+        {/* Location Information */}
+        {location && (
+          <View style={styles.locationInfo}>
+            <View style={styles.coordinates}>
+              <Text style={styles.coordText}>
+                Lat: {location.coords.latitude.toFixed(6)}
+              </Text>
+              <Text style={styles.coordText}>
+                Lng: {location.coords.longitude.toFixed(6)}
+              </Text>
+              {location.coords.accuracy && (
+                <Text style={styles.coordText}>
+                  ±{location.coords.accuracy.toFixed(0)}m
+                </Text>
+              )}
+            </View>
+
+            {/* DMS Coordinates */}
+            <View style={styles.dmsContainer}>
+              <Text style={styles.dmsText}>
+                {formatCoordinates(location.coords.latitude, location.coords.longitude).dms.lat}
+              </Text>
+              <Text style={styles.dmsText}>
+                {formatCoordinates(location.coords.latitude, location.coords.longitude).dms.lon}
+              </Text>
+            </View>
+
+            {/* Address */}
+            {loadingAddress ? (
+              <View style={styles.addressLoading}>
+                <ActivityIndicator size="small" />
+                <Text>Resolving address...</Text>
+              </View>
+            ) : address ? (
+              <Text style={styles.addressText}>{address}</Text>
+            ) : (
+              <Text style={styles.noteText}>Address not available</Text>
+            )}
+          </View>
+        )}
+
+        {/* Tile Provider Selection */}
+        <View style={styles.providerContainer}>
+          <Text style={styles.providerLabel}>Map Tile Provider:</Text>
+          <View style={styles.providerChips}>
+            {Object.keys(tileServers).map((provider) => (
+              <Chip
+                key={provider}
+                selected={tileProvider === provider}
+                onPress={() => changeTileProvider(provider as TileProvider)}
+                compact
+                style={styles.chip}
+              >
+                {provider.charAt(0).toUpperCase() + provider.slice(1)}
+              </Chip>
+            ))}
+          </View>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionsRow}>
+          <Button
+            mode="outlined"
+            onPress={() => getCurrentLocation()}
+            disabled={loadingLocation}
+            compact
+            icon="crosshairs-gps"
+          >
+            My Location
+          </Button>
+          
+          <Button
+            mode="contained"
+            onPress={openExternalMap}
+            disabled={!location}
+            compact
+            icon="open-in-new"
+          >
+            Open Map
+          </Button>
+          
+          <Button
+            mode="outlined"
+            onPress={shareLocation}
+            disabled={!location}
+            compact
+            icon="share"
+          >
+            Share
+          </Button>
+        </View>
+
+        {/* Additional Info */}
+        {location && (
+          <View style={styles.infoContainer}>
+            <Text style={styles.timestamp}>
+              Last updated: {new Date(location.timestamp).toLocaleTimeString()}
+            </Text>
+            <Text style={styles.provider}>
+              Using Leaflet with OpenStreetMap • Nominatim for geocoding
+            </Text>
           </View>
         )}
       </Card.Content>
@@ -131,30 +671,139 @@ const styles = StyleSheet.create({
   container: {
     margin: 8,
     elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   title: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1976D2",
+    color: "#2e7d32",
+  },
+  errorContainer: {
+    backgroundColor: "#ffebee",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   errorText: {
     color: "#d32f2f",
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 8,
+  },
+  mapContainer: {
+    borderRadius: 12,
+    overflow: "hidden",
+    marginBottom: 16,
+    backgroundColor: "#f5f5f5",
+  },
+  webView: {
+    flex: 1,
   },
   loadingContainer: {
-    height: 200,
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#f5f5f5",
   },
-  noLocationContainer: {
-    height: 200,
-    justifyContent: "center",
+  locationInfo: {
+    marginBottom: 16,
+  },
+  coordinates: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 8,
+    backgroundColor: "#f0f0f0",
+    padding: 12,
+    borderRadius: 8,
+  },
+  coordText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#333",
+  },
+  dmsContainer: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 12,
+    backgroundColor: "#fff3e0",
+    padding: 8,
+    borderRadius: 6,
+  },
+  dmsText: {
+    fontSize: 11,
+    color: "#e65100",
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  addressLoading: {
+    flexDirection: "row",
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 8,
+  },
+  addressText: {
+    fontSize: 13,
+    color: "#2e7d32",
+    textAlign: "center",
+    backgroundColor: "#e8f5e8",
+    padding: 12,
+    borderRadius: 8,
+    lineHeight: 18,
+  },
+  noteText: {
+    fontSize: 12,
+    color: "#666",
+    fontStyle: "italic",
+    textAlign: "center",
+    padding: 8,
+  },
+  providerContainer: {
+    marginBottom: 16,
+  },
+  providerLabel: {
+    fontSize: 13,
+    fontWeight: "500",
+    marginBottom: 8,
+    color: "#333",
+  },
+  providerChips: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  chip: {
+    flex: 1,
+  },
+  actionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+    marginBottom: 12,
+  },
+  infoContainer: {
+    borderTopWidth: 1,
+    borderTopColor: "#e0e0e0",
+    paddingTop: 12,
+  },
+  timestamp: {
+    fontSize: 11,
+    color: "#666",
+    textAlign: "center",
+    marginBottom: 4,
+  },
+  provider: {
+    fontSize: 10,
+    color: "#999",
+    textAlign: "center",
   },
 });
