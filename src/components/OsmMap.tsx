@@ -1,200 +1,160 @@
 import React, { useEffect, useState } from "react";
-import { View, Linking, StyleSheet } from "react-native";
-import { Card, Text, Button } from "react-native-paper";
+import { View, StyleSheet, Platform } from "react-native";
+import { Card, Text, Button, ActivityIndicator } from "react-native-paper";
 import * as Location from "expo-location";
+import { WebView } from "react-native-webview";
 
 /*
-  OsmMap: renders an interactive native MapView when available (react-native-maps) and
-  falls back to a simple coordinate/address card in environments where the native
-  map module is not installed (e.g. Expo Go without a custom dev client).
+  Leaflet + OpenStreetMap integration with React Native WebView
 
-  To enable the interactive native map:
-  1. In an Expo-managed project you'll need a custom dev client or an EAS build.
-     - Run: `npx expo install react-native-maps` to install the correct version for
-       your Expo SDK.
-     - Create a dev client / build with EAS: https://docs.expo.dev/development/introduction/
-  2. For bare React Native, follow react-native-maps install docs and add the
-     necessary native configuration (Android API key, CocoaPods install for iOS).
-
-  This component loads `react-native-maps` at runtime (try/catch). If the native
-  module isn't available the component will gracefully fall back to the text UI.
+  Features:
+  - Interactive map using Leaflet.js
+  - Current location marker
+  - Zoom and pan support
+  - No static image, fully interactive OSM map
 */
 
-// Runtime load react-native-maps to avoid bundler/native errors in Expo Go.
-let NativeMap: any = null;
-let NativeMarker: any = null;
-let NativeUrlTile: any = null;
-try {
-  // Use require so Metro/TS won't eagerly fail when module is absent
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const maps: any = require("react-native-maps");
-  NativeMap = maps.default || maps.MapView || maps;
-  NativeMarker = maps.Marker || maps.MapMarker || null;
-  NativeUrlTile = maps.UrlTile || maps.TileOverlay || null;
-} catch (e) {
-  // react-native-maps not available at runtime — fall back to non-interactive UI
-  NativeMap = null;
-  NativeMarker = null;
-  NativeUrlTile = null;
+interface LocationData {
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  timestamp?: number;
 }
 
-interface OsmMapProps {
+interface OsmLeafletMapProps {
   showCurrentLocation?: boolean;
-  onLocationSelect?: (loc: { latitude: number; longitude: number }) => void;
-  style?: any;
+  zoomLevel?: number;
+  mapHeight?: number;
 }
 
-export default function OsmMap({
+export default function OsmLeafletMap({
   showCurrentLocation = true,
-  onLocationSelect,
-  style,
-}: OsmMapProps) {
+  zoomLevel = 15,
+  mapHeight = 400,
+}: OsmLeafletMapProps) {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [address, setAddress] = useState<string | null>(null);
+  const [loadingLocation, setLoadingLocation] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [loadingAddress, setLoadingAddress] = useState(false);
 
   useEffect(() => {
-    if (showCurrentLocation) getCurrentLocation();
+    if (showCurrentLocation) {
+      getCurrentLocation();
+    }
   }, [showCurrentLocation]);
 
   const getCurrentLocation = async () => {
     try {
+      setLoadingLocation(true);
+      setErrorMsg(null);
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
-        setErrorMsg("Permission to access location was denied");
+        setErrorMsg("Location permission denied.");
         return;
       }
-
-      const currentLocation = await Location.getCurrentPositionAsync({});
-      setLocation(currentLocation);
-      setErrorMsg(null);
-
-      if (onLocationSelect) {
-        onLocationSelect({
-          latitude: currentLocation.coords.latitude,
-          longitude: currentLocation.coords.longitude,
-        });
-      }
-
-      // Reverse geocode using Nominatim
-      reverseGeocode(currentLocation.coords.latitude, currentLocation.coords.longitude);
-    } catch (err) {
-      setErrorMsg("Error getting location");
-      console.error(err);
-    }
-  };
-
-  const reverseGeocode = async (lat: number, lon: number) => {
-    try {
-      setLoadingAddress(true);
-      setAddress(null);
-      const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-      const resp = await fetch(url, {
-        headers: {
-          "User-Agent": "sih-smart-safety/1.0 (your-email@example.com)",
-        },
+      const currentLocation = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
       });
-      if (!resp.ok) {
-        throw new Error("Reverse geocode failed");
-      }
-      const data = await resp.json();
-      setAddress(data.display_name || null);
-    } catch (err) {
-      console.error("Reverse geocode error", err);
+      setLocation(currentLocation);
+    } catch (err: any) {
+      setErrorMsg(`Failed to get location: ${err.message}`);
     } finally {
-      setLoadingAddress(false);
+      setLoadingLocation(false);
     }
   };
 
-  const openInOSM = () => {
-    if (!location) return;
-    const { latitude, longitude } = location.coords;
-    const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=18/${latitude}/${longitude}`;
-    Linking.openURL(url).catch((e) => console.error("Link open error", e));
-  };
+  const leafletHTML = (lat: number, lon: number) => `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+      <style> html, body, #map { height: 100%; margin: 0; padding: 0; } </style>
+    </head>
+    <body>
+      <div id="map"></div>
+      <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+      <script>
+        var map = L.map('map').setView([${lat}, ${lon}], ${zoomLevel});
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(map);
+        L.marker([${lat}, ${lon}]).addTo(map).bindPopup("You are here").openPopup();
+      </script>
+    </body>
+    </html>
+  `;
 
   return (
-    <Card style={[styles.container, style]}>
+    <Card style={styles.container}>
       <Card.Content>
-        <Text style={styles.title}>OpenStreetMap Location</Text>
-        <View style={styles.mapPlaceholder}>
-          {errorMsg ? (
-            <Text style={styles.errorText}>{errorMsg}</Text>
-          ) : location ? (
-            NativeMap ? (
-              // Native interactive map (only available after installing react-native-maps and using a native build / custom dev client)
-              <View style={{ width: "100%" }}>
-                {/* Render native MapView if available */}
-                <NativeMap
-                  style={{ height: 220 }}
-                  initialRegion={{
-                    latitude: location.coords.latitude,
-                    longitude: location.coords.longitude,
-                    latitudeDelta: 0.01,
-                    longitudeDelta: 0.01,
-                  }}
-                >
-                  {NativeUrlTile ? (
-                    <NativeUrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
-                  ) : null}
-                  {NativeMarker ? (
-                    <NativeMarker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} title="You are here" description={address || undefined} />
-                  ) : null}
-                </NativeMap>
+        <View style={styles.header}>
+          <Text style={styles.title}>🗺️ Leaflet Map (OpenStreetMap)</Text>
+          <Button
+            mode="outlined"
+            onPress={getCurrentLocation}
+            disabled={loadingLocation}
+            compact
+            icon="refresh"
+          >
+            {loadingLocation ? "Locating..." : "Refresh"}
+          </Button>
+        </View>
 
-                <View style={{ marginTop: 8 }}>
-                  <Text>Lat: {location.coords.latitude.toFixed(6)}</Text>
-                  <Text>Lng: {location.coords.longitude.toFixed(6)}</Text>
-                  <Text>Accuracy: ±{location.coords.accuracy?.toFixed(0)}m</Text>
-                  {loadingAddress ? (
-                    <Text>Resolving address...</Text>
-                  ) : address ? (
-                    <Text style={styles.addressText}>{address}</Text>
-                  ) : (
-                    <Text style={styles.noteText}>Address not available</Text>
-                  )}
-                </View>
-              </View>
-            ) : (
-              // Non-interactive fallback for Expo Go or when native module not present
-              <View style={{ width: "100%" }}>
-                <Text>Lat: {location.coords.latitude.toFixed(6)}</Text>
-                <Text>Lng: {location.coords.longitude.toFixed(6)}</Text>
-                <Text>Accuracy: ±{location.coords.accuracy?.toFixed(0)}m</Text>
-                {loadingAddress ? (
-                  <Text>Resolving address...</Text>
-                ) : address ? (
-                  <Text style={styles.addressText}>{address}</Text>
-                ) : (
-                  <Text style={styles.noteText}>Address not available</Text>
-                )}
-              </View>
-            )
-          ) : (
+        {errorMsg && <Text style={styles.errorText}>{errorMsg}</Text>}
+
+        {loadingLocation && !location ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#2196F3" />
             <Text>Getting your location...</Text>
-          )}
-        </View>
-
-        <View style={styles.actionsRow}>
-          <Button mode="outlined" onPress={getCurrentLocation} compact>
-            Refresh
-          </Button>
-          <Button mode="contained" onPress={openInOSM} disabled={!location}>
-            Open in OpenStreetMap
-          </Button>
-        </View>
+          </View>
+        ) : location ? (
+          <WebView
+            originWhitelist={["*"]}
+            source={{ html: leafletHTML(location.coords.latitude, location.coords.longitude) }}
+            style={{ height: mapHeight }}
+          />
+        ) : (
+          <View style={styles.noLocationContainer}>
+            <Text>📍 No location available</Text>
+            <Button mode="outlined" onPress={getCurrentLocation} compact>
+              Get Location
+            </Button>
+          </View>
+        )}
       </Card.Content>
     </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { margin: 8 },
-  title: { fontSize: 18, fontWeight: "bold", marginBottom: 8, textAlign: "center" },
-  mapPlaceholder: { minHeight: 160, justifyContent: "center", alignItems: "center" },
-  addressText: { fontSize: 12, color: "#333", marginTop: 8, textAlign: "center" },
-  noteText: { fontSize: 12, color: "#666", fontStyle: "italic", marginTop: 8 },
-  errorText: { color: "red" },
-  actionsRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 12 },
+  container: {
+    margin: 8,
+    elevation: 4,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1976D2",
+  },
+  errorText: {
+    color: "#d32f2f",
+    marginBottom: 8,
+  },
+  loadingContainer: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  noLocationContainer: {
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+  },
 });
