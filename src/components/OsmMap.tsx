@@ -92,6 +92,14 @@ export default function OsmMap({
     }
   }, [location, mapReady, tileProvider]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Reset map ready state when component unmounts
+      setMapReady(false);
+    };
+  }, []);
+
   const getCurrentLocation = async (highAccuracy: boolean = true) => {
     try {
       setLoadingLocation(true);
@@ -210,9 +218,11 @@ export default function OsmMap({
 
   const changeTileProvider = (provider: TileProvider) => {
     setTileProvider(provider);
+    setMapReady(false); // Reset map ready state
     setWebViewKey(prev => prev + 1); // Force WebView remount
     
-    if (webViewRef.current) {
+    // Send message to existing map instance if available
+    if (webViewRef.current && mapReady) {
       const tileConfig = tileServers[provider];
       webViewRef.current.postMessage(JSON.stringify({
         type: 'changeTileProvider',
@@ -294,10 +304,39 @@ export default function OsmMap({
             let locationMarker;
             let accuracyCircle;
             let tileLayer;
+            let mapInitialized = false;
             
-            // Initialize map
+            // Initialize map with proper checks
             function initMap() {
                 try {
+                    // Check if map is already initialized
+                    if (mapInitialized && map) {
+                        console.log('Map already initialized, skipping...');
+                        return;
+                    }
+                    
+                    // Check if map container exists
+                    const mapContainer = document.getElementById('map');
+                    if (!mapContainer) {
+                        console.error('Map container not found');
+                        return;
+                    }
+                    
+                    // Check if Leaflet is loaded
+                    if (typeof L === 'undefined') {
+                        console.error('Leaflet library not loaded');
+                        setTimeout(initMap, 100); // Retry after 100ms
+                        return;
+                    }
+                    
+                    // Clean up existing map if it exists
+                    if (map) {
+                        cleanupMap();
+                    }
+                    
+                    // Clear the map container
+                    mapContainer.innerHTML = '';
+                    
                     map = L.map('map', {
                         center: [20.5937, 78.9629], // Default to India center
                         zoom: 5,
@@ -324,30 +363,71 @@ export default function OsmMap({
                         }));
                     });
                     
+                    // Mark as initialized
+                    mapInitialized = true;
+                    
                     // Notify that map is ready
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'mapReady'
                     }));
                     
                 } catch (error) {
+                    console.error('Map initialization error:', error);
+                    mapInitialized = false;
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'error',
-                        message: error.message
+                        message: 'Map initialization failed: ' + error.message
                     }));
+                }
+            }
+            
+            // Cleanup existing map
+            function cleanupMap() {
+                try {
+                    if (map) {
+                        // Remove layers
+                        if (locationMarker) {
+                            map.removeLayer(locationMarker);
+                            locationMarker = null;
+                        }
+                        if (accuracyCircle) {
+                            map.removeLayer(accuracyCircle);
+                            accuracyCircle = null;
+                        }
+                        if (tileLayer) {
+                            map.removeLayer(tileLayer);
+                            tileLayer = null;
+                        }
+                        
+                        // Remove the map instance
+                        map.remove();
+                        map = null;
+                    }
+                    mapInitialized = false;
+                } catch (error) {
+                    console.error('Error cleaning up map:', error);
                 }
             }
             
             // Update location marker
             function updateLocation(lat, lng, accuracy, zoom) {
                 try {
+                    // Check if map is initialized
+                    if (!map || !mapInitialized) {
+                        console.warn('Map not initialized, cannot update location');
+                        return;
+                    }
+                    
                     const latlng = L.latLng(lat, lng);
                     
                     // Remove existing markers
                     if (locationMarker) {
                         map.removeLayer(locationMarker);
+                        locationMarker = null;
                     }
                     if (accuracyCircle) {
                         map.removeLayer(accuracyCircle);
+                        accuracyCircle = null;
                     }
                     
                     // Add accuracy circle if accuracy is available
@@ -372,9 +452,10 @@ export default function OsmMap({
                     map.setView(latlng, zoom);
                     
                 } catch (error) {
+                    console.error('Error updating location:', error);
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'error',
-                        message: error.message
+                        message: 'Failed to update location: ' + error.message
                     }));
                 }
             }
@@ -382,8 +463,15 @@ export default function OsmMap({
             // Change tile provider
             function changeTileProvider(url, attribution) {
                 try {
+                    // Check if map is initialized
+                    if (!map || !mapInitialized) {
+                        console.warn('Map not initialized, cannot change tile provider');
+                        return;
+                    }
+                    
                     if (tileLayer) {
                         map.removeLayer(tileLayer);
+                        tileLayer = null;
                     }
                     
                     tileLayer = L.tileLayer(url, {
@@ -393,9 +481,10 @@ export default function OsmMap({
                     }).addTo(map);
                     
                 } catch (error) {
+                    console.error('Error changing tile provider:', error);
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'error',
-                        message: error.message
+                        message: 'Failed to change tile provider: ' + error.message
                     }));
                 }
             }
@@ -418,15 +507,40 @@ export default function OsmMap({
                 }
             });
             
-            // Initialize map when DOM is loaded
-            document.addEventListener('DOMContentLoaded', initMap);
+            // Single initialization call with proper order
+            let initAttempts = 0;
+            const maxInitAttempts = 10;
             
-            // Fallback initialization
-            if (document.readyState === 'complete') {
-                initMap();
-            } else {
-                window.addEventListener('load', initMap);
+            function tryInitMap() {
+                if (mapInitialized) {
+                    return;
+                }
+                
+                if (typeof L !== 'undefined' && document.getElementById('map')) {
+                    initMap();
+                } else if (initAttempts < maxInitAttempts) {
+                    initAttempts++;
+                    setTimeout(tryInitMap, 100);
+                } else {
+                    console.error('Failed to initialize map after maximum attempts');
+                    window.ReactNativeWebView?.postMessage(JSON.stringify({
+                        type: 'error',
+                        message: 'Map initialization timeout'
+                    }));
+                }
             }
+            
+            // Initialize when DOM is ready
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', tryInitMap);
+            } else {
+                tryInitMap();
+            }
+            
+            // Cleanup on page unload
+            window.addEventListener('beforeunload', function() {
+                cleanupMap();
+            });
         </script>
     </body>
     </html>
@@ -543,9 +657,11 @@ export default function OsmMap({
             }}
             onLoadStart={() => {
               setMapReady(false);
+              setErrorMsg(null); // Clear any previous errors
             }}
             onLoadEnd={() => {
-              console.log('WebView loaded');
+              console.log('WebView loaded successfully');
+              // Don't set mapReady here, wait for the 'mapReady' message from the HTML
             }}
             // Disable zoom controls to prevent conflicts
             scalesPageToFit={false}
