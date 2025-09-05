@@ -3,6 +3,41 @@ import { View, Linking, StyleSheet } from "react-native";
 import { Card, Text, Button } from "react-native-paper";
 import * as Location from "expo-location";
 
+/*
+  OsmMap: renders an interactive native MapView when available (react-native-maps) and
+  falls back to a simple coordinate/address card in environments where the native
+  map module is not installed (e.g. Expo Go without a custom dev client).
+
+  To enable the interactive native map:
+  1. In an Expo-managed project you'll need a custom dev client or an EAS build.
+     - Run: `npx expo install react-native-maps` to install the correct version for
+       your Expo SDK.
+     - Create a dev client / build with EAS: https://docs.expo.dev/development/introduction/
+  2. For bare React Native, follow react-native-maps install docs and add the
+     necessary native configuration (Android API key, CocoaPods install for iOS).
+
+  This component loads `react-native-maps` at runtime (try/catch). If the native
+  module isn't available the component will gracefully fall back to the text UI.
+*/
+
+// Runtime load react-native-maps to avoid bundler/native errors in Expo Go.
+let NativeMap: any = null;
+let NativeMarker: any = null;
+let NativeUrlTile: any = null;
+try {
+  // Use require so Metro/TS won't eagerly fail when module is absent
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const maps: any = require("react-native-maps");
+  NativeMap = maps.default || maps.MapView || maps;
+  NativeMarker = maps.Marker || maps.MapMarker || null;
+  NativeUrlTile = maps.UrlTile || maps.TileOverlay || null;
+} catch (e) {
+  // react-native-maps not available at runtime — fall back to non-interactive UI
+  NativeMap = null;
+  NativeMarker = null;
+  NativeUrlTile = null;
+}
+
 interface OsmMapProps {
   showCurrentLocation?: boolean;
   onLocationSelect?: (loc: { latitude: number; longitude: number }) => void;
@@ -87,14 +122,43 @@ export default function OsmMap({
           {errorMsg ? (
             <Text style={styles.errorText}>{errorMsg}</Text>
           ) : location ? (
-            <View style={{ width: "100%" }}>
-              <View>
-                <Text>Lat: {location.coords.latitude.toFixed(6)}</Text>
-                <Text>Lng: {location.coords.longitude.toFixed(6)}</Text>
-                <Text>Accuracy: ±{location.coords.accuracy?.toFixed(0)}m</Text>
-              </View>
+            NativeMap ? (
+              // Native interactive map (only available after installing react-native-maps and using a native build / custom dev client)
+              <View style={{ width: "100%" }}>
+                {/* Render native MapView if available */}
+                <NativeMap
+                  style={{ height: 220 }}
+                  initialRegion={{
+                    latitude: location.coords.latitude,
+                    longitude: location.coords.longitude,
+                    latitudeDelta: 0.01,
+                    longitudeDelta: 0.01,
+                  }}
+                >
+                  {NativeUrlTile ? (
+                    <NativeUrlTile urlTemplate="https://tile.openstreetmap.org/{z}/{x}/{y}.png" maximumZ={19} />
+                  ) : null}
+                  {NativeMarker ? (
+                    <NativeMarker coordinate={{ latitude: location.coords.latitude, longitude: location.coords.longitude }} title="You are here" description={address || undefined} />
+                  ) : null}
+                </NativeMap>
 
-              <View style={{ marginTop: 8 }}>
+                <View style={{ marginTop: 8 }}>
+                  <Text>Lat: {location.coords.latitude.toFixed(6)}</Text>
+                  <Text>Lng: {location.coords.longitude.toFixed(6)}</Text>
+                  <Text>Accuracy: ±{location.coords.accuracy?.toFixed(0)}m</Text>
+                  {loadingAddress ? (
+                    <Text>Resolving address...</Text>
+                  ) : address ? (
+                    <Text style={styles.addressText}>{address}</Text>
+                  ) : (
+                    <Text style={styles.noteText}>Address not available</Text>
+                  )}
+                </View>
+              </View>
+            ) : (
+              // Non-interactive fallback for Expo Go or when native module not present
+              <View style={{ width: "100%" }}>
                 <Text>Lat: {location.coords.latitude.toFixed(6)}</Text>
                 <Text>Lng: {location.coords.longitude.toFixed(6)}</Text>
                 <Text>Accuracy: ±{location.coords.accuracy?.toFixed(0)}m</Text>
@@ -106,7 +170,7 @@ export default function OsmMap({
                   <Text style={styles.noteText}>Address not available</Text>
                 )}
               </View>
-            </View>
+            )
           ) : (
             <Text>Getting your location...</Text>
           )}
