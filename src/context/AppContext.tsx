@@ -1,7 +1,9 @@
 import type React from "react"
 import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import geofenceService from '../geoFence/geofenceService'
+import { Alert } from 'react-native'
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { MOCK_CONTACTS, MOCK_GEOFENCES, MOCK_GROUP, MOCK_ITINERARY, MOCK_USER } from "../utils/mockData"
+import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY, MOCK_USER } from "../utils/mockData"
 import type { Lang } from "./translations"
 
 type User = {
@@ -60,7 +62,7 @@ const defaultState: AppState = {
   user: null,
   contacts: MOCK_CONTACTS,
   trips: MOCK_ITINERARY,
-  geofences: MOCK_GEOFENCES,
+  geofences: [],
   group: MOCK_GROUP,
   shareLocation: false,
   offline: false,
@@ -96,6 +98,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!hydrated) return
+    // Start geofence monitoring after hydration
+    let mounted = true
+    ;(async () => {
+      try {
+        await geofenceService.loadFences()
+        await geofenceService.startMonitoring({ intervalMs: 30000 })
+        geofenceService.on('enter', ({ fence, location }) => {
+          try {
+            Alert.alert('Geo-fence entered', `${fence.name} (${fence.category || 'zone'})`)
+          } catch (e) {
+            console.log('enter alert failed', e)
+          }
+        })
+        geofenceService.on('exit', ({ fence, location }) => {
+          try {
+            Alert.alert('Geo-fence exited', `${fence.name} (${fence.category || 'zone'})`)
+          } catch (e) {
+            console.log('exit alert failed', e)
+          }
+        })
+      } catch (e) {
+        console.warn('geofence monitor failed to start', e)
+      }
+    })()
     
     const saveState = async () => {
       try {

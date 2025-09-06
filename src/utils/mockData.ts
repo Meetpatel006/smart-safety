@@ -16,10 +16,7 @@ export const MOCK_ITINERARY = [
   { id: "t2", title: "Day 2: Amber Fort", date: "2025-09-11", notes: "Arrive early to avoid crowd" },
 ]
 
-export const MOCK_GEOFENCES = [
-  { id: "g1", name: "Crowded Market", risk: "Medium" },
-  { id: "g2", name: "Under-construction Road", risk: "High" },
-]
+// MOCK_GEOFENCES removed - using generated geo-fencing data from assets instead
 
 export const MOCK_GROUP = [
   { id: "u2", name: "Priya", lastCheckIn: "10 mins ago", lat: 28.61, lng: 77.21 },

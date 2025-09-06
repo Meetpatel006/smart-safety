@@ -7,6 +7,7 @@ import ItineraryScreen from "../screens/ItineraryScreen"
 import EmergencyScreen from "../screens/EmergencyScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
+import GeoFenceDebugScreen from "../geoFence/GeoFenceDebugScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useTheme } from "react-native-paper"
@@ -15,6 +16,7 @@ export type RootStackParamList = {
   Auth: undefined
   Main: undefined
   Authority: undefined
+  GeoFenceDebug: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -84,6 +86,11 @@ export function RootNavigator() {
             name="Authority"
             component={AuthorityDashboardScreen}
             options={{ title: "Authority Dashboard (Mock)" }}
+          />
+          <Stack.Screen
+            name="GeoFenceDebug"
+            component={GeoFenceDebugScreen}
+            options={{ title: 'GeoFence Debug' }}
           />
         </>
       )}

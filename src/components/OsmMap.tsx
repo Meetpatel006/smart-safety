@@ -41,6 +41,7 @@ interface OsmMapProps {
   zoomLevel?: number;
   mapWidth?: number;
   mapHeight?: number;
+  geoFences?: any[]; // array of geo-fence objects: { id, type, coords, radiusKm, riskLevel, name }
 }
 
 type TileProvider = 'openstreetmap' | 'cartodb' | 'stamen';
@@ -52,7 +53,8 @@ export default function OsmMap({
   style,
   zoomLevel = 15,
   mapWidth = Dimensions.get('window').width - 32,
-  mapHeight = 300
+  mapHeight = 300,
+  geoFences
 }: OsmMapProps) {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -91,6 +93,18 @@ export default function OsmMap({
       updateMapLocation();
     }
   }, [location, mapReady, tileProvider]);
+
+  // Send geo-fences to the WebView when map is ready or when geoFences prop changes
+  useEffect(() => {
+    if (!webViewRef.current || !mapReady) return
+    if (!Array.isArray(geoFences)) return
+
+    try {
+      webViewRef.current.postMessage(JSON.stringify({ type: 'setGeoFences', fences: geoFences }))
+    } catch (e) {
+      console.warn('failed to post geoFences to webview', e)
+    }
+  }, [mapReady, geoFences])
 
   // Cleanup on unmount
   useEffect(() => {
@@ -362,6 +376,42 @@ export default function OsmMap({
                             lng: lng
                         }));
                     });
+
+          // Geo-fence layer group
+          let geoFenceLayerGroup = L.layerGroup().addTo(map);
+
+          function renderGeoFences(fences) {
+            try {
+              // Clear existing
+              geoFenceLayerGroup.clearLayers();
+              if (!Array.isArray(fences)) return;
+
+              fences.forEach(f => {
+                try {
+                  if (f.type === 'circle' && Array.isArray(f.coords)) {
+                    const latlng = L.latLng(f.coords[0], f.coords[1]);
+                    const radius = (f.radiusKm || 1) * 1000; // km -> m
+                    const color = f.riskLevel && f.riskLevel.toLowerCase().includes('very') ? '#d32f2f' : (f.riskLevel && f.riskLevel.toLowerCase().includes('high') ? '#ff9800' : '#4caf50');
+                                        const circle = L.circle(latlng, { radius, color, fillOpacity: 0.15 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    geoFenceLayerGroup.addLayer(circle);
+                  } else if (f.type === 'point' && Array.isArray(f.coords)) {
+                    const latlng = L.latLng(f.coords[0], f.coords[1]);
+                                        const marker = L.circleMarker(latlng, { radius: 6, color: '#1976d2' }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    geoFenceLayerGroup.addLayer(marker);
+                  } else if (f.type === 'polygon' && Array.isArray(f.coords)) {
+                    const latlngs = f.coords.map(c => [c[0], c[1]]);
+                                        const poly = L.polygon(latlngs, { color: '#8e24aa', fillOpacity: 0.12 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    geoFenceLayerGroup.addLayer(poly);
+                  }
+                } catch (inner) { console.warn('failed to render fence', inner); }
+              });
+            } catch (e) { console.error('renderGeoFences error', e); }
+          }
+
+          function escapeHtml(s) {
+            if (!s) return '';
+            return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+          }
                     
                     // Mark as initialized
                     mapInitialized = true;
@@ -494,13 +544,16 @@ export default function OsmMap({
                 try {
                     const data = JSON.parse(event.data);
                     
-                    switch (data.type) {
-                        case 'updateLocation':
-                            updateLocation(data.latitude, data.longitude, data.accuracy, data.zoomLevel);
-                            break;
-                        case 'changeTileProvider':
-                            changeTileProvider(data.url, data.attribution);
-                            break;
+            switch (data.type) {
+                case 'updateLocation':
+                  updateLocation(data.latitude, data.longitude, data.accuracy, data.zoomLevel);
+                  break;
+                case 'changeTileProvider':
+                  changeTileProvider(data.url, data.attribution);
+                  break;
+                case 'setGeoFences':
+                  renderGeoFences(data.fences);
+                  break;
                     }
                 } catch (error) {
                     console.error('Error handling message:', error);
