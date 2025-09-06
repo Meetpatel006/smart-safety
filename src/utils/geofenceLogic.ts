@@ -34,16 +34,46 @@ export function pointInCircle(point: number[], center: number[], radiusKm: numbe
   return haversineKm(point, center) <= radiusKm
 }
 
-// Simple ray-casting point-in-polygon algorithm
+// Normalize a coordinate pair to [lat, lon]. Some datasets use [lon, lat].
+export function normalizeLatLon(pair: number[]): [number, number] {
+  if (!Array.isArray(pair) || pair.length < 2) return [0, 0]
+  const a = Number(pair[0])
+  const b = Number(pair[1])
+  // If first value is within lat-range and second within lon-range, assume [lat, lon]
+  if (Math.abs(a) <= 90 && Math.abs(b) <= 180) return [a, b]
+  // If values seem flipped, swap
+  if (Math.abs(b) <= 90 && Math.abs(a) <= 180) return [b, a]
+  // fallback
+  return [a, b]
+}
+
+// Ensure polygon is an array of [lat, lon] points and closed (first === last).
+export function normalizePolygon(poly: number[][]): number[][] {
+  if (!Array.isArray(poly)) return []
+  const out: number[][] = poly.map(p => normalizeLatLon(p))
+  if (out.length === 0) return out
+  // ensure at least 3 distinct vertices
+  const distinct = out.filter((v, i, arr) => i === 0 || v[0] !== arr[i - 1][0] || v[1] !== arr[i - 1][1])
+  if (distinct.length < 3) return []
+  // close polygon
+  const first = distinct[0]
+  const last = distinct[distinct.length - 1]
+  if (first[0] !== last[0] || first[1] !== last[1]) distinct.push([first[0], first[1]])
+  return distinct
+}
+
+// Robust ray-casting point-in-polygon algorithm
 export function pointInPolygon(point: number[], polygon: number[][]): boolean {
+  if (!Array.isArray(polygon) || polygon.length < 3) return false
   const x = point[1] // lon
   const y = point[0] // lat
   let inside = false
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const xi = polygon[i][1], yi = polygon[i][0]
-    const xj = polygon[j][1], yj = polygon[j][0]
-
-    const intersect = (yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi
+    const yi = polygon[i][0], xi = polygon[i][1]
+    const yj = polygon[j][0], xj = polygon[j][1]
+    // skip invalid vertices
+    if (typeof xi !== 'number' || typeof yi !== 'number' || typeof xj !== 'number' || typeof yj !== 'number') continue
+    const intersect = ((yi > y) !== (yj > y)) && (x < ((xj - xi) * (y - yi)) / (yj - yi) + xi)
     if (intersect) inside = !inside
   }
   return inside

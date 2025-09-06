@@ -17,6 +17,13 @@ export default function DashboardScreen({ navigation }: any) {
     <View style={{ flex: 1 }}>
       <Appbar.Header>
         <Appbar.Content title={t(state.language, "dashboard")} />
+        {state.currentPrimary ? (
+          <Appbar.Content
+            title={state.currentPrimary.name}
+            subtitle={state.currentPrimary.risk ? `Risk: ${state.currentPrimary.risk}` : undefined}
+            style={{ alignItems: 'flex-end', marginRight: 8 }}
+          />
+        ) : null}
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
         {/* Profile and language controls moved to Settings */}

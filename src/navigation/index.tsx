@@ -17,6 +17,7 @@ export type RootStackParamList = {
   Main: undefined
   Authority: undefined
   GeoFenceDebug: undefined
+  Transitions: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -91,6 +92,11 @@ export function RootNavigator() {
             name="GeoFenceDebug"
             component={GeoFenceDebugScreen}
             options={{ title: 'GeoFence Debug' }}
+          />
+          <Stack.Screen
+            name="Transitions"
+            getComponent={() => require('../screens/TransitionsScreen').default}
+            options={{ title: 'Transition History' }}
           />
         </>
       )}
