@@ -3,14 +3,27 @@ import { PaperProvider } from "react-native-paper"
 import { AppProvider } from "./src/context/AppContext"
 import { RootNavigator } from "./src/navigation"
 import { paperTheme } from "./src/theme/paper"
+import ToastListener from './src/components/ToastListener'
 import { StatusBar } from "expo-status-bar"
 import { useEffect, useState } from "react"
 import * as SplashScreen from "expo-splash-screen"
+import * as Notifications from 'expo-notifications'
 import { View, Text, ActivityIndicator } from "react-native"
 import React from "react"
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync()
+
+// Notification handler: allow sound for foreground notifications
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+  shouldShowAlert: false, // we use in-app Snackbar for visual alert
+  shouldShowBanner: false,
+  shouldShowList: false,
+  shouldPlaySound: true,
+  shouldSetBadge: false,
+  }),
+})
 
 const navTheme = {
   ...NavDefaultTheme,
@@ -107,6 +120,7 @@ function AppContent() {
   return (
     <AppProvider>
       <PaperProvider theme={paperTheme}>
+  <ToastListener />
         <NavigationContainer theme={navTheme}>
           <StatusBar style="auto" />
           <RootNavigator />

@@ -4,6 +4,8 @@ import geofenceService from '../geoFence/geofenceService'
 import { appendTransition } from '../geoFence/transitionStore'
 import { syncTransitions } from '../geoFence/syncTransitions'
 import { Alert } from 'react-native'
+import { showToast } from '../utils/toast'
+import { triggerHighRiskAlert } from '../utils/alertHelpers'
 import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY, MOCK_USER } from "../utils/mockData"
@@ -103,12 +105,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await geofenceService.startMonitoring({ intervalMs: 30000 })
 
         geofenceService.on('enter', ({ fence, location }) => {
-          try { Alert.alert('Geo-fence entered', `${fence.name} (${fence.category || 'zone'})`) } catch (e) { console.log('enter alert failed', e) }
+          try { showToast(`Entered: ${fence.name} (${fence.category || 'zone'})`) } catch (e) { try { Alert.alert('Geo-fence entered', `${fence.name} (${fence.category || 'zone'})`) } catch (ee) { console.log('enter alert failed', ee) } }
+          try {
+            const rl = (fence.riskLevel || '').toString().toLowerCase()
+            if (rl.includes('high')) {
+              // fire sound/vibration/haptic and local notification for high risk
+              try { triggerHighRiskAlert(`High risk area: ${fence.name}`, fence.category || 'High risk zone') } catch (e) { /* ignore */ }
+            }
+          } catch (e) { /* ignore */ }
           try { appendTransition({ id: `t${Date.now()}`, fenceId: fence.id, fenceName: fence.name, type: 'enter', at: Date.now(), coords: { latitude: location.latitude, longitude: location.longitude } }) } catch (e) { /* ignore */ }
         })
 
         geofenceService.on('exit', ({ fence, location }) => {
-          try { Alert.alert('Geo-fence exited', `${fence.name} (${fence.category || 'zone'})`) } catch (e) { console.log('exit alert failed', e) }
+          try { showToast(`Exited: ${fence.name} (${fence.category || 'zone'})`) } catch (e) { try { Alert.alert('Geo-fence exited', `${fence.name} (${fence.category || 'zone'})`) } catch (ee) { console.log('exit alert failed', ee) } }
           try { appendTransition({ id: `t${Date.now()}`, fenceId: fence.id, fenceName: fence.name, type: 'exit', at: Date.now(), coords: { latitude: location.latitude, longitude: location.longitude } }) } catch (e) { /* ignore */ }
         })
 

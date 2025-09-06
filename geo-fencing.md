@@ -211,3 +211,26 @@
 - **Authority Efficiency**: Improved monitoring and response capabilities
 
 This comprehensive feature guide provides you with a roadmap for implementing geo-fencing in your tourist safety app, focusing on the specific needs of Northeast India's unique challenges and tourist safety requirements.
+
+## Quick test: In-app Geo-fence Alerts
+
+To verify the in-app toast alerts (Snackbars) for geo-fence entry/exit:
+
+1. Run the app in Expo (or device/emulator) with the current branch.
+2. Ensure the app has location permissions. The app monitors location periodically (default 30s).
+3. Simulate location near/inside one of the sample zones from `assets/geofences-output.json` (use emulator location tools or Expo location mocks).
+4. When the geofence monitor detects an entry or exit, a small Snackbar will appear at the bottom with a message like `Entered: <zone name>` or `Exited: <zone name>`.
+
+If you don't see Snackbars, check that `react-native-paper` is wrapping the app (it's added in `App.tsx`) and confirm the geofence monitor started in logs.
+
+## High-risk sound & vibration (permissions)
+
+The app will trigger vibration/haptic feedback and a local notification when a geo-fence with `riskLevel` containing `High` or `Very High` is entered.
+
+To test this:
+
+1. Ensure the app has Notification permissions on the device (Android/iOS). The app requests permissions when first needed; you can also enable them in OS settings.
+2. Use an emulator/device location tool to move into a `riskLevel: "High"` or `"Very High"` zone from `assets/geofences-output.json`.
+3. Expect vibration/haptic feedback and a scheduled local notification (sound) in addition to the in-app Snackbar.
+
+Note: Background notifications and sounds may behave differently across OS versions and emulators; testing on a physical device is recommended for haptics and sound.
