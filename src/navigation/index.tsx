@@ -8,6 +8,7 @@ import EmergencyScreen from "../screens/EmergencyScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
 import GeoFenceDebugScreen from "../geoFence/GeoFenceDebugScreen"
+import TransitionsScreen from "../screens/TransitionsScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useTheme } from "react-native-paper"
@@ -60,6 +61,13 @@ function MainTabs() {
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cog" color={color} size={size} />,
         }}
       />
+      <Tab.Screen
+        name="Transitions"
+        component={TransitionsScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="history" color={color} size={size} />,
+        }}
+      />
     </Tab.Navigator>
   )
 }
@@ -95,7 +103,7 @@ export function RootNavigator() {
           />
           <Stack.Screen
             name="Transitions"
-            getComponent={() => require('../screens/TransitionsScreen').default}
+            component={TransitionsScreen}
             options={{ title: 'Transition History' }}
           />
         </>
