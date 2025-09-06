@@ -1,0 +1,26 @@
+Name,Category,Sub_Category,State,Latitude,Longitude,Area_km2,Year_Established,Source,Additional_Info
+Andhra Pradesh Coast,Natural Disaster Risk Area,Cyclone Zone,Andhra Pradesh,16.3067,80.1833,,,India Meteorological Department,Risk Level: Very High
+Rayalaseema Region,Natural Disaster Risk Area,Drought Zone,Andhra Pradesh,14.4426,78.4365,,,India Meteorological Department,Risk Level: High
+Guwahati City,Natural Disaster Risk Area,Flood Zone,Assam,26.1445,91.7362,,,Central Water Commission,Risk Level: Very High
+Patna City,Natural Disaster Risk Area,Flood Zone,Bihar,25.5941,85.1376,,,Central Water Commission,Risk Level: Very High
+Delhi-NCR,Natural Disaster Risk Area,Earthquake Zone IV,Delhi,28.7041,77.1025,,,Geological Survey of India,Risk Level: High
+Gujarat Coast,Natural Disaster Risk Area,Cyclone Zone,Gujarat,21.5222,70.4579,,,India Meteorological Department,Risk Level: High
+Kutch Region,Natural Disaster Risk Area,Earthquake Zone V,Gujarat,23.2,69.6667,,,Geological Survey of India,Risk Level: Very High
+Saurashtra Region,Natural Disaster Risk Area,Drought Zone,Gujarat,21.9688,70.7683,,,India Meteorological Department,Risk Level: High
+Surat City,Natural Disaster Risk Area,Flood Zone,Gujarat,21.1702,72.8311,,,Central Water Commission,Risk Level: High
+Himachal Himalayas,Natural Disaster Risk Area,Landslide Zone,Himachal Pradesh,32.0836,77.1734,,,Geological Survey of India,Risk Level: High
+Shimla Region,Natural Disaster Risk Area,Earthquake Zone IV,Himachal Pradesh,31.1048,77.1734,,,Geological Survey of India,Risk Level: High
+Kashmir Valley,Natural Disaster Risk Area,Earthquake Zone V,Jammu & Kashmir,34.0837,74.7973,,,Geological Survey of India,Risk Level: Very High
+Western Ghats Kerala,Natural Disaster Risk Area,Landslide Zone,Kerala,10.8505,76.2711,,,Geological Survey of India,Risk Level: High
+Marathwada Region,Natural Disaster Risk Area,Drought Zone,Maharashtra,19.0896,76.5197,,,India Meteorological Department,Risk Level: High
+Mumbai Metropolitan Area,Natural Disaster Risk Area,Earthquake Zone III,Maharashtra,19.076,72.8777,,,Geological Survey of India,Risk Level: Moderate
+Vidarbha Region,Natural Disaster Risk Area,Drought Zone,Maharashtra,20.9517,77.7595,,,India Meteorological Department,Risk Level: High
+Odisha Coast,Natural Disaster Risk Area,Cyclone Zone,Odisha,19.8107,85.8245,,,India Meteorological Department,Risk Level: Very High
+Chennai City,Natural Disaster Risk Area,Flood Zone,Tamil Nadu,13.0827,80.2707,,,Central Water Commission,Risk Level: High
+Nilgiri Hills,Natural Disaster Risk Area,Landslide Zone,Tamil Nadu,11.4064,76.6932,,,Geological Survey of India,Risk Level: Very High
+Tamil Nadu Coast,Natural Disaster Risk Area,Cyclone Zone,Tamil Nadu,11.1271,78.6569,,,India Meteorological Department,Risk Level: High
+Bundelkhand Region,Natural Disaster Risk Area,Drought Zone,Uttar Pradesh,25.318,79.9183,,,India Meteorological Department,Risk Level: High
+Uttarakhand Hills,Natural Disaster Risk Area,Landslide Zone,Uttarakhand,30.0668,79.0193,,,Geological Survey of India,Risk Level: High
+Darjeeling Hills,Natural Disaster Risk Area,Landslide Zone,West Bengal,27.036,88.2627,,,Geological Survey of India,Risk Level: Very High
+Kolkata Metropolitan Area,Natural Disaster Risk Area,Flood Zone,West Bengal,22.5726,88.3639,,,Central Water Commission,Risk Level: High
+West Bengal Coast,Natural Disaster Risk Area,Cyclone Zone,West Bengal,21.7679,87.8526,,,India Meteorological Department,Risk Level: High

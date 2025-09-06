@@ -610,7 +610,7 @@ export default function OsmMap({
       <Card.Content>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.title}>Interactive Leaflet Map</Text>
+          <Text style={styles.title}>Map</Text>
           <Button
             mode="outlined"
             onPress={() => getCurrentLocation()}
@@ -773,9 +773,6 @@ export default function OsmMap({
             <Text style={styles.timestamp}>
               Last updated: {new Date(location.timestamp).toLocaleTimeString()}
             </Text>
-            <Text style={styles.provider}>
-              Using Leaflet with OpenStreetMap • Nominatim for geocoding
-            </Text>
           </View>
         )}
       </Card.Content>
@@ -799,9 +796,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: "bold",
-    color: "#2e7d32",
   },
   errorContainer: {
     backgroundColor: "#ffebee",

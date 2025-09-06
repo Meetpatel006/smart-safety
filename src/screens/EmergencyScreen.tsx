@@ -1,7 +1,7 @@
 import { View, ScrollView } from "react-native"
 import { Appbar } from "react-native-paper"
 import PanicActions from "../components/PanicActions"
-import GeoFenceList from "../components/GeoFenceList"
+
 import OsmMap from "../components/OsmMap"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
@@ -16,7 +16,6 @@ export default function EmergencyScreen() {
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
         <PanicActions />
         <OsmMap />
-        <GeoFenceList />
       </ScrollView>
     </View>
   )

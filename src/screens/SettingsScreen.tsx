@@ -3,6 +3,7 @@ import { Appbar, Card, List, Text } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"
+import ProfileCard from "../components/ProfileCard"
 import { t } from "../context/translations"
 
 export default function SettingsScreen() {
@@ -13,6 +14,7 @@ export default function SettingsScreen() {
         <Appbar.Content title={t(state.language, "settings")} />
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
+        <ProfileCard />
         <Card>
           <Card.Title title={t(state.language, "dataPrivacy")} />
           <Card.Content>
