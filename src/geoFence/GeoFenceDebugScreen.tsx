@@ -10,7 +10,6 @@ import OsmMap from '../components/OsmMap'
 export default function GeoFenceDebugScreen() {
   const [zones, setZones] = useState<GeoFence[]>([])
   const [filteredZones, setFilteredZones] = useState<GeoFence[]>([])
-  const [samplePoint, setSamplePoint] = useState<number[]>([22.559472, 72.920793]) // default to Anand, Gujarat
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
   const [loadingLocation, setLoadingLocation] = useState<boolean>(true)
   const [showOnlyNearby, setShowOnlyNearby] = useState<boolean>(false)
@@ -92,9 +91,6 @@ export default function GeoFenceDebugScreen() {
         latitude: location.coords.latitude,
         longitude: location.coords.longitude
       });
-      
-      // Update sample point for distance calculations
-      setSamplePoint([location.coords.latitude, location.coords.longitude]);
       console.log('Updated location for distance calculations:', location.coords.latitude, location.coords.longitude);
       
       // Re-filter zones with the new location
@@ -227,8 +223,8 @@ export default function GeoFenceDebugScreen() {
           const isNearest = index === 0 && (showOnlyNearby || userLocation);
           const distance = z.distanceToUser !== undefined 
             ? z.distanceToUser.toFixed(2)
-            : z.coords && z.type !== 'polygon' 
-              ? haversineKm(z.coords as number[], samplePoint).toFixed(2)
+            : (userLocation && z.coords && z.type !== 'polygon')
+              ? haversineKm(z.coords as number[], [userLocation.latitude, userLocation.longitude]).toFixed(2)
               : null;
               
           return (
