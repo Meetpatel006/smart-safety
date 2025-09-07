@@ -11,6 +11,7 @@ interface MapContainerProps {
   tileConfig: TileServerConfig;
   onWebViewMessage: (event: any) => void;
   webViewRef: React.RefObject<WebView>;
+  isFullScreen?: boolean;
 }
 
 const MapContainer = ({ 
@@ -18,10 +19,11 @@ const MapContainer = ({
   height, 
   tileConfig, 
   onWebViewMessage, 
-  webViewRef 
+  webViewRef,
+  isFullScreen
 }: MapContainerProps) => {
   return (
-    <View style={[styles.mapContainer, { height }]}>
+    <View style={[styles.mapContainer, isFullScreen ? styles.mapContainerFull : undefined, { height }]}>
       <WebView
         key={webViewKey} // Force remount when key changes
         ref={webViewRef}
@@ -62,6 +64,11 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     marginBottom: 16,
     backgroundColor: "#f5f5f5",
+  },
+  mapContainerFull: {
+    borderRadius: 0,
+    marginBottom: 0,
+    backgroundColor: "#000",
   },
   webView: {
     flex: 1,

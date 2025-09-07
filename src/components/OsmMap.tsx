@@ -38,7 +38,9 @@ export default function OsmMap({
   zoomLevel = 15,
   mapWidth = Dimensions.get('window').width - 32,
   mapHeight = 300,
-  geoFences
+  geoFences,
+  isFullScreen,
+  onToggleFullScreen
 }: OsmMapProps) {
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string | null>(null);
@@ -262,7 +264,7 @@ export default function OsmMap({
   };
 
   return (
-    <Card style={[styles.container, style]}>
+  <Card style={[styles.container, isFullScreen ? styles.fullscreenContainer : undefined, style]}>
       <Card.Content>
         {/* Header Component */}
         <MapHeader
@@ -284,6 +286,7 @@ export default function OsmMap({
           tileConfig={TILE_SERVERS[tileProvider]}
           onWebViewMessage={handleWebViewMessage}
           webViewRef={webViewRef}
+          isFullScreen={!!isFullScreen}
         />
 
         {/* Location Information */}
@@ -307,6 +310,8 @@ export default function OsmMap({
           onGetCurrentLocation={getCurrentLocation}
           onOpenExternalMap={openExternalMap}
           onShareLocation={shareLocation}
+          onToggleFullScreen={onToggleFullScreen ? () => onToggleFullScreen(!isFullScreen) : undefined}
+          isFullScreen={!!isFullScreen}
         />
       </Card.Content>
     </Card>
@@ -321,5 +326,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
+  },
+  fullscreenContainer: {
+    margin: 0,
+    borderRadius: 0,
   }
 });

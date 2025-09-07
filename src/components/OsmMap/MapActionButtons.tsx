@@ -8,6 +8,8 @@ interface MapActionButtonsProps {
   onGetCurrentLocation: () => void;
   onOpenExternalMap: () => void;
   onShareLocation: () => void;
+  onToggleFullScreen?: () => void;
+  isFullScreen?: boolean;
 }
 
 const MapActionButtons = ({
@@ -15,7 +17,9 @@ const MapActionButtons = ({
   loadingLocation,
   onGetCurrentLocation,
   onOpenExternalMap,
-  onShareLocation
+  onShareLocation,
+  onToggleFullScreen,
+  isFullScreen
 }: MapActionButtonsProps) => {
   return (
     <View style={styles.actionsRow}>
@@ -29,7 +33,7 @@ const MapActionButtons = ({
         My Location
       </Button>
       
-      <Button
+      {/* <Button
         mode="contained"
         onPress={onOpenExternalMap}
         disabled={!locationAvailable}
@@ -37,9 +41,20 @@ const MapActionButtons = ({
         icon="open-in-new"
       >
         Open Map
-      </Button>
+      </Button> */}
       
-      <Button
+      {onToggleFullScreen && (
+        <Button
+          mode="outlined"
+          onPress={onToggleFullScreen}
+          compact
+          icon={isFullScreen ? 'fullscreen-exit' : 'fullscreen'}
+        >
+          {isFullScreen ? 'Exit Full' : 'Full Screen'}
+        </Button>
+      )}
+
+      {/* <Button
         mode="outlined"
         onPress={onShareLocation}
         disabled={!locationAvailable}
@@ -47,7 +62,7 @@ const MapActionButtons = ({
         icon="share"
       >
         Share
-      </Button>
+      </Button> */}
     </View>
   );
 };

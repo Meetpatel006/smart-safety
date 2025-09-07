@@ -25,6 +25,9 @@ export interface OsmMapProps {
   mapWidth?: number;
   mapHeight?: number;
   geoFences?: any[]; // array of geo-fence objects: { id, type, coords, radiusKm, riskLevel, name }
+  // Full-screen support
+  isFullScreen?: boolean;
+  onToggleFullScreen?: (toFullScreen: boolean) => void;
 }
 
 export interface GeoFence {

@@ -1,5 +1,5 @@
 import React, {useEffect, useState, useContext} from 'react'
-import {View, Text, ScrollView, StyleSheet, ActivityIndicator} from 'react-native'
+import {View, Text, ScrollView, StyleSheet, ActivityIndicator, Modal, Dimensions} from 'react-native'
 import { Appbar } from 'react-native-paper'
 import Slider from '@react-native-community/slider'
 import {GeoFence, pointInCircle, pointInPolygon, haversineKm} from '../utils/geofenceLogic'
@@ -18,6 +18,7 @@ export default function GeoFenceDebugScreen() {
   const [loadingLocation, setLoadingLocation] = useState<boolean>(true)
   const [showOnlyNearby, setShowOnlyNearby] = useState<boolean>(false)
   const [maxDistance, setMaxDistance] = useState<number>(5) // 5 km radius
+  const [isMapFullScreen, setIsMapFullScreen] = useState<boolean>(false)
   
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -212,7 +213,10 @@ export default function GeoFenceDebugScreen() {
       </View>
       
       <View >
-        <OsmMap geoFences={showOnlyNearby ? filteredZones : zones} />
+        <OsmMap 
+          geoFences={showOnlyNearby ? filteredZones : zones}
+          onToggleFullScreen={(to) => setIsMapFullScreen(to)}
+        />
       </View>
       
       <View style={styles.sectionHeader}>
@@ -272,6 +276,28 @@ export default function GeoFenceDebugScreen() {
         </Text>
       </View>
     </ScrollView>
+
+    {/* Full-screen Map Modal */}
+    <Modal
+      visible={isMapFullScreen}
+      animationType="slide"
+      onRequestClose={() => setIsMapFullScreen(false)}
+      presentationStyle="fullScreen"
+    >
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <Appbar.Header>
+          <Appbar.BackAction onPress={() => setIsMapFullScreen(false)} />
+          <Appbar.Content title={t(state.language, "emergencySystem")} subtitle="Map" />
+          <Appbar.Action icon="fullscreen-exit" onPress={() => setIsMapFullScreen(false)} />
+        </Appbar.Header>
+        <OsmMap 
+          geoFences={showOnlyNearby ? filteredZones : zones}
+          isFullScreen
+          mapHeight={Dimensions.get('window').height - 56}
+          onToggleFullScreen={() => setIsMapFullScreen(false)}
+        />
+      </View>
+    </Modal>
   </View>
   )
 }
