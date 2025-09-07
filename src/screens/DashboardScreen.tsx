@@ -11,7 +11,7 @@ import PanicActions from "../components/PanicActions"
 import GroupCheckins from "../components/GroupCheckins"
 
 export default function DashboardScreen({ navigation }: any) {
-  const { state } = useApp()
+  const { state, acknowledgeHighRisk } = useApp()
 
   return (
     <View style={{ flex: 1 }}>
@@ -32,6 +32,7 @@ export default function DashboardScreen({ navigation }: any) {
         <ItineraryList />
         <SafetyRecommendations />
         <OsmMap />
+  {/* Acknowledgement moved to Settings screen */}
         <PanicActions />
         <GroupCheckins />
 
