@@ -14,6 +14,7 @@ export type GeoFence = {
   source?: string
   metadata?: Record<string, any>
   version?: string
+  distanceToUser?: number // Distance from user's location in km
 }
 
 // Haversine distance in kilometers between two coordinates

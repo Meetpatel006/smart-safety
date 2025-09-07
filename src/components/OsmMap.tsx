@@ -100,6 +100,8 @@ export default function OsmMap({
     if (!Array.isArray(geoFences)) return
 
     try {
+      console.log(`Sending ${geoFences.length} geofences to WebView, including custom fences:`, 
+        geoFences.filter(f => f.id && f.id.startsWith('custom')).map(f => f.name))
       webViewRef.current.postMessage(JSON.stringify({ type: 'setGeoFences', fences: geoFences }))
     } catch (e) {
       console.warn('failed to post geoFences to webview', e)
@@ -377,35 +379,85 @@ export default function OsmMap({
                         }));
                     });
 
-          // Geo-fence layer group
-          let geoFenceLayerGroup = L.layerGroup().addTo(map);
+          // Geo-fence layer group and renderer (declared in outer scope so message handlers can call it)
+          // Will be initialized when map is created.
+          let geoFenceLayerGroup = null;
 
           function renderGeoFences(fences) {
             try {
+              if (!map) {
+                // store fences for later if needed
+                console.log('Map not ready, storing fences for later rendering');
+                window._pendingFences = fences;
+                return;
+              }
+
+              if (!geoFenceLayerGroup) {
+                console.log('Creating geofence layer group');
+                geoFenceLayerGroup = L.layerGroup().addTo(map);
+              }
+
               // Clear existing
               geoFenceLayerGroup.clearLayers();
-              if (!Array.isArray(fences)) return;
+              if (!Array.isArray(fences)) {
+                console.warn('Fences is not an array:', fences);
+                return;
+              }
+              
+              console.log('Rendering ' + fences.length + ' geofences on map');
+              let renderedCount = 0;
 
               fences.forEach(f => {
                 try {
+                  // Debug output for custom fences
+                  if (f.id && f.id.startsWith('custom')) {
+                    console.log('Processing custom fence:', f.name, f.coords, f.type, f.radiusKm);
+                  }
+
                   if (f.type === 'circle' && Array.isArray(f.coords)) {
                     const latlng = L.latLng(f.coords[0], f.coords[1]);
                     const radius = (f.radiusKm || 1) * 1000; // km -> m
-                    const color = f.riskLevel && f.riskLevel.toLowerCase().includes('very') ? '#d32f2f' : (f.riskLevel && f.riskLevel.toLowerCase().includes('high') ? '#ff9800' : '#4caf50');
-                                        const circle = L.circle(latlng, { radius, color, fillOpacity: 0.15 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    const color = f.riskLevel && String(f.riskLevel).toLowerCase().includes('very') ? '#d32f2f' : (f.riskLevel && String(f.riskLevel).toLowerCase().includes('high') ? '#ff9800' : '#4caf50');
+                    const circle = L.circle(latlng, { radius, color, fillOpacity: 0.25, weight: 2 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
                     geoFenceLayerGroup.addLayer(circle);
+                    renderedCount++;
+                    
+                    // If it's a custom fence, automatically zoom to it
+                    if (f.id && f.id.startsWith('custom')) {
+                      console.log('Zooming to custom fence:', f.name);
+                      map.setView(latlng, 14); // Zoom to level 14 to see the circle
+                    }
                   } else if (f.type === 'point' && Array.isArray(f.coords)) {
                     const latlng = L.latLng(f.coords[0], f.coords[1]);
-                                        const marker = L.circleMarker(latlng, { radius: 6, color: '#1976d2' }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    const marker = L.circleMarker(latlng, { radius: 6, color: '#1976d2' }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
                     geoFenceLayerGroup.addLayer(marker);
+                    renderedCount++;
                   } else if (f.type === 'polygon' && Array.isArray(f.coords)) {
                     const latlngs = f.coords.map(c => [c[0], c[1]]);
-                                        const poly = L.polygon(latlngs, { color: '#8e24aa', fillOpacity: 0.12 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
+                    const poly = L.polygon(latlngs, { color: '#8e24aa', fillOpacity: 0.12 }).bindPopup('<b>' + escapeHtml(f.name||'') + '</b><br/>' + escapeHtml(f.category||''));
                     geoFenceLayerGroup.addLayer(poly);
+                    renderedCount++;
                   }
-                } catch (inner) { console.warn('failed to render fence', inner); }
+                } catch (inner) { 
+                  console.warn('Failed to render fence', f.id, inner);
+                }
               });
-            } catch (e) { console.error('renderGeoFences error', e); }
+              
+              console.log('Successfully rendered ' + renderedCount + ' out of ' + fences.length + ' geofences');
+              
+              // Send message back to React Native about geofence rendering status
+              window.ReactNativeWebView?.postMessage(JSON.stringify({
+                type: 'geoFencesRendered',
+                count: renderedCount
+              }));
+              
+            } catch (e) { 
+              console.error('renderGeoFences error', e);
+              window.ReactNativeWebView?.postMessage(JSON.stringify({
+                type: 'error',
+                message: 'Failed to render geofences: ' + e.message
+              }));
+            }
           }
 
           function escapeHtml(s) {
@@ -415,7 +467,15 @@ export default function OsmMap({
                     
                     // Mark as initialized
                     mapInitialized = true;
-                    
+
+                    // If any fences were sent before initialization, render them now
+                    try {
+                      if (window._pendingFences) {
+                        renderGeoFences(window._pendingFences);
+                        window._pendingFences = null;
+                      }
+                    } catch (e) { /* ignore */ }
+
                     // Notify that map is ready
                     window.ReactNativeWebView?.postMessage(JSON.stringify({
                         type: 'mapReady'
@@ -539,26 +599,31 @@ export default function OsmMap({
                 }
             }
             
-            // Handle messages from React Native
-            document.addEventListener('message', function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    
-            switch (data.type) {
-                case 'updateLocation':
-                  updateLocation(data.latitude, data.longitude, data.accuracy, data.zoomLevel);
-                  break;
-                case 'changeTileProvider':
-                  changeTileProvider(data.url, data.attribution);
-                  break;
-                case 'setGeoFences':
-                  renderGeoFences(data.fences);
-                  break;
-                    }
-                } catch (error) {
-                    console.error('Error handling message:', error);
-                }
-            });
+      // Unified message handler for messages from React Native (support both Android and iOS)
+      function handleMessageEvent(event) {
+        try {
+          const payload = event && event.data ? event.data : event;
+          const data = typeof payload === 'string' ? JSON.parse(payload) : (payload && payload.data ? JSON.parse(payload.data) : payload);
+
+          switch (data.type) {
+            case 'updateLocation':
+              updateLocation(data.latitude, data.longitude, data.accuracy, data.zoomLevel);
+              break;
+            case 'changeTileProvider':
+              changeTileProvider(data.url, data.attribution);
+              break;
+            case 'setGeoFences':
+              renderGeoFences(data.fences);
+              break;
+          }
+        } catch (error) {
+          console.error('Error handling message:', error);
+        }
+      }
+
+      // Attach handler for both document (Android) and window (iOS)
+      document.addEventListener && document.addEventListener('message', handleMessageEvent);
+      window.addEventListener && window.addEventListener('message', handleMessageEvent);
             
             // Single initialization call with proper order
             let initAttempts = 0;

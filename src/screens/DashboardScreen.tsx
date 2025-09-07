@@ -35,9 +35,12 @@ export default function DashboardScreen({ navigation }: any) {
         <PanicActions />
         <GroupCheckins />
 
-        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8, gap: 8 }}>
           <Button mode="contained" onPress={() => navigation.navigate("Authority")}>
             {t(state.language, "authorityOpen")}
+          </Button>
+          <Button mode="contained" onPress={() => navigation.navigate("GeoFenceDebug")}>
+            GeoFence Debug
           </Button>
         </View>
 
