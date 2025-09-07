@@ -209,8 +209,8 @@ export default function GeoFenceDebugScreen() {
         ) : null}
       </View>
       
-      <View style={styles.mapContainer}>
-        <OsmMap geoFences={showOnlyNearby ? filteredZones : zones} mapHeight={300} />
+      <View >
+        <OsmMap geoFences={showOnlyNearby ? filteredZones : zones} />
       </View>
       
       <View style={styles.sectionHeader}>
@@ -288,14 +288,6 @@ const styles = StyleSheet.create({
   title: {fontSize: 22, fontWeight: '700', color: '#212121'},
   subtitle: {fontSize: 14, color: '#666'},
   subtitleValue: {fontSize: 14, fontWeight: '600', color: '#333'},
-  mapContainer: {
-    height: 300,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 16,
-  },
   sectionHeader: {
     backgroundColor: '#f5f5f5',
     paddingVertical: 8,

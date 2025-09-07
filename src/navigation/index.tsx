@@ -7,7 +7,7 @@ import ItineraryScreen from "../screens/ItineraryScreen"
 import EmergencyScreen from "../screens/EmergencyScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
-import GeoFenceDebugScreen from "../geoFence/GeoFenceDebugScreen"
+// import GeoFenceDebugScreen from "../geoFence/GeoFenceDebugScreen"
 import TransitionsScreen from "../screens/TransitionsScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
@@ -96,11 +96,11 @@ export function RootNavigator() {
             component={AuthorityDashboardScreen}
             options={{ title: "Authority Dashboard (Mock)" }}
           />
-          <Stack.Screen
+          {/* <Stack.Screen
             name="GeoFenceDebug"
             component={GeoFenceDebugScreen}
             options={{ title: 'GeoFence Debug' }}
-          />
+          /> */}
           <Stack.Screen
             name="Transitions"
             component={TransitionsScreen}
