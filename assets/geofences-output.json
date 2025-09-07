@@ -2079,26 +2079,5 @@
       "Source": "BSF Organizational Structure",
       "Description": "BSF Frontier headquarters for Rajasthan border"
     }
-  },
-  {
-    "id": "custom-high-1",
-    "name": "Custom High Risk Zone",
-    "type": "circle",
-    "coords": [
-      22.55372,
-      72.921967
-    ],
-    "radiusKm": 1,
-    "category": "User Added High Risk",
-    "state": "Gujarat",
-    "riskLevel": "High",
-    "source": "user",
-    "raw": {
-      "Name": "Custom High Risk Zone",
-      "Category": "User Added High Risk",
-      "Latitude": "22.55372",
-      "Longitude": "72.921967",
-      "Source": "user"
-    }
   }
 ]
