@@ -68,6 +68,18 @@ export async function startProgressiveAlert(title: string, baseBody?: string) {
       state = { startedAt: now, lastTier: 0, lastNotifiedAt: 0 }
       await writeJSON(STORAGE_KEYS.ALERT_ESCALATION, state)
     }
+    // Immediate entry alert with 5s vibration (default), respecting mute/suppression/cooldown
+    try {
+      const s = state
+      const suppressed = !!(s.suppressionUntil && now < s.suppressionUntil)
+      const cooledDown = !(s.lastNotifiedAt && now - s.lastNotifiedAt < COOLDOWN_MS)
+      if (!s.globalMute && !suppressed && cooledDown) {
+        await notifyOnce(title, baseBody || 'High-risk area detected.', 5000)
+        const updated: EscalationState = { ...s, lastNotifiedAt: now }
+        await writeJSON(STORAGE_KEYS.ALERT_ESCALATION, updated)
+        state = updated
+      }
+    } catch (e) { /* ignore */ }
     // Kick an immediate evaluation, then schedule periodic checks
     await evaluateAndNotify(state, title, baseBody)
     if (escalationTimer) clearInterval(escalationTimer)

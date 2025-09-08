@@ -37,6 +37,9 @@ const lastTransitionAt: Record<string, number> = {}
 const STABILITY_REQUIRED = 2
 const TRANSITION_COOLDOWN_MS = 10_000
 
+// Track current primary fence for consumers that need risk context
+let currentPrimary: GeoFence | null = null
+
 export async function loadFences(): Promise<GeoFence[]> {
   try {
     // try cached fences first
@@ -106,11 +109,11 @@ function computeFenceState(f: GeoFence, location: Location.LocationObjectCoords)
   return 'outside'
 }
 
-export function on(event: 'enter' | 'exit' | 'state' | 'primary', cb: (payload: any) => void) {
+export function on(event: 'enter' | 'exit' | 'state' | 'primary' | 'location', cb: (payload: any) => void) {
   emitter.on(event, cb)
 }
 
-export function off(event: 'enter' | 'exit' | 'state' | 'primary', cb: (payload: any) => void) {
+export function off(event: 'enter' | 'exit' | 'state' | 'primary' | 'location', cb: (payload: any) => void) {
   emitter.off(event, cb)
 }
 
@@ -134,6 +137,9 @@ export async function startMonitoring(options?: { accuracy?: Location.LocationAc
   }
 
   watcher = await Location.watchPositionAsync({ accuracy, timeInterval: interval, distanceInterval: distance }, (loc) => {
+    // always emit raw location; consumers can decide sampling
+    try { emitter.emit('location', { coords: loc.coords, timestamp: Date.now(), primary: currentPrimary }) } catch (e) { /* ignore */ }
+
     // evaluate all fences
     fences.forEach(f => {
       try {
@@ -186,13 +192,14 @@ export async function startMonitoring(options?: { accuracy?: Location.LocationAc
         })
         primary = insideFences[0]
       }
-  const prevPrimaryId = (getFences() as any[]).find(x => x && (x as any)._isPrimary)?.id
+      const prevPrimaryId = (getFences() as any[]).find(x => x && (x as any)._isPrimary)?.id
       // annotate fences with _isPrimary locally (not persisted)
       fences.forEach(x => { delete (x as any)._isPrimary })
       if (primary) (primary as any)._isPrimary = true
       const newPrimaryId = primary ? primary.id : null
       if (newPrimaryId !== prevPrimaryId) {
-        emitter.emit('primary', { primary: primary || null })
+        currentPrimary = primary || null
+        emitter.emit('primary', { primary: currentPrimary })
       }
     } catch (e) {
       // non-critical

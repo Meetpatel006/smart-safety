@@ -102,8 +102,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     ;(async () => {
       try {
-        await geofenceService.loadFences()
-        await geofenceService.startMonitoring({ intervalMs: 30000 })
+  await geofenceService.loadFences()
+  // start geofence monitoring; transitions will be logged on enter/exit
+  await geofenceService.startMonitoring({ intervalMs: 30000 })
 
     geofenceService.on('enter', ({ fence, location }) => {
           try { showToast(`Entered: ${fence.name} (${fence.category || 'zone'})`) } catch (e) { try { Alert.alert('Geo-fence entered', `${fence.name} (${fence.category || 'zone'})`) } catch (ee) { console.log('enter alert failed', ee) } }
@@ -140,7 +141,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     let syncInterval: any = null
     try {
-      syncInterval = setInterval(async () => { try { if (!state.offline) await syncTransitions() } catch (e) {} }, 60 * 1000)
+      // keep a safety net sync for transitions every 15 minutes (batch uploads handle samples)
+      syncInterval = setInterval(async () => { try { if (!state.offline) await syncTransitions() } catch (e) {} }, 15 * 60 * 1000)
     } catch (e) { /* ignore */ }
 
   const saveState = async () => { try { await writeJSON(STORAGE_KEY, state) } catch (error) { console.warn('Error saving app state:', error) } }
@@ -149,7 +151,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     return () => {
       mounted = false
   try { geofenceService.off('enter', () => {}); geofenceService.off('exit', () => {}); geofenceService.off('primary', () => {}) } catch (e) {}
-      try { if (syncInterval) clearInterval(syncInterval) } catch (e) {}
+  try { if (syncInterval) clearInterval(syncInterval) } catch (e) {}
     }
   }, [state, hydrated])
 
