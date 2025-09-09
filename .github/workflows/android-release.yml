@@ -6,6 +6,10 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     name: Build Android Artifacts
@@ -56,14 +60,18 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
+      # NEW: Generate android/ folder
+      - name: Expo prebuild
+        run: npx expo prebuild --non-interactive
+
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
-      - name: Build Release APK & AAB
+      - name: Build Release APK
         working-directory: android
         run: |
           ./gradlew clean
-          ./gradlew assembleRelease bundleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace
 
       - name: List outputs
         run: |
@@ -73,9 +81,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: android-artifacts-${{ steps.version.outputs.version }}
-          path: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/bundle/release/*.aab
+          path: android/app/build/outputs/apk/release/*.apk
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -84,8 +90,6 @@ jobs:
           name: Release ${{ steps.version.outputs.version }}
           draft: false
           prerelease: false
-          files: |
-            android/app/build/outputs/apk/release/*.apk
-            android/app/build/outputs/bundle/release/*.aab
+          files: android/app/build/outputs/apk/release/*.apk
         env:
-          MYAPP_RELEASE_TOKEN: ${{ secrets.MYAPP_RELEASE_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.MYAPP_RELEASE_TOKEN }}
