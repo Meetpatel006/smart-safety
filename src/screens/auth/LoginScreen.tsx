@@ -1,3 +1,4 @@
+
 import { useState } from "react"
 import { ScrollView } from "react-native"
 import { Button, Card, HelperText, Text, TextInput } from "react-native-paper"
@@ -8,12 +9,15 @@ export default function LoginScreen({ navigation }: any) {
   const { state, login } = useApp()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null)
   const lang = state.language
 
   const onSubmit = async () => {
+    setLoading(true)
     const res = await login(email, password)
     setMsg({ type: res.ok ? "success" : "error", text: res.message })
+    setLoading(false)
   }
 
   return (
@@ -28,6 +32,7 @@ export default function LoginScreen({ navigation }: any) {
             onChangeText={setEmail}
             autoCapitalize="none"
             style={{ marginBottom: 8 }}
+            disabled={loading}
           />
           <TextInput
             label={t(lang, "password")}
@@ -35,17 +40,19 @@ export default function LoginScreen({ navigation }: any) {
             onChangeText={setPassword}
             secureTextEntry
             style={{ marginBottom: 8 }}
+            disabled={loading}
           />
           {msg && <HelperText type={msg.type === "error" ? "error" : "info"}>{msg.text}</HelperText>}
-          <Button mode="contained" onPress={onSubmit} style={{ marginTop: 8 }}>
+          <Button mode="contained" onPress={onSubmit} style={{ marginTop: 8 }} loading={loading} disabled={loading}>
             {t(lang, "signIn")}
           </Button>
           <HelperText type="info" visible>
             {t(lang, "or")}
           </HelperText>
-          <Button onPress={() => navigation.navigate("Register")}>{t(lang, "register")}</Button>
+          <Button onPress={() => navigation.navigate("Register")} disabled={loading}>{t(lang, "register")}</Button>
         </Card.Content>
       </Card>
     </ScrollView>
   )
 }
+

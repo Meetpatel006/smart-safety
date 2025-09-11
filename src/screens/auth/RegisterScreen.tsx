@@ -10,14 +10,39 @@ export default function RegisterScreen({ navigation }: any) {
   const lang = state.language
   const [name, setName] = useState("")
   const [email, setEmail] = useState("")
-  const [aadhaar, setAadhaar] = useState("") // mock only
-  const [blockchainId, setBlockchainId] = useState("") // mock only
+  const [govId, setGovId] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
+  const [itinerary, setItinerary] = useState("")
+  const [emergencyContactName, setEmergencyContactName] = useState("")
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState("")
+  const [tripEndDate, setTripEndDate] = useState("")
   const [msg, setMsg] = useState<{ type: "error" | "success"; text: string } | null>(null)
 
   const onSubmit = async () => {
-    const res = await register({ name, email, password, aadhaar, blockchainId })
-    setMsg({ type: res.ok ? "success" : "error", text: res.message })
+    const parsedItinerary = itinerary
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+
+    const res = await register({
+      name,
+      email,
+      password,
+      govId,
+      phone,
+      itinerary: parsedItinerary,
+      emergencyContact: { name: emergencyContactName, phone: emergencyContactPhone },
+      language: lang,
+      tripEndDate,
+    })
+
+    if (res.ok) {
+      const successMessage = `${res.message} Your Blockchain ID is: ${res.regTxHash}`
+      setMsg({ type: "success", text: successMessage })
+    } else {
+      setMsg({ type: "error", text: res.message })
+    }
   }
 
   return (
@@ -40,16 +65,30 @@ export default function RegisterScreen({ navigation }: any) {
             secureTextEntry
             style={{ marginBottom: 8 }}
           />
+          <TextInput label="Gov ID" value={govId} onChangeText={setGovId} style={{ marginBottom: 8 }} />
+          <TextInput label="Phone" value={phone} onChangeText={setPhone} style={{ marginBottom: 8 }} />
           <TextInput
-            label={t(lang, "mockAadhaar")}
-            value={aadhaar}
-            onChangeText={setAadhaar}
+            label="Itinerary (comma-separated)"
+            value={itinerary}
+            onChangeText={setItinerary}
             style={{ marginBottom: 8 }}
           />
           <TextInput
-            label={t(lang, "blockchainId")}
-            value={blockchainId}
-            onChangeText={setBlockchainId}
+            label="Emergency Contact Name"
+            value={emergencyContactName}
+            onChangeText={setEmergencyContactName}
+            style={{ marginBottom: 8 }}
+          />
+          <TextInput
+            label="Emergency Contact Phone"
+            value={emergencyContactPhone}
+            onChangeText={setEmergencyContactPhone}
+            style={{ marginBottom: 8 }}
+          />
+          <TextInput
+            label="Trip End Date (YYYY-MM-DD)"
+            value={tripEndDate}
+            onChangeText={setTripEndDate}
             style={{ marginBottom: 8 }}
           />
           {msg && <HelperText type={msg.type === "error" ? "error" : "info"}>{msg.text}</HelperText>}

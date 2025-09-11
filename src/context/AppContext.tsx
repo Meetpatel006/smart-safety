@@ -8,15 +8,23 @@ import { showToast } from '../utils/toast'
 import { triggerHighRiskAlert, startProgressiveAlert, stopProgressiveAlert, acknowledgeHighRisk as ackHighRisk } from '../utils/alertHelpers'
 import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
-import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY, MOCK_USER } from "../utils/mockData"
+import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
+import { login as apiLogin, register as apiRegister, getTouristData } from "../utils/api"
 
 type User = {
-  id: string
+  touristId: string
   name: string
   email: string
-  aadhaar?: string // mock only
-  blockchainId?: string // mock only
+  phone: string
+  itinerary: string[]
+  emergencyContact: { name: string; phone: string }
+  language: string
+  safetyScore: number
+  consent: { tracking: boolean; dataRetention: boolean }
+  createdAt: string
+  expiresAt: string
+  audit: { regHash: string; regTxHash: string }
 } | null
 
 type Contact = { id: string; name: string; phone: string }
@@ -26,6 +34,7 @@ type GroupMember = { id: string; name: string; lastCheckIn: string; lat: number;
 
 type AppState = {
   user: User
+  token: string | null
   contacts: Contact[]
   trips: Trip[]
   geofences: Geofence[]
@@ -41,11 +50,15 @@ type AppContextValue = {
   login: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
   register: (params: {
     name: string
+    govId: string
+    phone: string
     email: string
     password: string
-    aadhaar?: string
-    blockchainId?: string
-  }) => Promise<{ ok: boolean; message: string }>
+    itinerary: string[]
+    emergencyContact: { name: string; phone: string }
+    language: string
+    tripEndDate: string
+  }) => Promise<{ ok: boolean; message: string; regTxHash?: string }>
   logout: () => Promise<void>
   updateProfile: (patch: Partial<NonNullable<User>>) => Promise<void>
   addContact: (c: Omit<Contact, "id">) => void
@@ -67,6 +80,7 @@ const STORAGE_KEY = STORAGE_KEYS.APP_STATE
 
 const defaultState: AppState = {
   user: null,
+  token: null,
   contacts: MOCK_CONTACTS,
   trips: MOCK_ITINERARY,
   geofences: [],
@@ -158,36 +172,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppContextValue>(
     () => ({
       state,
-      // NOTE: The following login/register simulate backend. Replace with real API in future.
       async login(email, password) {
-        await delay(700)
-        if (!email || !password) return { ok: false, message: "Missing credentials (mock)." }
-        const ok = Math.random() > 0.1
-        if (ok) setState((s) => ({ ...s, user: { ...MOCK_USER, email } }))
-        return ok ? { ok, message: "Login success (mock)." } : { ok, message: "Invalid credentials (mock)." }
+        try {
+          const data = await apiLogin(email, password)
+          const userData = await getTouristData(data.touristId, data.token)
+          setState((s) => ({ ...s, user: userData, token: data.token }))
+          return { ok: true, message: "Login successful" }
+        } catch (error: any) {
+          return { ok: false, message: error.message || "An error occurred" }
+        }
       },
       async register(params) {
-        await delay(900)
-        // Do NOT validate Aadhaar/Blockchain; just simulate success
-        const ok = Math.random() > 0.05
-        if (ok)
-          setState((s) => ({
-            ...s,
-            user: {
-              id: "user_new",
-              name: params.name,
-              email: params.email,
-              aadhaar: "XXXX-XXXX-0000",
-              blockchainId: "mock-xyz",
-            },
-          }))
-        return ok ? { ok, message: "Registration success (mock)." } : { ok, message: "Registration failed (mock)." }
+        try {
+          const data = await apiRegister(params)
+          return { ok: true, message: "Registration successful", regTxHash: data.audit.regTxHash }
+        } catch (error: any) {
+          return { ok: false, message: error.message || "An error occurred" }
+        }
       },
       async logout() {
-        setState((s) => ({ ...s, user: null }))
+        setState((s) => ({ ...s, user: null, token: null }))
       },
       async updateProfile(patch) {
-        setState((s) => ({ ...s, user: { ...(s.user || MOCK_USER), ...patch } }))
+        setState((s) => ({ ...s, user: s.user ? { ...s.user, ...patch } : null }))
         // In real app: call backend to update profile
       },
       addContact(c) {
@@ -239,8 +246,4 @@ export function useApp() {
   const ctx = useContext(AppContext)
   if (!ctx) throw new Error("useApp must be used within AppProvider")
   return ctx
-}
-
-function delay(ms: number) {
-  return new Promise((res) => setTimeout(res, ms))
 }

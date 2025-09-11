@@ -2,3 +2,9 @@ node_modules
 android
 .expo
 .vscode
+.windsurf
+.trae
+.qwen
+.gemini
+.github/
+.bmad-core
