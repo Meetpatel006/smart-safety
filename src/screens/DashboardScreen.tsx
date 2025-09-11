@@ -9,6 +9,7 @@ import SafetyRecommendations from "../components/SafetyRecommendations"
 import OsmMap from "../components/OsmMap"
 import PanicActions from "../components/PanicActions"
 import GroupCheckins from "../components/GroupCheckins"
+import Weather from "../components/Weather"
 
 export default function DashboardScreen({ navigation }: any) {
   const { state, acknowledgeHighRisk } = useApp()
@@ -26,6 +27,7 @@ export default function DashboardScreen({ navigation }: any) {
         ) : null}
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
+        <Weather />
         {/* Profile and language controls moved to Settings */}
         <SafetyScore />
         <EmergencyContacts />

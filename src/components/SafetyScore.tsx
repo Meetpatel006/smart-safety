@@ -1,6 +1,6 @@
 
 import { useMemo, useState } from "react"
-import { View } from "react-native"
+import { View, StyleSheet } from "react-native"
 import { Card, Text, SegmentedButtons, ProgressBar } from "react-native-paper"
 import { computeSafetyScore } from "../utils/safetyLogic"
 import { t } from "../context/translations"
@@ -13,7 +13,7 @@ export default function SafetyScore() {
   const result = useMemo(() => computeSafetyScore({ weatherCode: weather, areaRisk }), [weather, areaRisk])
 
   return (
-    <Card>
+    <Card style={styles.card}>
       <Card.Title title={t(state.language, "safetyScore")} />
       <Card.Content>
         <View style={{ gap: 10 }}>
@@ -46,3 +46,11 @@ export default function SafetyScore() {
     </Card>
   )
 }
+
+const styles = StyleSheet.create({
+  card: {
+    marginTop: 6,
+    elevation: 1,
+    zIndex: 1,
+  },
+})

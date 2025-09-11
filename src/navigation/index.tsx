@@ -8,7 +8,7 @@ import EmergencyScreen from "../screens/EmergencyScreen"
 import SettingsScreen from "../screens/SettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
 // import GeoFenceDebugScreen from "../geoFence/GeoFenceDebugScreen"
-import TransitionsScreen from "../screens/TransitionsScreen"
+// import TransitionsScreen from "../screens/TransitionsScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useTheme } from "react-native-paper"
@@ -18,7 +18,7 @@ export type RootStackParamList = {
   Main: undefined
   Authority: undefined
   GeoFenceDebug: undefined
-  Transitions: undefined
+  // Transitions: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -61,13 +61,13 @@ function MainTabs() {
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cog" color={color} size={size} />,
         }}
       />
-      <Tab.Screen
+      {/* <Tab.Screen
         name="Transitions"
         component={TransitionsScreen}
         options={{
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="history" color={color} size={size} />,
         }}
-      />
+      /> */}
     </Tab.Navigator>
   )
 }
@@ -101,11 +101,11 @@ export function RootNavigator() {
             component={GeoFenceDebugScreen}
             options={{ title: 'GeoFence Debug' }}
           /> */}
-          <Stack.Screen
+          {/* <Stack.Screen
             name="Transitions"
             component={TransitionsScreen}
             options={{ title: 'Transition History' }}
-          />
+          /> */}
         </>
       )}
     </Stack.Navigator>
