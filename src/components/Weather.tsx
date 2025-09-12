@@ -118,24 +118,6 @@ const Weather = () => {
       <Card.Content style={{ marginTop: 8 }}>
         <Text>Apparent: {currentApparent !== null ? `${Math.round(currentApparent)}°C` : '--'}</Text>
         <Text>Humidity: {currentHumidity !== null ? `${Math.round(currentHumidity)}%` : '--'}</Text>
-
-        {/* Horizontal scroll of next 12 hours summary */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
-          {hourly.time.slice(0, 24).map((t, i) => {
-            const temp = hourly.temperature_2m[i];
-            const precip = hourly.precipitation[i];
-            const vis = hourly.visibility[i];
-            return (
-              <View key={t} style={{ paddingRight: 12, alignItems: 'center' }}>
-                <Text>{new Date(t).getHours()}:00</Text>
-                <MaterialCommunityIcons name="thermometer" size={20} color="#444" />
-                <Text>{Math.round(temp)}°</Text>
-                <Text style={{ fontSize: 12 }}>{precip ?? 0} mm</Text>
-                <Text style={{ fontSize: 12 }}>{vis ? `${(vis / 1000).toFixed(1)} km` : '--'}</Text>
-              </View>
-            );
-          })}
-        </ScrollView>
       </Card.Content>
     </Card>
   );

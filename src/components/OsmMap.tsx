@@ -16,6 +16,7 @@ import MapActionButtons from './OsmMap/MapActionButtons';
 import { OsmMapProps, LocationData, TileProvider } from './OsmMap/types';
 import { TILE_SERVERS } from './OsmMap/constants';
 import { reverseGeocode } from './OsmMap/geoUtils';
+import { useApp } from '../context/AppContext';
 
 /*
   Enhanced OsmMap: OpenStreetMap integration with Leaflet
@@ -42,6 +43,7 @@ export default function OsmMap({
   isFullScreen,
   onToggleFullScreen
 }: OsmMapProps) {
+  const { setCurrentLocation } = useApp();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -107,6 +109,7 @@ export default function OsmMap({
 
       const currentLocation = await Location.getCurrentPositionAsync(locationOptions);
       setLocation(currentLocation);
+      setCurrentLocation(currentLocation); // Store in context
 
       const locationData: LocationData = {
         latitude: currentLocation.coords.latitude,

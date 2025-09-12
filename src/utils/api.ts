@@ -58,18 +58,53 @@ export const register = async (userData) => {
   }
 };
 
-export const getTouristData = async (touristId, token) => {
+export const getTouristData = async (token) => {
   try {
-    console.log('API: getTouristData request', { url: `${SERVER_URL}/api/tourist/${touristId}`, touristId })
-    const response = await fetch(`${SERVER_URL}/api/tourist/${touristId}`, {
+    console.log('API: getTouristData request', { url: `${SERVER_URL}/api/tourist/me` })
+    const response = await fetch(`${SERVER_URL}/api/tourist/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const res = await handleResponse(response)
-    console.log('API: getTouristData response', { touristId, res })
+    console.log('API: getTouristData response', { res })
     return res
   } catch (e: any) {
-    console.error('API: getTouristData error', { touristId, error: e?.message || e })
+    console.error('API: getTouristData error', { error: e?.message || e })
     throw e
+  }
+};
+
+export const triggerSOS = async (token, sosData) => {
+  try {
+    console.log('API: triggerSOS request', { url: `${SERVER_URL}/api/sos/trigger`, sosData });
+    const response = await fetch(`${SERVER_URL}/api/sos/trigger`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(sosData),
+    });
+    const res = await handleResponse(response);
+    console.log('API: triggerSOS response', { res });
+    return res;
+  } catch (e) {
+    console.error('API: triggerSOS error', { error: e?.message || e });
+    throw e;
+  }
+};
+
+export const getAlerts = async (token) => {
+  try {
+    console.log('API: getAlerts request', { url: `${SERVER_URL}/api/authority/alerts` });
+    const response = await fetch(`${SERVER_URL}/api/authority/alerts`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const res = await handleResponse(response);
+    console.log('API: getAlerts response', { res });
+    return res;
+  } catch (e) {
+    console.error('API: getAlerts error', { error: e?.message || e });
+    throw e;
   }
 };
 

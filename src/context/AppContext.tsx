@@ -11,6 +11,7 @@ import { readJSON, writeJSON, remove } from '../utils/storage'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
 import { login as apiLogin, register as apiRegister, getTouristData } from "../utils/api"
+import * as Location from 'expo-location';
 
 type User = {
   touristId: string
@@ -43,6 +44,7 @@ type AppState = {
   offline: boolean
   language: Lang
   currentPrimary?: { id: string; name: string; risk?: string } | null
+  currentLocation: Location.LocationObject | null
 }
 
 type AppContextValue = {
@@ -72,6 +74,7 @@ type AppContextValue = {
   setLanguage: (lang: Lang) => void
   wipeMockData: () => Promise<void>
   acknowledgeHighRisk: (minutes: number) => Promise<void>
+  setCurrentLocation: (location: Location.LocationObject | null) => void
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
@@ -82,12 +85,13 @@ const defaultState: AppState = {
   user: null,
   token: null,
   contacts: MOCK_CONTACTS,
-  trips: MOCK_ITINERARY,
+  trips: [],
   geofences: [],
   group: MOCK_GROUP,
   shareLocation: false,
   offline: false,
   language: "en",
+  currentLocation: null,
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -99,7 +103,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     ;(async () => {
       try {
         const parsed = await readJSON<typeof defaultState>(STORAGE_KEY, undefined)
-        if (parsed && mounted) setState({ ...defaultState, ...parsed })
+        if (parsed && mounted) {
+          const { trips, ...rest } = parsed;
+          setState({ ...defaultState, ...rest, trips: [] });
+        }
       } catch (error) {
         console.warn('Error loading app state:', error)
       } finally {
@@ -175,14 +182,57 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       async login(email, password) {
         try {
           const data = await apiLogin(email, password)
-          const userData = await getTouristData(data.touristId, data.token)
+          // getTouristData may return an object or an array (API docs show object but some endpoints return arrays)
+          const userRes = await getTouristData(data.token)
+          let userData: any = null
+          if (Array.isArray(userRes)) {
+            userData = userRes.length ? userRes[0] : null
+          } else {
+            userData = userRes
+          }
+
+          if (!userData) throw new Error('Failed to fetch user data')
+
           // Log login response and fetched user data for debugging
           try {
             console.log('Login successful - token:', data.token, 'touristId:', data.touristId, 'user:', userData)
           } catch (e) {
             // ignore logging errors
           }
-          setState((s) => ({ ...s, user: userData, token: data.token }))
+
+          // Build trips from userData.itinerary. The API may provide an array of strings or objects.
+          const itinerary = Array.isArray(userData.itinerary) ? userData.itinerary : []
+          const baseTs = Date.now()
+          const trips = itinerary.map((item: any, index: number) => {
+            if (typeof item === 'string') {
+              // API provides only strings for itinerary (e.g. ["Hotel ABC", "City Tour"]).
+              // Keep date empty so UI shows only the title.
+              return { id: `t${baseTs}_${index}`, title: item, date: "" }
+            }
+            if (item && typeof item === 'object') {
+              const title = item.title || item.name || item.locationName || JSON.stringify(item)
+              const date = item.date || item.dateTime || item.when || userData.expiresAt || new Date().toISOString()
+              const notes = item.notes || item.extra || ''
+              return { id: `t${baseTs}_${index}`, title, date, notes }
+            }
+            return { id: `t${baseTs}_${index}`, title: String(item), date: userData.expiresAt || new Date().toISOString() }
+          })
+
+          // Map emergency contact from API (if present) to app contacts so UI shows real contact(s)
+          let contactsFromApi: { id: string; name: string; phone: string }[] | null = null
+          try {
+            if (userData.emergencyContact) {
+              const ec = userData.emergencyContact
+              const resolved = Array.isArray(ec) ? ec : [ec]
+              const now = Date.now()
+              contactsFromApi = resolved.map((c: any, i: number) => ({ id: `ec${now}_${i}`, name: c.name || c.title || 'Emergency', phone: c.phone || c.mobile || c.number || '' }))
+            }
+          } catch (e) {
+            // keep contactsFromApi null on error
+            contactsFromApi = null
+          }
+
+          setState((s) => ({ ...s, user: userData, token: data.token, trips, contacts: contactsFromApi || s.contacts }))
           return { ok: true, message: "Login successful" }
         } catch (error: any) {
           return { ok: false, message: error.message || "An error occurred" }
@@ -197,7 +247,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
       async logout() {
-        setState((s) => ({ ...s, user: null, token: null }))
+        await remove(STORAGE_KEY);
+        setState(defaultState);
       },
       async updateProfile(patch) {
         setState((s) => ({ ...s, user: s.user ? { ...s.user, ...patch } : null }))
@@ -236,6 +287,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       async acknowledgeHighRisk(minutes: number) {
         try { await ackHighRisk(minutes) } catch (e) { /* ignore */ }
+      },
+      setCurrentLocation(location) {
+        setState((s) => ({ ...s, currentLocation: location }))
       },
     }),
     [state, hydrated],

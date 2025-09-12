@@ -44,7 +44,7 @@ export default function ItineraryList() {
           {state.trips.map((tr) => (
             <List.Item
               key={tr.id}
-              title={`${tr.title} — ${tr.date}`}
+              title={tr.date ? `${tr.title} — ${tr.date}` : tr.title}
               description={tr.notes}
               right={() => (
                 <View style={{ flexDirection: "row" }}>

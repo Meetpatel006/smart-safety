@@ -1,5 +1,5 @@
 
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { View, ScrollView } from "react-native"
 import {
   Appbar,
@@ -15,6 +15,7 @@ import {
 } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
+import { getAlerts } from "../utils/api";
 
 type Incident = { id: string; title: string; status: "Open" | "Resolved"; area: string; time: string }
 
@@ -24,21 +25,41 @@ const mockTourists = [
   { id: "u3", name: "Rahul", lat: 28.63, lng: 77.19 },
 ]
 
-const mockIncidents: Incident[] = [
-  { id: "i1", title: "Pickpocketing", status: "Open", area: "Market", time: "09:45" },
-  { id: "i2", title: "Scam Report", status: "Resolved", area: "Station", time: "08:30" },
-  { id: "i3", title: "Medical Help", status: "Open", area: "Fort", time: "11:10" },
-]
-
 export default function AuthorityDashboardScreen() {
   const { state } = useApp()
   const [filter, setFilter] = useState<"All" | "Open" | "Resolved">("All")
   const [selected, setSelected] = useState<(typeof mockTourists)[0] | null>(null)
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
 
-  const incidents = useMemo(() => {
-    if (filter === "All") return mockIncidents
-    return mockIncidents.filter((i) => i.status === filter)
-  }, [filter])
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      if (!state.token) return;
+      setLoading(true);
+      try {
+        const alerts = await getAlerts(state.token);
+        const formattedIncidents = alerts.map((alert: any) => ({
+          id: alert.id,
+          title: alert.sosReason.reason,
+          status: alert.status === 'new' ? 'Open' : 'Resolved',
+          area: alert.location.locationName,
+          time: new Date(alert.timestamp).toLocaleTimeString(),
+        }));
+        setIncidents(formattedIncidents);
+      } catch (error) {
+        console.error("Failed to fetch alerts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAlerts();
+  }, [state.token]);
+
+  const filteredIncidents = useMemo(() => {
+    if (filter === "All") return incidents
+    return incidents.filter((i) => i.status === filter)
+  }, [filter, incidents])
 
   return (
     <View style={{ flex: 1 }}>
@@ -77,8 +98,8 @@ export default function AuthorityDashboardScreen() {
             )}
           />
           <Card.Content>
-            <List.Section>
-              {incidents.map((inc) => (
+            {loading ? <Text>Loading...</Text> : <List.Section>
+              {filteredIncidents.map((inc) => (
                 <List.Item
                   key={inc.id}
                   title={`${inc.title} — ${inc.area}`}
@@ -87,7 +108,7 @@ export default function AuthorityDashboardScreen() {
                   right={() => <Chip>{inc.status}</Chip>}
                 />
               ))}
-            </List.Section>
+            </List.Section>}
           </Card.Content>
         </Card>
 
