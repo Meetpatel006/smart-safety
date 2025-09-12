@@ -1,13 +1,27 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
-import { fetchWeatherApi } from 'openmeteo';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Card, Text, ActivityIndicator } from 'react-native-paper';
 
+type HourlyWeather = {
+  time: string[];
+  temperature_2m: number[];
+  relativehumidity_2m: number[]; // note: Open-Meteo uses relativehumidity_2m (no underscore between relative and humidity in earlier code)
+  windspeed_10m: number[];
+  winddirection_10m: number[];
+  pressure_msl: number[];
+  precipitation: number[];
+  visibility: number[];
+  apparent_temperature: number[];
+};
+
 const Weather = () => {
-  const [weather, setWeather] = useState<any>(null);
+  const [currentTemp, setCurrentTemp] = useState<number | null>(null);
+  const [currentApparent, setCurrentApparent] = useState<number | null>(null);
+  const [currentHumidity, setCurrentHumidity] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [hourly, setHourly] = useState<HourlyWeather | null>(null);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -23,27 +37,51 @@ const Weather = () => {
         const location = await Location.getCurrentPositionAsync({});
         const { latitude, longitude } = location.coords;
 
-        const params = {
-          latitude,
-          longitude,
-          current: ['temperature_2m', 'relative_humidity_2m', 'apparent_temperature', 'is_day', 'precipitation', 'weather_code', 'visibility'],
-          forecast_days: 1,
-        };
-        const url = 'https://api.open-meteo.com/v1/forecast';
-        const responses = await fetchWeatherApi(url, params);
-        const response = responses[0];
-        const current = response.current();
-        const weatherData = {
-          temperature_2m: current.variables(0).value(),
-          relative_humidity_2m: current.variables(1).value(),
-          apparent_temperature: current.variables(2).value(),
-          is_day: current.variables(3).value(),
-          precipitation: current.variables(4).value(),
-          weather_code: current.variables(5).value(),
-          visibility: current.variables(6).value(),
-        };
+        // Build query params for Open-Meteo hourly fields
+        const hourlyParams = [
+          'temperature_2m',
+          'relativehumidity_2m',
+          'windspeed_10m',
+          'winddirection_10m',
+          'pressure_msl',
+          'precipitation',
+          'visibility',
+          'apparent_temperature',
+        ].join(',');
 
-        setWeather(weatherData);
+        // Force timezone to Asia/Kolkata for consistent times (URL-encoded as Asia%2FKolkata)
+        const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=${encodeURIComponent(
+          hourlyParams
+        )}&timezone=Asia%2FKolkata`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`Weather API error: ${res.status}`);
+        const data = await res.json();
+
+        // Set hourly data if available
+        if (data && data.hourly) {
+          setHourly(data.hourly as HourlyWeather);
+
+          // determine current hour index from hourly.time
+          const now = new Date();
+          // API returns times in local timezone when timezone=auto as ISO strings
+          const times: string[] = data.hourly.time || [];
+          let idx = times.findIndex((t: string) => {
+            const dt = new Date(t);
+            return (
+              dt.getFullYear() === now.getFullYear() &&
+              dt.getMonth() === now.getMonth() &&
+              dt.getDate() === now.getDate() &&
+              dt.getHours() === now.getHours()
+            );
+          });
+          if (idx === -1) idx = 0;
+
+          const h: HourlyWeather = data.hourly;
+          setCurrentTemp(h.temperature_2m?.[idx] ?? null);
+          setCurrentApparent(h.apparent_temperature?.[idx] ?? null);
+          setCurrentHumidity(h.relativehumidity_2m?.[idx] ?? null);
+        }
       } catch (error) {
         console.error('Error fetching weather data:', error);
       } finally {
@@ -55,19 +93,16 @@ const Weather = () => {
   }, []);
 
   const getWeatherIcon = () => {
-    if (!weather) return 'weather-cloudy';
-    const isDay = weather.is_day;
-    const code = weather.weather_code;
-    if (code < 10) return isDay ? 'weather-sunny' : 'weather-night';
-    if (code < 40) return 'weather-partly-cloudy';
-    if (code < 70) return 'weather-rainy';
-    if (code < 80) return 'weather-snowy';
-    if (code < 100) return 'weather-lightning';
-    return 'weather-cloudy';
+    if (!currentTemp) return 'weather-cloudy';
+    // simplistic mapping based on temperature for fallback
+    if (currentTemp > 30) return 'weather-sunny';
+    if (currentTemp > 20) return 'weather-partly-cloudy';
+    if (currentTemp > 5) return 'weather-cloudy';
+    return 'weather-snowy';
   };
 
   if (loading) return <ActivityIndicator style={{ marginRight: 16 }} />;
-  if (!weather) return (
+  if (!hourly) return (
     <View style={{ marginRight: 16 }}>
       <MaterialCommunityIcons name="alert-circle-outline" size={24} color="red" />
     </View>
@@ -77,14 +112,30 @@ const Weather = () => {
     <Card style={styles.card}>
       <View style={styles.row}>
         <MaterialCommunityIcons name={getWeatherIcon()} size={28} color="#6200ee" />
-        <Text style={styles.tempText}>{`${Math.round(weather.temperature_2m)}°C`}</Text>
+        <Text style={styles.tempText}>{currentTemp !== null ? `${Math.round(currentTemp)}°C` : '--'}</Text>
       </View>
 
       <Card.Content style={{ marginTop: 8 }}>
-        <Text>Apparent: {`${Math.round(weather.apparent_temperature)}°C`}</Text>
-        <Text>Humidity: {`${Math.round(weather.relative_humidity_2m)}%`}</Text>
-        <Text>Precipitation: {`${weather.precipitation} mm`}</Text>
-        <Text>Visibility: {`${weather.visibility / 1000} km`}</Text>
+        <Text>Apparent: {currentApparent !== null ? `${Math.round(currentApparent)}°C` : '--'}</Text>
+        <Text>Humidity: {currentHumidity !== null ? `${Math.round(currentHumidity)}%` : '--'}</Text>
+
+        {/* Horizontal scroll of next 12 hours summary */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 8 }}>
+          {hourly.time.slice(0, 24).map((t, i) => {
+            const temp = hourly.temperature_2m[i];
+            const precip = hourly.precipitation[i];
+            const vis = hourly.visibility[i];
+            return (
+              <View key={t} style={{ paddingRight: 12, alignItems: 'center' }}>
+                <Text>{new Date(t).getHours()}:00</Text>
+                <MaterialCommunityIcons name="thermometer" size={20} color="#444" />
+                <Text>{Math.round(temp)}°</Text>
+                <Text style={{ fontSize: 12 }}>{precip ?? 0} mm</Text>
+                <Text style={{ fontSize: 12 }}>{vis ? `${(vis / 1000).toFixed(1)} km` : '--'}</Text>
+              </View>
+            );
+          })}
+        </ScrollView>
       </Card.Content>
     </Card>
   );

@@ -176,6 +176,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         try {
           const data = await apiLogin(email, password)
           const userData = await getTouristData(data.touristId, data.token)
+          // Log login response and fetched user data for debugging
+          try {
+            console.log('Login successful - token:', data.token, 'touristId:', data.touristId, 'user:', userData)
+          } catch (e) {
+            // ignore logging errors
+          }
           setState((s) => ({ ...s, user: userData, token: data.token }))
           return { ok: true, message: "Login successful" }
         } catch (error: any) {

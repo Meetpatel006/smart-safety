@@ -15,7 +15,14 @@ export default function LoginScreen({ navigation }: any) {
 
   const onSubmit = async () => {
     setLoading(true)
-    const res = await login(email, password)
+    let res
+    try {
+      res = await login(email, password)
+      try { console.log('LoginScreen: login result', { email, res }) } catch (e) { }
+    } catch (e: any) {
+      try { console.error('LoginScreen: login threw', { email, error: e?.message || e }) } catch (ee) { }
+      res = { ok: false, message: e?.message || 'An error occurred' }
+    }
     setMsg({ type: res.ok ? "success" : "error", text: res.message })
     setLoading(false)
   }
