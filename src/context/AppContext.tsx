@@ -10,7 +10,7 @@ import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
-import { login as apiLogin, register as apiRegister, getTouristData } from "../utils/api"
+import { login as apiLogin, register as apiRegister, getTouristData, tripsToItinerary, itineraryToTrips } from "../utils/api"
 import * as Location from 'expo-location';
 
 type User = {
@@ -67,9 +67,9 @@ type AppContextValue = {
   addContact: (c: Omit<Contact, "id">) => void
   updateContact: (id: string, patch: Partial<Contact>) => void
   removeContact: (id: string) => void
-  addTrip: (t: Omit<Trip, "id">) => void
-  updateTrip: (id: string, patch: Partial<Trip>) => void
-  removeTrip: (id: string) => void
+  addTrip: (t: Omit<Trip, "id">) => Promise<void>
+  updateTrip: (id: string, patch: Partial<Trip>) => Promise<void>
+  removeTrip: (id: string) => Promise<void>
   toggleShareLocation: () => void
   setOffline: (v: boolean) => void
   setLanguage: (lang: Lang) => void
@@ -107,8 +107,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       try {
         const parsed = await readJSON<typeof defaultState>(STORAGE_KEY, undefined)
         if (parsed && mounted) {
-          const { trips, ...rest } = parsed;
-          setState({ ...defaultState, ...rest, trips: [] });
+          // restore persisted state (including token). We'll avoid overwriting trips so that
+          // server-sourced itineraries can be refreshed below if needed.
+          setState((prev) => ({ ...defaultState, ...prev, ...parsed }))
+          // If the persisted state contains a token but trips are empty, fetch /me now
+          try {
+            if (parsed.token && (!Array.isArray(parsed.trips) || parsed.trips.length === 0)) {
+              console.log('Hydration: token present in storage but no trips — fetching /me')
+              const userRes = await getTouristData(parsed.token)
+              const userData = Array.isArray(userRes) ? (userRes.length ? userRes[0] : null) : userRes
+              if (userData && mounted) {
+                const itinerary = Array.isArray(userData.itinerary) ? userData.itinerary : []
+                const trips = itineraryToTrips(itinerary)
+                setState((s) => ({ ...s, user: userData, token: parsed.token, trips }))
+                try { console.log('Hydration fetched itinerary:', { count: itinerary.length }) } catch (e) { }
+              }
+            }
+          } catch (e) {
+            console.warn('Hydration: failed to refresh /me', e)
+          }
         }
       } catch (error) {
         console.warn('Error loading app state:', error)
@@ -205,21 +222,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           // Build trips from userData.itinerary. The API may provide an array of strings or objects.
           const itinerary = Array.isArray(userData.itinerary) ? userData.itinerary : []
-          const baseTs = Date.now()
-          const trips = itinerary.map((item: any, index: number) => {
-            if (typeof item === 'string') {
-              // API provides only strings for itinerary (e.g. ["Hotel ABC", "City Tour"]).
-              // Keep date empty so UI shows only the title.
-              return { id: `t${baseTs}_${index}`, title: item, date: "" }
-            }
-            if (item && typeof item === 'object') {
-              const title = item.title || item.name || item.locationName || JSON.stringify(item)
-              const date = item.date || item.dateTime || item.when || userData.expiresAt || new Date().toISOString()
-              const notes = item.notes || item.extra || ''
-              return { id: `t${baseTs}_${index}`, title, date, notes }
-            }
-            return { id: `t${baseTs}_${index}`, title: String(item), date: userData.expiresAt || new Date().toISOString() }
-          })
+          const trips = itineraryToTrips(itinerary)
 
           // Map emergency contact from API (if present) to app contacts so UI shows real contact(s)
           let contactsFromApi: { id: string; name: string; phone: string }[] | null = null
@@ -236,6 +239,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           setState((s) => ({ ...s, user: userData, token: data.token, trips, contacts: contactsFromApi || s.contacts }))
+          try { console.log('Built trips from API:', { count: trips.length, trips }) } catch (e) { }
           return { ok: true, message: "Login successful" }
         } catch (error: any) {
           return { ok: false, message: error.message || "An error occurred" }
@@ -266,14 +270,48 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       removeContact(id) {
         setState((s) => ({ ...s, contacts: s.contacts.filter((c) => c.id !== id) }))
       },
-      addTrip(t) {
-        setState((s) => ({ ...s, trips: [...s.trips, { ...t, id: `t${Date.now()}` }] }))
+      addTrip: async (t) => {
+        const newTrip = { ...t, id: `t${Date.now()}` }
+        const updatedTrips = [...state.trips, newTrip]
+        const itinerary = tripsToItinerary(updatedTrips)
+        try {
+          if (state.token) {
+            await getTouristData(state.token, 'PATCH', { itinerary })
+          }
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        } catch (error) {
+          console.error('Failed to sync trip addition with API:', error)
+          // Still update local state for offline functionality
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        }
       },
-      updateTrip(id, patch) {
-        setState((s) => ({ ...s, trips: s.trips.map((tr) => (tr.id === id ? { ...tr, ...patch } : tr)) }))
+      updateTrip: async (id, patch) => {
+        const updatedTrips = state.trips.map((tr) => (tr.id === id ? { ...tr, ...patch } : tr))
+        const itinerary = tripsToItinerary(updatedTrips)
+        try {
+          if (state.token) {
+            await getTouristData(state.token, 'PATCH', { itinerary })
+          }
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        } catch (error) {
+          console.error('Failed to sync trip update with API:', error)
+          // Still update local state for offline functionality
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        }
       },
-      removeTrip(id) {
-        setState((s) => ({ ...s, trips: s.trips.filter((tr) => tr.id !== id) }))
+      removeTrip: async (id) => {
+        const updatedTrips = state.trips.filter((tr) => tr.id !== id)
+        const itinerary = tripsToItinerary(updatedTrips)
+        try {
+          if (state.token) {
+            await getTouristData(state.token, 'PATCH', { itinerary })
+          }
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        } catch (error) {
+          console.error('Failed to sync trip removal with API:', error)
+          // Still update local state for offline functionality
+          setState((s) => ({ ...s, trips: updatedTrips }))
+        }
       },
       toggleShareLocation() {
         setState((s) => ({ ...s, shareLocation: !s.shareLocation }))

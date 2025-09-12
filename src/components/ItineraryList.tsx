@@ -12,6 +12,7 @@ export default function ItineraryList() {
   const [title, setTitle] = useState("")
   const [date, setDate] = useState("")
   const [notes, setNotes] = useState("")
+  const [loading, setLoading] = useState(false)
 
   const openNew = () => {
     setEditingId(null)
@@ -27,10 +28,21 @@ export default function ItineraryList() {
     setNotes(n || "")
     setVisible(true)
   }
-  const save = () => {
-    if (editingId) updateTrip(editingId, { title, date, notes })
-    else addTrip({ title, date, notes })
-    setVisible(false)
+  const save = async () => {
+    setLoading(true)
+    try {
+      if (editingId) {
+        await updateTrip(editingId, { title, date, notes })
+      } else {
+        await addTrip({ title, date, notes })
+      }
+      setVisible(false)
+    } catch (error) {
+      console.error('Failed to save trip:', error)
+      // Could show an error message to user here
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -49,7 +61,13 @@ export default function ItineraryList() {
               right={() => (
                 <View style={{ flexDirection: "row" }}>
                   <IconButton icon="pencil" onPress={() => openEdit(tr.id, tr.title, tr.date, tr.notes)} />
-                  <IconButton icon="delete" onPress={() => removeTrip(tr.id)} />
+                  <IconButton icon="delete" onPress={async () => {
+                    try {
+                      await removeTrip(tr.id)
+                    } catch (error) {
+                      console.error('Failed to remove trip:', error)
+                    }
+                  }} />
                 </View>
               )}
             />
@@ -68,7 +86,7 @@ export default function ItineraryList() {
           <TextInput label="Notes" value={notes} onChangeText={setNotes} style={{ marginBottom: 8 }} />
           <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
             <Button onPress={() => setVisible(false)}>{t(state.language, "cancel")}</Button>
-            <Button mode="contained" onPress={save}>
+            <Button mode="contained" onPress={save} disabled={loading}>
               {t(state.language, "save")}
             </Button>
           </View>

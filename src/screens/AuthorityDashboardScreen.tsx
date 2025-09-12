@@ -37,9 +37,9 @@ export default function AuthorityDashboardScreen() {
       if (!state.token) return;
       setLoading(true);
       try {
-        const alerts = await getAlerts(state.token);
-        const formattedIncidents = alerts.map((alert: any) => ({
-          id: alert.id,
+        const response = await getAlerts(state.token);
+        const formattedIncidents = response.alerts.map((alert: any) => ({
+          id: alert._id || alert.id,
           title: alert.sosReason.reason,
           status: alert.status === 'new' ? 'Open' : 'Resolved',
           area: alert.location.locationName,
@@ -84,7 +84,7 @@ export default function AuthorityDashboardScreen() {
 
         <Card>
           <Card.Title
-            title="Incidents / Alerts (Mock)"
+            title="Incidents / Alerts "
             right={() => (
               <SegmentedButtons
                 value={filter}
