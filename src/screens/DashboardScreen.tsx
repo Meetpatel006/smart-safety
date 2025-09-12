@@ -8,7 +8,6 @@ import ItineraryList from "../components/ItineraryList"
 import SafetyRecommendations from "../components/SafetyRecommendations"
 import OsmMap from "../components/OsmMap"
 import PanicActions from "../components/PanicActions"
-import GroupCheckins from "../components/GroupCheckins"
 import Weather from "../components/Weather"
 
 export default function DashboardScreen({ navigation }: any) {
@@ -34,11 +33,9 @@ export default function DashboardScreen({ navigation }: any) {
         <ItineraryList />
         <SafetyRecommendations />
         <OsmMap />
-  {/* Acknowledgement moved to Settings screen */}
         <PanicActions />
-        <GroupCheckins />
 
-        <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 8 }}>
+        {/* <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 8 }}>
           <Button mode="contained" onPress={() => navigation.navigate("Authority")}>
             {t(state.language, "authorityOpen")}
           </Button>
@@ -46,7 +43,7 @@ export default function DashboardScreen({ navigation }: any) {
 
         <Text style={{ textAlign: "center", marginTop: 16 }}>
           Note: All data and flows are mock-only. No real APIs are called.
-        </Text>
+        </Text> */}
       </ScrollView>
     </View>
   )

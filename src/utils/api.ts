@@ -1,6 +1,4 @@
-import { SERVER_URL } from '../config';
-import { GEO_MODEL_URL } from '../config';
-import { WEATHER_MODEL_URL } from '../config';
+import { SERVER_URL,WEATHER_MODEL_URL,GEO_MODEL_URL } from '../config';
 
 const handleResponse = async (response) => {
   try {
@@ -28,14 +26,12 @@ const handleResponse = async (response) => {
 
 export const login = async (email, password) => {
   try {
-    console.log('API: login request', { url: `${SERVER_URL}/api/auth/login`, email })
     const response = await fetch(`${SERVER_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
     const res = await handleResponse(response)
-    console.log('API: login response', { url: `${SERVER_URL}/api/auth/login`, email, res })
     return res
   } catch (e: any) {
     console.error('API: login error', { email, error: e?.message || e })
@@ -45,14 +41,12 @@ export const login = async (email, password) => {
 
 export const register = async (userData) => {
   try {
-    console.log('API: register request', { url: `${SERVER_URL}/api/auth/register`, userData: { ...userData, password: '***' } })
     const response = await fetch(`${SERVER_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(userData),
     });
     const res = await handleResponse(response)
-    console.log('API: register response', { url: `${SERVER_URL}/api/auth/register`, res })
     return res
   } catch (e: any) {
     console.error('API: register error', { error: e?.message || e })
@@ -62,7 +56,6 @@ export const register = async (userData) => {
 
 export const getTouristData = async (token, method = 'GET', data = null) => {
   try {
-    console.log('API: getTouristData request', { url: `${SERVER_URL}/api/tourist/me`, method })
     const config: any = {
       method,
       headers: { Authorization: `Bearer ${token}` },
@@ -75,7 +68,6 @@ export const getTouristData = async (token, method = 'GET', data = null) => {
     
     const response = await fetch(`${SERVER_URL}/api/tourist/me`, config);
     const res = await handleResponse(response)
-    console.log('API: getTouristData response', { res })
     return res
   } catch (e: any) {
     console.error('API: getTouristData error', { error: e?.message || e })
@@ -85,7 +77,6 @@ export const getTouristData = async (token, method = 'GET', data = null) => {
 
 export const triggerSOS = async (token, sosData) => {
   try {
-    console.log('API: triggerSOS request', { url: `${SERVER_URL}/api/sos/trigger`, sosData });
     const response = await fetch(`${SERVER_URL}/api/sos/trigger`, {
       method: 'POST',
       headers: {
@@ -95,7 +86,6 @@ export const triggerSOS = async (token, sosData) => {
       body: JSON.stringify(sosData),
     });
     const res = await handleResponse(response);
-    console.log('API: triggerSOS response', { res });
     return res;
   } catch (e) {
     console.error('API: triggerSOS error', { error: e?.message || e });
@@ -106,7 +96,6 @@ export const triggerSOS = async (token, sosData) => {
 // Fetch geo model prediction by lat/lon
 export const getGeoPrediction = async (latitude: number, longitude: number) => {
   try {
-    console.log('API: getGeoPrediction request', { url: GEO_MODEL_URL, latitude, longitude })
     const response = await fetch(GEO_MODEL_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -119,11 +108,9 @@ export const getGeoPrediction = async (latitude: number, longitude: number) => {
     try { data = text ? JSON.parse(text) : null } catch (e) { data = text }
 
     if (!response.ok) {
-      console.warn('API: getGeoPrediction response not ok', { status: response.status, body: data })
       throw new Error((data && data.message) ? data.message : `Model responded with status ${response.status}`)
     }
 
-    console.log('API: getGeoPrediction response', { data })
     return data
   } catch (e: any) {
     console.error('API: getGeoPrediction error', { error: e?.message || e })
@@ -143,7 +130,6 @@ export const getWeatherPrediction = async (features: {
   summary_clear?: number,
 }) => {
   try {
-    console.log('API: getWeatherPrediction request', { url: WEATHER_MODEL_URL, features })
     const response = await fetch(WEATHER_MODEL_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -155,11 +141,9 @@ export const getWeatherPrediction = async (features: {
     try { data = text ? JSON.parse(text) : null } catch (e) { data = text }
 
     if (!response.ok) {
-      console.warn('API: getWeatherPrediction response not ok', { status: response.status, body: data })
       throw new Error((data && data.message) ? data.message : `Model responded with status ${response.status}`)
     }
 
-    console.log('API: getWeatherPrediction response', { data })
     return data
   } catch (e: any) {
     console.error('API: getWeatherPrediction error', { error: e?.message || e })
@@ -230,7 +214,6 @@ export const fetchOpenMeteoCurrentHour = async (latitude: number, longitude: num
 
 export const getAlerts = async (token) => {
   try {
-    console.log('API: getAlerts request', { url: `${SERVER_URL}/api/authority/alerts`, hasToken: !!token });
 
     // if (!token) {
     //   throw new Error('No authentication token provided');
@@ -241,10 +224,6 @@ export const getAlerts = async (token) => {
       'Content-Type': 'application/json'
     };
 
-    console.log('API: getAlerts headers', {
-      // authorization: headers.Authorization ? 'Bearer token present' : 'No token',
-      contentType: headers['Content-Type']
-    });
 
     const response = await fetch(`${SERVER_URL}/api/authority/alerts`, {
       method: 'GET',
@@ -252,13 +231,11 @@ export const getAlerts = async (token) => {
     });
 
     const res = await handleResponse(response);
-    console.log('API: getAlerts response', { res });
 
     // Ensure alerts is an array
     if (res && res.alerts && Array.isArray(res.alerts)) {
       return res;
     } else {
-      console.warn('API: getAlerts - Invalid response format', res);
       throw new Error('Invalid response format from server');
     }
   } catch (e) {
