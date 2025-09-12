@@ -45,6 +45,7 @@ type AppState = {
   language: Lang
   currentPrimary?: { id: string; name: string; risk?: string } | null
   currentLocation: Location.LocationObject | null
+  currentAddress: string | null
 }
 
 type AppContextValue = {
@@ -75,6 +76,7 @@ type AppContextValue = {
   wipeMockData: () => Promise<void>
   acknowledgeHighRisk: (minutes: number) => Promise<void>
   setCurrentLocation: (location: Location.LocationObject | null) => void
+  setCurrentAddress: (address: string | null) => void
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
@@ -92,6 +94,7 @@ const defaultState: AppState = {
   offline: false,
   language: "en",
   currentLocation: null,
+  currentAddress: null,
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -290,6 +293,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       setCurrentLocation(location) {
         setState((s) => ({ ...s, currentLocation: location }))
+      },
+      setCurrentAddress(address) {
+        setState((s) => ({ ...s, currentAddress: address }))
       },
     }),
     [state, hydrated],

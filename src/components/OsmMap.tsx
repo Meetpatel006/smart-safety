@@ -43,7 +43,7 @@ export default function OsmMap({
   isFullScreen,
   onToggleFullScreen
 }: OsmMapProps) {
-  const { setCurrentLocation } = useApp();
+  const { setCurrentLocation, setCurrentAddress } = useApp();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -135,8 +135,11 @@ export default function OsmMap({
       
       if (addressResult) {
         setAddress(addressResult);
+        setCurrentAddress(addressResult); // Store in context
       } else {
-        setAddress("Address lookup failed");
+        const fallbackAddress = "Address lookup failed";
+        setAddress(fallbackAddress);
+        setCurrentAddress(fallbackAddress); // Store in context
       }
       setLoadingAddress(false);
 

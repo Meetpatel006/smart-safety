@@ -32,7 +32,7 @@ export default function PanicActions() {
       const sosData = {
         location: {
           coordinates: [state.currentLocation.coords.longitude, state.currentLocation.coords.latitude],
-          locationName: 'Current Location'
+          locationName: state.currentAddress || 'Current Location'
         },
         safetyScore: state.user?.safetyScore || 100,
         sosReason: {
