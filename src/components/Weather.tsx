@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, StyleSheet } from 'react-native';
 import * as Location from 'expo-location';
-import { Card, Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, Card } from 'react-native-paper';
 
 type HourlyWeather = {
   time: string[];
   temperature_2m: number[];
-  relativehumidity_2m: number[]; // note: Open-Meteo uses relativehumidity_2m (no underscore between relative and humidity in earlier code)
+  relativehumidity_2m: number[];
   windspeed_10m: number[];
   winddirection_10m: number[];
   pressure_msl: number[];
@@ -17,11 +16,18 @@ type HourlyWeather = {
 };
 
 const Weather = () => {
-  const [currentTemp, setCurrentTemp] = useState<number | null>(null);
-  const [currentApparent, setCurrentApparent] = useState<number | null>(null);
-  const [currentHumidity, setCurrentHumidity] = useState<number | null>(null);
+  // keep only the compact data object requested by the user
+  const [currentData, setCurrentData] = useState<{
+    temperature: number | null;
+    apparent_temperature: number | null;
+    humidity: number | null;
+    wind_speed: number | null;
+    wind_bearing: number | null;
+    visibility: number | null;
+    cloud_cover: number | null;
+    pressure: number | null;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hourly, setHourly] = useState<HourlyWeather | null>(null);
 
   useEffect(() => {
     const fetchWeather = async () => {
@@ -58,29 +64,49 @@ const Weather = () => {
         if (!res.ok) throw new Error(`Weather API error: ${res.status}`);
         const data = await res.json();
 
-        // Set hourly data if available
-        if (data && data.hourly) {
-          setHourly(data.hourly as HourlyWeather);
+        // Build the compact object with the exact keys the user requested.
+        const makeData = (obj: any) => ({
+          temperature: obj.temperature ?? null,
+          apparent_temperature: obj.apparent_temperature ?? obj.apparentTemperature ?? null,
+          humidity: obj.humidity ?? obj.relativehumidity_2m ?? null,
+          wind_speed: obj.wind_speed ?? obj.windspeed_10m ?? null,
+          wind_bearing: obj.wind_bearing ?? obj.winddirection_10m ?? null,
+          visibility: obj.visibility ?? null,
+          cloud_cover: obj.cloud_cover ?? obj.cloudcover ?? null,
+          pressure: obj.pressure ?? obj.pressure_msl ?? null,
+        });
 
-          // determine current hour index from hourly.time
-          const now = new Date();
-          // API returns times in local timezone when timezone=auto as ISO strings
-          const times: string[] = data.hourly.time || [];
-          let idx = times.findIndex((t: string) => {
-            const dt = new Date(t);
-            return (
-              dt.getFullYear() === now.getFullYear() &&
-              dt.getMonth() === now.getMonth() &&
-              dt.getDate() === now.getDate() &&
-              dt.getHours() === now.getHours()
-            );
-          });
-          if (idx === -1) idx = 0;
+        if (data) {
+          if (data.current_weather) {
+            setCurrentData(makeData(data.current_weather));
+          } else if (data.hourly) {
+            const times: string[] = data.hourly.time || [];
+            const now = new Date();
+            let idx = times.findIndex((t: string) => {
+              const dt = new Date(t);
+              return (
+                dt.getFullYear() === now.getFullYear() &&
+                dt.getMonth() === now.getMonth() &&
+                dt.getDate() === now.getDate() &&
+                dt.getHours() === now.getHours()
+              );
+            });
+            if (idx === -1) idx = 0;
 
-          const h: HourlyWeather = data.hourly;
-          setCurrentTemp(h.temperature_2m?.[idx] ?? null);
-          setCurrentApparent(h.apparent_temperature?.[idx] ?? null);
-          setCurrentHumidity(h.relativehumidity_2m?.[idx] ?? null);
+            const h = data.hourly as HourlyWeather;
+            setCurrentData({
+              temperature: h.temperature_2m?.[idx] ?? null,
+              apparent_temperature: h.apparent_temperature?.[idx] ?? null,
+              humidity: h.relativehumidity_2m?.[idx] ?? null,
+              wind_speed: h.windspeed_10m?.[idx] ?? null,
+              wind_bearing: h.winddirection_10m?.[idx] ?? null,
+              visibility: h.visibility?.[idx] ?? null,
+              cloud_cover: null,
+              pressure: h.pressure_msl?.[idx] ?? null,
+            });
+          } else {
+            setCurrentData(null);
+          }
         }
       } catch (error) {
         console.error('Error fetching weather data:', error);
@@ -92,32 +118,39 @@ const Weather = () => {
     fetchWeather();
   }, []);
 
-  const getWeatherIcon = () => {
-    if (!currentTemp) return 'weather-cloudy';
-    // simplistic mapping based on temperature for fallback
-    if (currentTemp > 30) return 'weather-sunny';
-    if (currentTemp > 20) return 'weather-partly-cloudy';
-    if (currentTemp > 5) return 'weather-cloudy';
-    return 'weather-snowy';
-  };
 
   if (loading) return <ActivityIndicator style={{ marginRight: 16 }} />;
-  if (!hourly) return (
-    <View style={{ marginRight: 16 }}>
-      <MaterialCommunityIcons name="alert-circle-outline" size={24} color="red" />
-    </View>
-  );
+
+  // Render a compact Card with labeled fields instead of a raw JSON string.
+  if (!currentData) {
+    return (
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text selectable>No weather data</Text>
+        </Card.Content>
+      </Card>
+    );
+  }
+
+  const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`);
 
   return (
     <Card style={styles.card}>
-      <View style={styles.row}>
-        <MaterialCommunityIcons name={getWeatherIcon()} size={28} color="#6200ee" />
-        <Text style={styles.tempText}>{currentTemp !== null ? `${Math.round(currentTemp)}°C` : '--'}</Text>
-      </View>
+      <Card.Title title="Weather" />
+      <Card.Content>
+        <View style={styles.row}>
+          <Text selectable style={styles.tempText}>
+            {fmt(currentData.temperature, '°C')}
+          </Text>
+        </View>
 
-      <Card.Content style={{ marginTop: 8 }}>
-        <Text>Apparent: {currentApparent !== null ? `${Math.round(currentApparent)}°C` : '--'}</Text>
-        <Text>Humidity: {currentHumidity !== null ? `${Math.round(currentHumidity)}%` : '--'}</Text>
+        <Text selectable>Feels like: {fmt(currentData.apparent_temperature, '°C')}</Text>
+        <Text selectable>Humidity: {fmt(currentData.humidity, '%')}</Text>
+        <Text selectable>
+          Wind: {fmt(currentData.wind_speed, ' m/s')}
+        </Text>
+        <Text selectable>Visibility: {fmt(currentData.visibility, ' m')}</Text>
+        <Text selectable>Pressure: {fmt(currentData.pressure, ' hPa')}</Text>
       </Card.Content>
     </Card>
   );
