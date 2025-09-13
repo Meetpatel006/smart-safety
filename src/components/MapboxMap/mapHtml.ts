@@ -195,10 +195,10 @@ export const generateMapHTML = (): string => {
           }
 
           function createPopupContent(properties) {
-              let content = `<strong>${properties.name || 'Unnamed Geofence'}</strong>`;
-              if (properties.category) content += `<br/>Category: ${properties.category}`;
-              if (properties.riskLevel) content += `<br/>Risk: ${properties.riskLevel}`;
-              if (properties.radiusKm) content += `<br/>Radius: ${properties.radiusKm} km`;
+              let content = '<strong>' + (properties.name || 'Unnamed Geofence') + '</strong>';
+              if (properties.category) content += '<br/>Category: ' + properties.category;
+              if (properties.riskLevel) content += '<br/>Risk: ' + properties.riskLevel;
+              if (properties.radiusKm) content += '<br/>Radius: ' + properties.radiusKm + ' km';
               return content;
           }
 
