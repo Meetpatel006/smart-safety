@@ -169,6 +169,10 @@ Operational notes:
 - **QR Code Generation**: For quick verification by authorities
 - **Encrypted Data Storage**: Primary AsyncStorage with encryption
 
+### Auth & Blockchain Anchoring Flow
+
+The detailed Auth & Blockchain Anchoring Flow is documented in `docs/PROJECT_FLOW.md` under "Registration & Digital ID" and the anchoring subsections. See that file for the complete step-by-step sequence, sample payloads, and verification details.
+
 ### Enhanced Tourist Dashboard
 - **Smart Profile Card**: Blockchain-verified digital tourist ID
 - **Dynamic Safety Score System**: AI-powered scoring (0-100) based on multiple risk factors
@@ -187,6 +191,8 @@ Operational notes:
 - **Special Features**: Fake call function, silent alarm mode
 - **Emergency Features**: Automatic location sharing, photo/video capture
 - **Group Safety Features**: Group panic alerts, buddy system with periodic check-ins
+  
+For a full production-ready sequence and endpoint examples for SOS alerts (ingest, AI triage, anchoring and authority handling), see `docs/PROJECT_FLOW.md` — "Detailed SOS Alert Flow with Authority".
 
 ### AI-Powered Real-time Safety Monitoring
 - **Intelligent Tracking**: Adaptive tracking frequency based on risk level
