@@ -236,13 +236,6 @@ Modal is well suited for hosting light-weight API endpoints and scheduled/batch 
    - Emit logs, metrics, and model version as part of each prediction. Sample and store inputs/outputs for debugging.
 
 
-## Common sequence flows (step-by-step)
-
-1) Registration & Digital ID
-   - Mobile -> Backend: /api/auth/register
-   - Backend validates, creates DB user, optionally calls client to compute hash or server computes blockchain anchor, returns jwt + digitalIdHash.
-   - Mobile displays QR/ID; authority can verify by scanning QR -> backend lookup -> optional on-chain verification.
-
 ### Auth & Blockchain Anchoring Flow
 
 Authentication and Digital ID anchoring follow a deterministic sequence to ensure integrity and verifiability:
