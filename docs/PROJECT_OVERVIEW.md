@@ -105,6 +105,33 @@ Modal is integrated as the primary deployment platform for AI/ML services, offer
 - Easy CI/CD integration with webhook triggers
 - Cost-effective pay-per-use pricing model
 
+### Safety Scoring Models: Weather & Geo-Location
+
+This project runs two specialized, production-ready models that each produce a normalized risk/safety score (0-100). Their outputs are combined by a lightweight ensemble service to produce the single "Safety Score" shown to users and used by the backend for alerting.
+
+- Weather model
+   - Inputs: current and forecasted weather (temperature, wind speed, precipitation, humidity), short-term forecasts (6-24h), nearby station observations, terrain/altitude, and broadcast weather alerts.
+   - Model type: gradient-boosted trees (XGBoost) for tabular features with an optional temporal component (LSTM or simple sequence model) for short-term trend detection.
+   - Output: { weather_risk: 0-100, confidence: 0-1, details: { top_features } }.
+   - Typical inference endpoint: POST /models/weather/score { "location": {lat,lng}, "timestamp": ... } -> { weather_risk, confidence, details }.
+
+- Geo-location model
+   - Inputs: current GPS coordinates, movement vector (speed/course), proximity to geofences (protected or hazardous areas), local terrain/road safety layers, time of day, and historical incident density for the area.
+   - Model type: XGBoost + engineered spatial features (point-in-polygon, distance-to-hazard, nearest-road-type); graph or sequence features can be added if movement history is available.
+   - Output: { location_risk: 0-100, confidence: 0-1, details: { top_features } }.
+   - Typical inference endpoint: POST /models/location/score { "location": {...}, "movement": {...}, "context": {...} } -> { location_risk, confidence, details }.
+
+- Ensemble & final safety score
+   - A small ensemble microservice combines the two model outputs using configurable weights and contextual rules (for example, increase weather weight during heavy storms). The service also enforces business rules (hard thresholds) to trigger immediate alerts regardless of averaged score.
+   - Final output shape: { safety_score: 0-100, components: { weather_risk, location_risk }, confidence, reason_codes: [...], recommended_action: "informational|caution|urgent|emergency" }.
+   - Ensemble endpoint: POST /models/ensemble/score { "user_id", "location", "timestamp", "sensor_data" } -> { safety_score, components, action }.
+
+Operational notes:
+- Latency: inference targets are low (sub-200ms under normal load); Modal auto-scaling handles spikes and GPU-backed containers are used for heavier models.
+- Fallbacks: when model endpoints or input data are unavailable, the system falls back to deterministic rule-based heuristics (distance thresholds, cached weather) and marks overall confidence as low.
+- Training & data: models are trained on historical incident logs, meteorological datasets, geofence labels, road-network safety indices, and simulated incident data where necessary. Retraining and A/B evaluation jobs run on a schedule.
+- Explainability & monitoring: each inference returns top contributing features and a confidence score for operator review. Model performance metrics and concept-drift alerts are tracked in monitoring dashboards.
+
 ### Primary Use Cases
 - **Safety Incident Detection**: Real-time risk scoring and classification for automated alerts
 - **Automated Incident Triage**: NLP processing of free-text incident reports to determine severity and next steps
@@ -225,33 +252,6 @@ Tourism and law enforcement authorities can:
 - Generate reports and analyze patterns to improve safety measures
 - Create and modify geo-fence zones based on changing conditions
 
-## Implementation Status
-
-The current implementation is a mock-up demonstrating the user interface flows and core functionality concepts. Key aspects include:
-
-- **Completed**: 
-  - UI components and navigation structure
-  - React Native with Expo setup
-  - Safety score calculation logic
-  - Basic geo-fencing implementation
-  - Emergency UI components
-  - OpenStreetMap integration
-  - Offline badge component
-  - Mock data integration
-
-- **In Progress**: 
-  - Enhanced geo-fencing implementation (as per to-do list)
-  - Location permission management
-  - Basic GPS tracking
-  - Geo-fence data model and detection logic
-
-- **Planned**: 
-  - Blockchain integration for digital ID
-  - AI-powered safety monitoring
-  - Backend API integration
-  - Real-time authority dashboard
-  - Enhanced emergency response features
-  - Multilingual support expansion
 
 ## Technical Verification & Validation
 
