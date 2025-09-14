@@ -20,6 +20,7 @@ jobs:
       JAVA_VERSION: '17'
       NODE_VERSION: '18'
       GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
+      MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
 
     steps:
       - name: Checkout
@@ -60,6 +61,12 @@ jobs:
           java-version: ${{ env.JAVA_VERSION }}
           cache: gradle
 
+      # Configure Mapbox credentials for Gradle
+      - name: Configure Mapbox for Gradle
+        run: |
+          mkdir -p ~/.gradle
+          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" >> ~/.gradle/gradle.properties
+      
       # NEW: Generate android/ folder
       - name: Expo prebuild
         run: npx expo prebuild --non-interactive
@@ -67,11 +74,20 @@ jobs:
       - name: Make Gradle executable
         run: chmod +x android/gradlew
 
+      - name: Configure Android build properties
+        run: |
+          # Create or update gradle.properties in android directory
+          echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" >> android/gradle.properties
+          echo "android.useAndroidX=true" >> android/gradle.properties
+          echo "android.enableJetifier=true" >> android/gradle.properties
+
       - name: Build Release APK
         working-directory: android
+        env:
+          MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
         run: |
           ./gradlew clean
-          ./gradlew assembleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease --no-daemon --stacktrace --info
 
       - name: List outputs
         run: |

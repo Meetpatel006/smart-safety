@@ -1,7 +1,9 @@
 
-export const generateMapHTML = (): string => {
-  // IMPORTANT: Replace with your Mapbox access token
-  const MAPBOX_ACCESS_TOKEN = 'pk.eyJ1IjoiaGl0ZXNodGFud2FkYSIsImEiOiJjbHdjZ2ZqY2wwMHdyMmlvNm5ucG9qZ3h3In0.I3i_5_E8Cq6-6_A92-weJA';
+import { MAPBOX_ACCESS_TOKEN } from '../../config';
+
+export const generateMapHTML = (accessToken?: string): string => {
+  // Use provided token or fallback to config
+  const token = accessToken || MAPBOX_ACCESS_TOKEN;
 
   return `
   <!DOCTYPE html>
@@ -22,10 +24,10 @@ export const generateMapHTML = (): string => {
   <body>
       <div id="map"></div>
       <script>
-          if (!'${MAPBOX_ACCESS_TOKEN}'.startsWith('pk.')) {
-            alert('Mapbox access token is not set. Please add it to mapHtml.ts');
+          if (!'${token}'.startsWith('pk.')) {
+            alert('Mapbox access token is not set. Please add MAPBOX_ACCESS_TOKEN to your environment variables or config.');
           }
-          mapboxgl.accessToken = '${MAPBOX_ACCESS_TOKEN}';
+          mapboxgl.accessToken = '${token}';
           const map = new mapboxgl.Map({
               container: 'map',
               style: 'mapbox://styles/mapbox/streets-v11',

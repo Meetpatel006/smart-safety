@@ -5,6 +5,7 @@ import { Text } from 'react-native-paper';
 import { WebView } from 'react-native-webview';
 import { WebViewMessage } from './types';
 import { generateMapHTML } from './mapHtml';
+import { MAPBOX_ACCESS_TOKEN } from '../../config';
 
 interface MapContainerProps {
   webViewKey: number;
@@ -14,10 +15,10 @@ interface MapContainerProps {
   isFullScreen?: boolean;
 }
 
-const MapContainer = ({ 
-  webViewKey, 
-  height, 
-  onWebViewMessage, 
+const MapContainer = ({
+  webViewKey,
+  height,
+  onWebViewMessage,
   webViewRef,
   isFullScreen
 }: MapContainerProps) => {
@@ -26,7 +27,7 @@ const MapContainer = ({
       <WebView
         key={webViewKey} // Force remount when key changes
         ref={webViewRef}
-        source={{ html: generateMapHTML() }}
+        source={{ html: generateMapHTML(MAPBOX_ACCESS_TOKEN) }}
         style={styles.webView}
         onMessage={onWebViewMessage}
         javaScriptEnabled={true}
