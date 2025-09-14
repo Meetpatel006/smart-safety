@@ -22,4 +22,12 @@ if (!MAPBOX_ACCESS_TOKEN) {
 // For strict 15-minute batching, keep this false.
 export const ROLLING_LOG_ENABLED = false
 
+// Gemini/LLM configuration - provide a simple HTTP endpoint and API key via expo.extra or env
+export const GEMINI_API_URL = Constants.expoConfig?.extra?.GEMINI_API_URL || process.env.GEMINI_API_URL || ''
+export const GEMINI_API_KEY = Constants.expoConfig?.extra?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
+
+if (!GEMINI_API_URL || !GEMINI_API_KEY) {
+  console.info('Gemini LLM not fully configured. GEMINI_API_URL or GEMINI_API_KEY missing. Using local fallback recommendations.');
+}
+
 export default { SERVER_URL, GEO_MODEL_URL, WEATHER_MODEL_URL, MAPBOX_ACCESS_TOKEN, ROLLING_LOG_ENABLED }
