@@ -4,14 +4,19 @@ import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"
 import EmergencyContacts from "../components/EmergencyContacts"
-import ItineraryList from "../components/ItineraryList"
 import SafetyRecommendations from "../components/SafetyRecommendations"
-import OsmMap from "../components/OsmMap"
 import PanicActions from "../components/PanicActions"
 import Weather from "../components/Weather"
+import { useState } from "react"
 
 export default function DashboardScreen({ navigation }: any) {
   const { state, acknowledgeHighRisk } = useApp()
+  const [isFullScreen, setIsFullScreen] = useState(false)
+  const [showWeather, setShowWeather] = useState(false)
+
+  const toggleFullScreen = () => {
+    setIsFullScreen(!isFullScreen)
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -24,16 +29,19 @@ export default function DashboardScreen({ navigation }: any) {
             style={{ alignItems: 'flex-end', marginRight: 8 }}
           />
         ) : null}
+        <Appbar.Action icon="weather-cloudy" onPress={() => setShowWeather(!showWeather)} />
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-        <Weather />
+        {showWeather && <Weather />}
         {/* Profile and language controls moved to Settings */}
         <SafetyScore />
-        <EmergencyContacts />
-        <ItineraryList />
-        <SafetyRecommendations />
-        <OsmMap />
         <PanicActions />
+        <EmergencyContacts />
+        <SafetyRecommendations />
+        {/* <OsmMap 
+          isFullScreen={isFullScreen}
+          onToggleFullScreen={toggleFullScreen}
+        /> */}
 
         {/* <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 8 }}>
           <Button mode="contained" onPress={() => navigation.navigate("Authority")}>

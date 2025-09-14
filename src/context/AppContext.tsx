@@ -25,7 +25,7 @@ type User = {
   consent: { tracking: boolean; dataRetention: boolean }
   createdAt: string
   expiresAt: string
-  audit: { regHash: string; regTxHash: string }
+  audit: { regHash: string; regTxHash: string; eventId: string }
 } | null
 
 type Contact = { id: string; name: string; phone: string }

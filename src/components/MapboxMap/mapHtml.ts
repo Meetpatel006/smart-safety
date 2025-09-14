@@ -105,16 +105,39 @@ export const generateMapHTML = (): string => {
                   case 'updateLocation':
                       updateLocation(data.longitude, data.latitude, data.zoomLevel);
                       break;
+                  case 'setLocation':
+                      if (data.location) {
+                          updateLocation(data.location.longitude, data.location.latitude, 14);
+                      }
+                      break;
                   case 'setGeoFences':
                       renderGeoFences(data.fences || []);
                       break;
                   case 'clearGeoFences':
                       clearAllGeoFences();
                       break;
+                  case 'setStyle':
+                      if (data.style) {
+                          const styleUrl = getStyleUrl(data.style);
+                          map.setStyle(styleUrl);
+                      }
+                      break;
                   case 'changeStyle':
                       map.setStyle(data.style);
                       break;
               }
+          }
+
+          function getStyleUrl(styleKey) {
+              const styles = {
+                  'streets': 'mapbox://styles/mapbox/streets-v11',
+                  'outdoors': 'mapbox://styles/mapbox/outdoors-v11',
+                  'light': 'mapbox://styles/mapbox/light-v10',
+                  'dark': 'mapbox://styles/mapbox/dark-v10',
+                  'satellite': 'mapbox://styles/mapbox/satellite-v9',
+                  'satelliteStreets': 'mapbox://styles/mapbox/satellite-streets-v11'
+              };
+              return styles[styleKey] || styles['streets'];
           }
 
           document.addEventListener('message', handleMessageEvent);

@@ -8,6 +8,7 @@ import * as Location from 'expo-location'
 import OsmMap from '../components/OsmMap'
 import { useApp } from '../context/AppContext'
 import { t } from '../context/translations'
+import { reverseGeocode } from '../components/OsmMap/geoUtils'
 
 // Simple debug screen to load pre-bundled JSON geo-fences (created by importer script)
 export default function GeoFenceDebugScreen() {
@@ -19,6 +20,7 @@ export default function GeoFenceDebugScreen() {
   const [showOnlyNearby, setShowOnlyNearby] = useState<boolean>(false)
   const [maxDistance, setMaxDistance] = useState<number>(5) // 5 km radius
   const [isMapFullScreen, setIsMapFullScreen] = useState<boolean>(false)
+  const [userState, setUserState] = useState<string | null>(null)
   
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -27,7 +29,7 @@ export default function GeoFenceDebugScreen() {
     if (userLocation && zones.length > 0) {
       filterZones(zones, showOnlyNearby);
     }
-  }, [userLocation, showOnlyNearby, maxDistance]);
+  }, [userLocation, showOnlyNearby, maxDistance, userState]);
 
   useEffect(() => {
     // Load geofences
@@ -56,7 +58,7 @@ export default function GeoFenceDebugScreen() {
     load()
   }, [])
   
-  // Function to filter zones based on distance
+  // Function to filter zones based on distance and state (state filtering is always enabled)
   const filterZones = (zones: GeoFence[], filterByDistance: boolean) => {
     if (!userLocation) {
       setFilteredZones(zones);
@@ -66,12 +68,19 @@ export default function GeoFenceDebugScreen() {
     const currentLocation = [userLocation.latitude, userLocation.longitude];
     
     // Add distance property to each zone
-    const zonesWithDistance = zones
+    let zonesWithDistance = zones
       .filter(zone => zone.type !== 'polygon' && zone.coords) // Filter out polygons without coords
       .map(zone => {
         const distance = haversineKm(zone.coords as number[], currentLocation);
         return { ...zone, distanceToUser: distance };
       });
+      
+    // Always filter by state if user state is known
+    if (userState) {
+      zonesWithDistance = zonesWithDistance.filter(zone => 
+        zone.state && zone.state.toLowerCase() === userState.toLowerCase()
+      );
+    }
       
     // Sort by distance
     zonesWithDistance.sort((a, b) => a.distanceToUser - b.distanceToUser);
@@ -98,12 +107,45 @@ export default function GeoFenceDebugScreen() {
       });
       console.log('Updated location for distance calculations:', location.coords.latitude, location.coords.longitude);
       
+      // Get user's state for filtering
+      await getUserState(location.coords.latitude, location.coords.longitude);
+      
       // Re-filter zones with the new location
       filterZones(zones, showOnlyNearby);
     } catch (error) {
       console.error("Error getting location:", error);
     } finally {
       setLoadingLocation(false);
+    }
+  };
+
+  // Function to get user's current state using reverse geocoding
+  const getUserState = async (lat: number, lon: number) => {
+    try {
+      const address = await reverseGeocode(lat, lon);
+      if (address) {
+        // Extract state from address - look for common Indian state patterns
+        const statePatterns = [
+          /(Andhra Pradesh|Arunachal Pradesh|Assam|Bihar|Chhattisgarh|Goa|Gujarat|Haryana|Himachal Pradesh|Jharkhand|Karnataka|Kerala|Madhya Pradesh|Maharashtra|Manipur|Meghalaya|Mizoram|Nagaland|Odisha|Puducherry|Punjab|Rajasthan|Sikkim|Tamil Nadu|Telangana|Tripura|Uttar Pradesh|Uttarakhand|West Bengal)/i,
+          /(Delhi|Jammu and Kashmir|Ladakh)/i
+        ];
+        
+        for (const pattern of statePatterns) {
+          const match = address.match(pattern);
+          if (match) {
+            const state = match[1];
+            console.log('Detected user state:', state);
+            setUserState(state);
+            return state;
+          }
+        }
+        
+        console.log('Could not detect state from address:', address);
+        setUserState(null);
+      }
+    } catch (error) {
+      console.error('Error getting user state:', error);
+      setUserState(null);
     }
   };
 
@@ -167,6 +209,12 @@ export default function GeoFenceDebugScreen() {
               </Text>
             </View>
             
+            {userState && (
+              <Text style={styles.currentStateText}>
+                Current State: {userState}
+              </Text>
+            )}
+            
             <View style={styles.filterContainer}>
               <Text 
                 style={[styles.filterButton, showOnlyNearby ? styles.filterButtonActive : {}]} 
@@ -215,6 +263,7 @@ export default function GeoFenceDebugScreen() {
       <View >
         <OsmMap 
           geoFences={showOnlyNearby ? filteredZones : zones}
+          isFullScreen={isMapFullScreen}
           onToggleFullScreen={(to) => setIsMapFullScreen(to)}
         />
       </View>
@@ -514,5 +563,11 @@ const styles = StyleSheet.create({
     color: '#f44336',
     fontSize: 12,
     fontWeight: '600'
+  },
+  currentStateText: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 4,
+    fontStyle: 'italic'
   }
 })

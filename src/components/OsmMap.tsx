@@ -9,14 +9,18 @@ import MapHeader from './OsmMap/MapHeader';
 import ErrorMessage from './OsmMap/ErrorMessage';
 import MapContainer from './OsmMap/MapContainer';
 import LocationInfo from './OsmMap/LocationInfo';
-import TileProviderSelector from './OsmMap/TileProviderSelector';
 import MapActionButtons from './OsmMap/MapActionButtons';
 
 // Import types, constants and utilities
-import { OsmMapProps, LocationData, TileProvider } from './OsmMap/types';
-import { TILE_SERVERS } from './OsmMap/constants';
+import { OsmMapProps, LocationData } from './OsmMap/types';
 import { reverseGeocode } from './OsmMap/geoUtils';
 import { useApp } from '../context/AppContext';
+
+// Default tile configuration
+const DEFAULT_TILE_CONFIG = {
+  url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+  attribution: '© OpenStreetMap contributors'
+};
 
 /*
   Enhanced OsmMap: OpenStreetMap integration with Leaflet
@@ -49,7 +53,6 @@ export default function OsmMap({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [loadingLocation, setLoadingLocation] = useState(false);
   const [loadingAddress, setLoadingAddress] = useState(false);
-  const [tileProvider, setTileProvider] = useState<TileProvider>('openstreetmap');
   const [mapReady, setMapReady] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
   const webViewRef = useRef<WebView>(null);
@@ -64,7 +67,7 @@ export default function OsmMap({
     if (location && mapReady) {
       updateMapLocation();
     }
-  }, [location, mapReady, tileProvider]);
+  }, [location, mapReady]);
 
   // Send geo-fences to the WebView when map is ready or when geoFences prop changes
   useEffect(() => {
@@ -171,22 +174,6 @@ export default function OsmMap({
     }));
   };
 
-  const changeTileProvider = (provider: TileProvider) => {
-    setTileProvider(provider);
-    setMapReady(false); // Reset map ready state
-    setWebViewKey(prev => prev + 1); // Force WebView remount
-    
-    // Send message to existing map instance if available
-    if (webViewRef.current && mapReady) {
-      const tileConfig = TILE_SERVERS[provider];
-      webViewRef.current.postMessage(JSON.stringify({
-        type: 'changeTileProvider',
-        url: tileConfig.url,
-        attribution: tileConfig.attribution
-      }));
-    }
-  };
-
   const handleWebViewMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
@@ -289,7 +276,7 @@ export default function OsmMap({
         <MapContainer
           webViewKey={webViewKey}
           height={mapHeight}
-          tileConfig={TILE_SERVERS[tileProvider]}
+          tileConfig={DEFAULT_TILE_CONFIG}
           onWebViewMessage={handleWebViewMessage}
           webViewRef={webViewRef}
           isFullScreen={!!isFullScreen}
@@ -300,13 +287,6 @@ export default function OsmMap({
           location={location}
           address={address}
           loadingAddress={loadingAddress}
-        />
-
-        {/* Tile Provider Selection */}
-        <TileProviderSelector
-          tileProvider={tileProvider}
-          onChangeTileProvider={changeTileProvider}
-          providers={Object.keys(TILE_SERVERS)}
         />
 
         {/* Action Buttons */}

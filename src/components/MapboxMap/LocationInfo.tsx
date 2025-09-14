@@ -16,19 +16,6 @@ const LocationInfo = ({ location, address, loadingAddress }: LocationInfoProps) 
 
   return (
     <View style={styles.locationInfo}>
-      <View style={styles.coordinates}>
-        <Text style={styles.coordText}>
-          Lat: {location.coords.latitude.toFixed(6)}
-        </Text>
-        <Text style={styles.coordText}>
-          Lng: {location.coords.longitude.toFixed(6)}
-        </Text>
-        {location.coords.accuracy && (
-          <Text style={styles.coordText}>
-            ±{location.coords.accuracy.toFixed(0)}m
-          </Text>
-        )}
-      </View>
 
       {/* DMS Coordinates */}
       <View style={styles.dmsContainer}>

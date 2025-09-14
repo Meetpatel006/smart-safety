@@ -55,15 +55,38 @@ export default function PanicActions() {
     <Card>
       <Card.Title title={t(state.language, "emergencySystem")} />
       <Card.Content>
+        {/* SOS Button - Made larger and more prominent */}
+        <View style={{ marginBottom: 16, alignItems: 'center' }}>
+          <Button 
+            mode="contained" 
+            buttonColor="#D11A2A" 
+            onPress={() => trigger(t(state.language, "sos"))} 
+            disabled={loading}
+            style={{ 
+              width: 100, 
+              height: 100, 
+              justifyContent: 'center',
+              alignItems: 'center',
+              borderRadius: 100,
+              elevation: 8,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.3,
+              shadowRadius: 4,
+            }}
+            labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+          >
+            {t(state.language, "sos")}
+          </Button>
+        </View>
+        
+        {/* Other action buttons */}
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           <Button mode="contained-tonal" onPress={() => trigger(t(state.language, "help"))} disabled={loading}>
             {t(state.language, "help")}
           </Button>
           <Button mode="contained" onPress={() => trigger(t(state.language, "urgentHelp"))} disabled={loading}>
             {t(state.language, "urgentHelp")}
-          </Button>
-          <Button mode="contained" buttonColor="#D11A2A" onPress={() => trigger(t(state.language, "sos"))} disabled={loading}>
-            {t(state.language, "sos")}
           </Button>
           <Button mode="outlined" onPress={() => trigger(t(state.language, "fakeCall"))} disabled={loading}>
             {t(state.language, "fakeCall")}

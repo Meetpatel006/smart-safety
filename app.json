@@ -37,6 +37,12 @@
           "requestLocationPermission": true,
           "locationPermission": "Allow $(PRODUCT_NAME) to access your location for emergency services and safety features"
         }
+      ],
+      [
+        "@react-navigation/native",
+        {
+          "predictiveBackGesture": false
+        }
       ]
     ],
     "ios": {

@@ -19,7 +19,8 @@ export default function ProfileCard() {
           <View style={{ gap: 4 }}>
             <Text>Name: {state.user?.name}</Text>
             <Text>Email: {state.user?.email}</Text>
-            {state.user?.audit?.regTxHash && <Text>Blockchain ID: {state.user.audit.regTxHash}</Text>}
+            {state.user?.touristId && <Text>Tourist ID: {state.user.touristId}</Text>}
+            {state.user?.audit?.eventId && <Text>Event ID: {state.user.audit.eventId}</Text>}
           </View>
         ) : (
           <View style={{ gap: 8 }}>

@@ -43,10 +43,13 @@
   "devDependencies": {
     "@babel/core": "^7.25.2",
     "@react-native-community/cli": "^20.0.1",
-  "@types/react": "~19.1.10",
-  "typescript": "~5.9.2"
+    "@types/react": "~19.1.10",
+    "typescript": "~5.9.2"
   },
   "overrides": {
-    "@expo/config-plugins": "~10.1.1"
+    "@expo/config-plugins": "~10.1.1",
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.10.1",
+    "@react-navigation/bottom-tabs": "^6.5.20"
   }
 }

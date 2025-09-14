@@ -40,18 +40,18 @@ function MainTabs() {
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard" color={color} size={size} />,
         }}
       />
+       <Tab.Screen
+        name="Emergency"
+        component={EmergencyScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="alarm-light" color={color} size={size} />,
+        }}
+      />
       <Tab.Screen
         name="Itinerary"
         component={ItineraryScreen}
         options={{
           tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="calendar" color={color} size={size} />,
-        }}
-      />
-      <Tab.Screen
-        name="Emergency"
-        component={EmergencyScreen}
-        options={{
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="alarm-light" color={color} size={size} />,
         }}
       />
       <Tab.Screen

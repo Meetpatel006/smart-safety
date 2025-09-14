@@ -14,6 +14,7 @@ export default function GeoFenceDebugScreen() {
   const [loadingLocation, setLoadingLocation] = useState<boolean>(true)
   const [showOnlyNearby, setShowOnlyNearby] = useState<boolean>(false)
   const [maxDistance, setMaxDistance] = useState<number>(5) // 5 km radius
+  const [isMapFullScreen, setIsMapFullScreen] = useState<boolean>(false)
   
   const [loadError, setLoadError] = useState<string | null>(null)
 
@@ -210,7 +211,11 @@ export default function GeoFenceDebugScreen() {
       </View>
       
       <View >
-        <OsmMap geoFences={showOnlyNearby ? filteredZones : zones} />
+        <OsmMap 
+          geoFences={showOnlyNearby ? filteredZones : zones}
+          isFullScreen={isMapFullScreen}
+          onToggleFullScreen={(to) => setIsMapFullScreen(to)}
+        />
       </View>
       
       <View style={styles.sectionHeader}>
