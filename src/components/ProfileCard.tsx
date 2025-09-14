@@ -19,7 +19,7 @@ export default function ProfileCard() {
     Animated.timing(flipAnim, {
       toValue: flipped ? 0 : 1,
       duration: 300,
-      useNativeDriver: true,
+      useNativeDriver: false,
     }).start()
     setFlipped(!flipped)
   }

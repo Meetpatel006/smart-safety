@@ -1,6 +1,6 @@
 
-import React from "react"
-import { View, StyleSheet } from "react-native"
+import React, { useEffect, useRef } from "react"
+import { View, StyleSheet, Animated, Easing } from "react-native"
 import { Button, Snackbar, Text, IconButton, useTheme } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
@@ -11,6 +11,122 @@ export default function PanicActions() {
   const theme = useTheme()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
+
+  // Animation values
+  const pulseAnim = useRef(new Animated.Value(1)).current
+  const glowOpacityAnim = useRef(new Animated.Value(0)).current
+  const glowScaleAnim = useRef(new Animated.Value(1)).current
+  const containerOpacityAnim = useRef(new Animated.Value(0)).current
+  const textOpacityAnim = useRef(new Animated.Value(0)).current
+  const scaleAnim = useRef(new Animated.Value(0)).current
+
+  useEffect(() => {
+    // Container fade in animation on mount
+    Animated.timing(containerOpacityAnim, {
+      toValue: 1,
+      duration: 800,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false, // opacity cannot use native driver
+    }).start()
+
+    // Text fade in animation on mount
+    Animated.timing(textOpacityAnim, {
+      toValue: 1,
+      duration: 1000,
+      delay: 200,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: false, // opacity cannot use native driver
+    }).start()
+
+    // Scale up animation on mount
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      tension: 100,
+      friction: 8,
+      useNativeDriver: false,
+    }).start()
+
+    // Continuous pulse animation
+    const pulseAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1500,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    )
+
+    // Continuous glow animation - separate opacity and scale
+    const glowOpacityAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowOpacityAnim, {
+          toValue: 0.4,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false, // opacity can't use native driver
+        }),
+        Animated.timing(glowOpacityAnim, {
+          toValue: 0.1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    )
+
+    const glowScaleAnimation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(glowScaleAnim, {
+          toValue: 1.1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+        Animated.timing(glowScaleAnim, {
+          toValue: 1,
+          duration: 2000,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: false,
+        }),
+      ])
+    )
+
+    pulseAnimation.start()
+    glowOpacityAnimation.start()
+    glowScaleAnimation.start()
+
+    return () => {
+      pulseAnimation.stop()
+      glowOpacityAnimation.stop()
+      glowScaleAnimation.stop()
+    }
+  }, [])
+
+  const handleSOSPress = () => {
+    // Add press animation
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 100,
+        useNativeDriver: false,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: false,
+      }),
+    ]).start()
+
+    trigger(t(state.language, "sos"))
+  }
 
   const trigger = async (label: string) => {
     if (state.offline) {
@@ -53,58 +169,58 @@ export default function PanicActions() {
   }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>{t(state.language, "emergencySystem")}</Text>
-
+    <Animated.View style={[styles.container, { opacity: containerOpacityAnim }]}>
+      <Animated.Text style={[styles.helpText, { transform: [{ scale: scaleAnim }] }]}>
+        Help is just a click away!
+      </Animated.Text>
+      
       <View style={styles.sosWrapper}>
-        <Button
-          mode="contained"
-          buttonColor="#D11A2A"
-          onPress={() => trigger(t(state.language, "sos"))}
-          disabled={loading}
-          style={styles.sosButton}
-          labelStyle={styles.sosLabel}
-          accessibilityLabel="SOS Button"
-          accessibilityHint="Triggers emergency SOS alert"
-        >
-          {t(state.language, "sos")}
-        </Button>
+        <View style={styles.sosCenter}>
+          {/* Animated glow background (centered behind SOS) */}
+          <Animated.View
+            style={[
+              styles.glowBackground,
+              {
+                opacity: glowOpacityAnim,
+                top: -25,
+                left: -25,
+                transform: [{ scale: glowScaleAnim }]
+              }
+            ]}
+          />
 
-        <View style={styles.actionRow}>
+          <Animated.View
+            style={[
+              styles.sosButtonContainer,
+              {
+                transform: [{ scale: Animated.multiply(pulseAnim, scaleAnim) }]
+              }
+            ]}
+          >
           <Button
             mode="contained"
-            icon="phone"
-            onPress={() => trigger("Code Call")}
-            buttonColor={theme.colors.primary}
-            style={styles.actionButton}
-            accessibilityLabel="Code Call"
-            accessibilityHint="Place a code call to your emergency contacts"
+            buttonColor="#D11A2A"
+            onPress={handleSOSPress}
             disabled={loading}
+            style={styles.sosButton}
+            labelStyle={styles.sosLabel}
+            accessibilityLabel="SOS Button"
+            accessibilityHint="Triggers emergency SOS alert"
           >
-            Code Call
+            SOS
           </Button>
+        </Animated.View>
+  </View>
+  </View>
 
-          <Button
-            mode="contained-tonal"
-            icon="map-marker"
-            onPress={async () => {
-              // For now reuse trigger to send location-only SOS or perform location share
-              await trigger(t(state.language, "location"))
-            }}
-            style={styles.actionButton}
-            accessibilityLabel="Location"
-            accessibilityHint="Share your current location"
-            disabled={loading}
-          >
-            Location
-          </Button>
-        </View>
-      </View>
+  <Animated.Text style={[styles.instructionText, { opacity: textOpacityAnim }]}>
+        Click <Text style={styles.sosTextHighlight}>SOS button</Text> to call the help.
+      </Animated.Text>
 
       <Snackbar visible={snack.visible} onDismiss={() => setSnack({ visible: false, msg: "" })} duration={2000}>
         {snack.msg}
       </Snackbar>
-    </View>
+    </Animated.View>
   )
 }
 
@@ -113,39 +229,78 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
+  helpText: {
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 20,
     textAlign: 'center',
+    color: '#333',
   },
   sosWrapper: {
     alignItems: 'center',
-    width: '100%'
+    width: '100%',
+    marginBottom: 20,
+    position: 'relative',
+    minHeight: 320,
+    justifyContent: 'center',
+  },
+  glowBackground: {
+    position: 'absolute',
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    backgroundColor: '#D11A2A',
+    opacity: 0.2,
+    zIndex: 0,
+  },
+  sosButtonContainer: {
+    // Create the layered shadow effect similar to the image
+    shadowColor: '#D11A2A',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 15,
+    zIndex: 1,
+  },
+  sosCenter: {
+    width: 200,
+    height: 200,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   sosButton: {
-    width: 180,
-    height: 180,
-    borderRadius: 180,
+    width: 200,
+    height: 200,
+    borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 10,
+    shadowColor: '#D11A2A',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   sosLabel: {
-    fontSize: 22,
+    fontSize: 28,
     fontWeight: '900',
+    color: 'white',
   },
-  actionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    width: '100%',
-    paddingHorizontal: 32,
-    gap: 12,
+  instructionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+    color: '#555',
+    marginTop: 8,
   },
-  actionButton: {
-    flex: 1,
-    height: 48,
-    justifyContent: 'center',
-  }
+  sosTextHighlight: {
+    fontWeight: '700',
+    color: '#D11A2A',
+  },
 })

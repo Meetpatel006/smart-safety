@@ -26,19 +26,7 @@ export default function DashboardScreen({ navigation }: any) {
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.container}>
-        {/* Top row: Weather and Safety Score centered */}
-        <View style={styles.topRow}>
-          <View style={styles.weatherContainer}>
-            <Weather />
-
-            {/* Safety score directly below weather */}
-            <View style={styles.safetyScoreContainer}>
-              <SafetyScore/>
-            </View>
-          </View>
-        </View>
-
-        {/* SOS large button centered under the top area */}
+        {/* Panic actions at the top (large SOS button area) */}
         <View style={styles.centerZone}>
           <PanicActions />
         </View>
@@ -48,7 +36,17 @@ export default function DashboardScreen({ navigation }: any) {
           <EmergencyContacts compact />
         </View>
 
-        {/* Recommendations kept below */}
+        {/* Safety score centered */}
+        <View style={styles.safetyScoreContainer}>
+          <SafetyScore />
+        </View>
+
+        {/* Weather shown after safety score */}
+        <View style={styles.weatherContainer}>
+          <Weather />
+        </View>
+
+        {/* Recommendations at the end */}
         <View style={{ width: '100%' }}>
           <SafetyRecommendations />
         </View>
