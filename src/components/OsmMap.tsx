@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
 import { StyleSheet, Platform, Alert, Dimensions, View } from "react-native";
-import { Card } from "react-native-paper";
 import { WebView } from 'react-native-webview';
 import * as Location from "expo-location";
 

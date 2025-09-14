@@ -1,7 +1,7 @@
 
 import React from "react"
 import { View } from "react-native"
-import { Button, Card, Snackbar } from "react-native-paper"
+import { Button, Snackbar, Text } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
@@ -52,53 +52,53 @@ export default function PanicActions() {
   }
 
   return (
-    <Card>
-      <Card.Title title={t(state.language, "emergencySystem")} />
-      <Card.Content>
-        {/* SOS Button - Made larger and more prominent */}
-        <View style={{ marginBottom: 16, alignItems: 'center' }}>
-          <Button 
-            mode="contained" 
-            buttonColor="#D11A2A" 
-            onPress={() => trigger(t(state.language, "sos"))} 
-            disabled={loading}
-            style={{ 
-              width: 100, 
-              height: 100, 
-              justifyContent: 'center',
-              alignItems: 'center',
-              borderRadius: 100,
-              elevation: 8,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.3,
-              shadowRadius: 4,
-            }}
-            labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
-          >
-            {t(state.language, "sos")}
-          </Button>
-        </View>
-        
-        {/* Other action buttons */}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          <Button mode="contained-tonal" onPress={() => trigger(t(state.language, "help"))} disabled={loading}>
-            {t(state.language, "help")}
-          </Button>
-          <Button mode="contained" onPress={() => trigger(t(state.language, "urgentHelp"))} disabled={loading}>
-            {t(state.language, "urgentHelp")}
-          </Button>
-          <Button mode="outlined" onPress={() => trigger(t(state.language, "fakeCall"))} disabled={loading}>
-            {t(state.language, "fakeCall")}
-          </Button>
-          <Button mode="outlined" onPress={() => trigger(t(state.language, "silentAlert"))} disabled={loading}>
-            {t(state.language, "silentAlert")}
-          </Button>
-        </View>
-      </Card.Content>
+    <View style={{ padding: 16 }}>
+      <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>{t(state.language, "emergencySystem")}</Text>
+      
+      {/* SOS Button - Made larger and more prominent */}
+      <View style={{ marginBottom: 16, alignItems: 'center' }}>
+        <Button 
+          mode="contained" 
+          buttonColor="#D11A2A" 
+          onPress={() => trigger(t(state.language, "sos"))} 
+          disabled={loading}
+          style={{ 
+            width: 100, 
+            height: 100, 
+            justifyContent: 'center',
+            alignItems: 'center',
+            borderRadius: 100,
+            elevation: 8,
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.3,
+            shadowRadius: 4,
+          }}
+          labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+        >
+          {t(state.language, "sos")}
+        </Button>
+      </View>
+      
+      {/* Other action buttons */}
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <Button mode="contained-tonal" onPress={() => trigger(t(state.language, "help"))} disabled={loading}>
+          {t(state.language, "help")}
+        </Button>
+        <Button mode="contained" onPress={() => trigger(t(state.language, "urgentHelp"))} disabled={loading}>
+          {t(state.language, "urgentHelp")}
+        </Button>
+        <Button mode="outlined" onPress={() => trigger(t(state.language, "fakeCall"))} disabled={loading}>
+          {t(state.language, "fakeCall")}
+        </Button>
+        <Button mode="outlined" onPress={() => trigger(t(state.language, "silentAlert"))} disabled={loading}>
+          {t(state.language, "silentAlert")}
+        </Button>
+      </View>
+      
       <Snackbar visible={snack.visible} onDismiss={() => setSnack({ visible: false, msg: "" })} duration={2000}>
         {snack.msg}
       </Snackbar>
-    </Card>
+    </View>
   )
 }

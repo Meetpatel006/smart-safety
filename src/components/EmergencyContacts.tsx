@@ -1,7 +1,7 @@
 
 import { useState } from "react"
 import { View } from "react-native"
-import { Button, Card, IconButton, List, Modal, Portal, TextInput } from "react-native-paper"
+import { Button, IconButton, List, Modal, Portal, TextInput, Text } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
@@ -31,27 +31,25 @@ export default function EmergencyContacts() {
   }
 
   return (
-    <Card>
-      <Card.Title
-        title={t(state.language, "emergencyContacts")}
-        right={(props) => <Button onPress={openNew}>{t(state.language, "add")}</Button>}
-      />
-      <Card.Content>
-        <List.Section>
-          {state.contacts.map((c) => (
-            <List.Item
-              key={c.id}
-              title={`${c.name} (${c.phone})`}
-              right={() => (
-                <View style={{ flexDirection: "row" }}>
-                  <IconButton icon="pencil" onPress={() => openEdit(c.id, c.name, c.phone)} />
-                  <IconButton icon="delete" onPress={() => removeContact(c.id)} />
-                </View>
-              )}
-            />
-          ))}
-        </List.Section>
-      </Card.Content>
+    <View style={{ padding: 16 }}>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Text style={{ fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "emergencyContacts")}</Text>
+        <Button onPress={openNew}>{t(state.language, "add")}</Button>
+      </View>
+      <List.Section>
+        {state.contacts.map((c) => (
+          <List.Item
+            key={c.id}
+            title={`${c.name} (${c.phone})`}
+            right={() => (
+              <View style={{ flexDirection: "row" }}>
+                <IconButton icon="pencil" onPress={() => openEdit(c.id, c.name, c.phone)} />
+                <IconButton icon="delete" onPress={() => removeContact(c.id)} />
+              </View>
+            )}
+          />
+        ))}
+      </List.Section>
 
       <Portal>
         <Modal
@@ -75,6 +73,6 @@ export default function EmergencyContacts() {
           </View>
         </Modal>
       </Portal>
-    </Card>
+    </View>
   )
 }

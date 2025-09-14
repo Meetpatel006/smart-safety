@@ -1,5 +1,5 @@
 import { View, ScrollView } from "react-native"
-import { Appbar, Card, List, Text, Switch, TextInput, Button } from "react-native-paper"
+import { Appbar, List, Text, Switch, TextInput, Button } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"
@@ -29,9 +29,10 @@ export default function SettingsScreen() {
       </Appbar.Header>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
         <ProfileCard />
-        <Card>
-          <Card.Title title="High‑risk alerts" subtitle="Acknowledge and suppress notifications" />
-          <Card.Content style={{ gap: 12 }}>
+        <View style={{ backgroundColor: 'white', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 4 }}>High‑risk alerts</Text>
+          <Text style={{ color: '#666', marginBottom: 16 }}>Acknowledge and suppress notifications</Text>
+          <View style={{ gap: 12 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text>Mute all high‑risk alerts</Text>
               <Switch value={muted} onValueChange={async (v) => {
@@ -56,28 +57,22 @@ export default function SettingsScreen() {
               }}>Acknowledge now</Button>
             </View>
             <Text style={{ color: '#555' }}>If you don’t acknowledge, alerts will escalate at 5/15/30+ minutes by default.</Text>
-          </Card.Content>
-        </Card>
-        <Card>
-          <Card.Title title={t(state.language, "dataPrivacy")} />
-          <Card.Content>
-            <Text>This demo uses only mock/local data. No personal data is collected or sent to any server.</Text>
-          </Card.Content>
-        </Card>
+          </View>
+        </View>
+        <View style={{ backgroundColor: 'white', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>{t(state.language, "dataPrivacy")}</Text>
+          <Text>This demo uses only mock/local data. No personal data is collected or sent to any server.</Text>
+        </View>
 
-        <Card>
-          <Card.Title title={t(state.language, "multilingual")} />
-          <Card.Content>
-            <LanguageToggle />
-          </Card.Content>
-        </Card>
+        <View style={{ backgroundColor: 'white', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>{t(state.language, "multilingual")}</Text>
+          <LanguageToggle />
+        </View>
 
-        <Card>
-          <Card.Title title={t(state.language, "offlineMode")} />
-          <Card.Content>
-            <OfflineBadge />
-          </Card.Content>
-        </Card>
+        <View style={{ backgroundColor: 'white', padding: 16, marginBottom: 12, borderRadius: 8, elevation: 2 }}>
+          <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 8 }}>{t(state.language, "offlineMode")}</Text>
+          <OfflineBadge />
+        </View>
 
         <List.Section>
           <List.Item

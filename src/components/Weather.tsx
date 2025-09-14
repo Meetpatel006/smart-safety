@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchOpenMeteoCurrentHour } from '../utils/api';
-import { Text, ActivityIndicator, Card } from 'react-native-paper';
+import { Text, ActivityIndicator } from 'react-native-paper';
 
 type HourlyWeather = {
   time: string[];
@@ -61,42 +61,38 @@ const Weather = () => {
   // Render a compact Card with labeled fields instead of a raw JSON string.
   if (!currentData) {
     return (
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text selectable>No weather data</Text>
-        </Card.Content>
-      </Card>
+      <View style={styles.container}>
+        <Text selectable>No weather data</Text>
+      </View>
     );
   }
 
   const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`);
 
   return (
-    <Card style={styles.card}>
-      <Card.Title title="Weather" />
-      <Card.Content>
-        <View style={styles.row}>
-          <Text selectable style={styles.tempText}>
-            {fmt(currentData.temperature, '°C')}
-          </Text>
-        </View>
-
-        <Text selectable>Feels like: {fmt(currentData.apparent_temperature, '°C')}</Text>
-        <Text selectable>Humidity: {fmt(currentData.humidity, '%')}</Text>
-        <Text selectable>
-          Wind: {fmt(currentData.wind_speed, ' m/s')}
+    <View style={styles.container}>
+      <Text style={styles.title}>Weather</Text>
+      <View style={styles.row}>
+        <Text selectable style={styles.tempText}>
+          {fmt(currentData.temperature, '°C')}
         </Text>
-        <Text selectable>Visibility: {fmt(currentData.visibility, ' m')}</Text>
-        <Text selectable>Pressure: {fmt(currentData.pressure, ' hPa')}</Text>
-      </Card.Content>
-    </Card>
+      </View>
+
+      <Text selectable>Feels like: {fmt(currentData.apparent_temperature, '°C')}</Text>
+      <Text selectable>Humidity: {fmt(currentData.humidity, '%')}</Text>
+      <Text selectable>
+        Wind: {fmt(currentData.wind_speed, ' m/s')}
+      </Text>
+      <Text selectable>Visibility: {fmt(currentData.visibility, ' m')}</Text>
+      <Text selectable>Pressure: {fmt(currentData.pressure, ' hPa')}</Text>
+    </View>
   );
 };
 
 export default Weather;
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     marginRight: 16,
     padding: 8,
     elevation: 6,
@@ -105,6 +101,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   tempText: { marginLeft: 10, fontWeight: '600' },

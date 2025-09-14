@@ -1,7 +1,7 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { View, StyleSheet } from "react-native"
-import { Card, Text, SegmentedButtons, ProgressBar, ActivityIndicator } from "react-native-paper"
+import { Text, SegmentedButtons, ProgressBar, ActivityIndicator } from "react-native-paper"
 import { computeSafetyScore } from "../utils/safetyLogic"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
@@ -89,57 +89,60 @@ export default function SafetyScore() {
   }, [state.currentLocation])
 
   return (
-    <Card style={styles.card}>
-      <Card.Title title={t(state.language, "safetyScore")} />
-      <Card.Content>
-        <View style={{ gap: 10 }}>
-          
-          {/* Show model prediction if available, otherwise show computed local score */}
-          {loading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator animating size={20} />
-              <Text>Checking location safety...</Text>
-            </View>
-          ) : modelError ? (
-            <Text style={{ color: 'red' }}>Geo model error: {modelError}</Text>
-          ) : predictedScore !== null ? (
-            <>
-              <Text>Score (geo model): {predictedScore} ({predictedLabel || 'Unknown'})</Text>
-              <ProgressBar progress={Math.max(0, Math.min(1, predictedScore / 100))} />
-            </>
-          ) : (
-            <>
-              <Text>
-                Score: {result.score} ({result.status})
-              </Text>
-              <ProgressBar progress={result.score / 100} />
-            </>
-          )}
-          {/* Weather model results */}
-          {weatherModelLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <ActivityIndicator animating size={16} />
-              <Text>Checking weather safety...</Text>
-            </View>
-          ) : weatherModelError ? (
-            <Text style={{ color: 'red' }}>Weather model error: {weatherModelError}</Text>
-          ) : weatherModelScore !== null ? (
-            <>
-              <Text>Score (weather model): {weatherModelScore} ({weatherModelCategory || 'Unknown'})</Text>
-              <Text>Confidence: {weatherModelConfidence !== null ? `${(weatherModelConfidence * 100).toFixed(0)}%` : '--'}</Text>
-              <ProgressBar progress={Math.max(0, Math.min(1, (weatherModelScore ?? 0) / 100))} />
-            </>
-          ) : null}
-        </View>
-      </Card.Content>
-    </Card>
+    <View style={styles.container}>
+      <Text style={styles.title}>{t(state.language, "safetyScore")}</Text>
+      <View style={{ gap: 10 }}>
+        
+        {/* Show model prediction if available, otherwise show computed local score */}
+        {loading ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ActivityIndicator animating size={20} />
+            <Text>Checking location safety...</Text>
+          </View>
+        ) : modelError ? (
+          <Text style={{ color: 'red' }}>Geo model error: {modelError}</Text>
+        ) : predictedScore !== null ? (
+          <>
+            <Text>Score (geo model): {predictedScore} ({predictedLabel || 'Unknown'})</Text>
+            <ProgressBar progress={Math.max(0, Math.min(1, predictedScore / 100))} />
+          </>
+        ) : (
+          <>
+            <Text>
+              Score: {result.score} ({result.status})
+            </Text>
+            <ProgressBar progress={result.score / 100} />
+          </>
+        )}
+        {/* Weather model results */}
+        {weatherModelLoading ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ActivityIndicator animating size={16} />
+            <Text>Checking weather safety...</Text>
+          </View>
+        ) : weatherModelError ? (
+          <Text style={{ color: 'red' }}>Weather model error: {weatherModelError}</Text>
+        ) : weatherModelScore !== null ? (
+          <>
+            <Text>Score (weather model): {weatherModelScore} ({weatherModelCategory || 'Unknown'})</Text>
+            <Text>Confidence: {weatherModelConfidence !== null ? `${(weatherModelConfidence * 100).toFixed(0)}%` : '--'}</Text>
+            <ProgressBar progress={Math.max(0, Math.min(1, (weatherModelScore ?? 0) / 100))} />
+          </>
+        ) : null}
+      </View>
+    </View>
   )
 }
 
 const styles = StyleSheet.create({
-  card: {
+  container: {
     marginTop: 6,
     elevation: 1,
     zIndex: 1,
+  },
+  title: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 10,
   },
 })
