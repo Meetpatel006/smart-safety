@@ -62,9 +62,7 @@ jobs:
 
       # NEW: Generate android/ folder
       - name: Expo prebuild
-        run: npx expo prebuild
-        env:
-          CI: 1
+        run: npx expo prebuild --non-interactive
 
       - name: Make Gradle executable
         run: chmod +x android/gradlew
