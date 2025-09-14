@@ -16,6 +16,9 @@ module.exports = ({ config }) => {
   if (process.env.MAPBOX_ACCESS_TOKEN) {
     config.extra.MAPBOX_ACCESS_TOKEN = process.env.MAPBOX_ACCESS_TOKEN;
   }
+  if (process.env.MAPBOX_DOWNLOADS_TOKEN) {
+    config.extra.MAPBOX_DOWNLOADS_TOKEN = process.env.MAPBOX_DOWNLOADS_TOKEN;
+  }
 
   return config;
 };
