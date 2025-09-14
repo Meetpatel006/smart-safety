@@ -1,5 +1,5 @@
-import { ScrollView, View } from "react-native"
-import { Appbar, Button, Text } from "react-native-paper"
+import { ScrollView, View, StyleSheet, Image } from "react-native"
+import { Appbar, Button, Text, IconButton } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"
@@ -22,37 +22,73 @@ export default function DashboardScreen({ navigation }: any) {
     <View style={{ flex: 1 }}>
       <Appbar.Header>
         <Appbar.Content title={t(state.language, "dashboard")} />
-        {state.currentPrimary ? (
-          <Appbar.Content
-            title={state.currentPrimary.name}
-            subtitle={state.currentPrimary.risk ? `Risk: ${state.currentPrimary.risk}` : undefined}
-            style={{ alignItems: 'flex-end', marginRight: 8 }}
-          />
-        ) : null}
-        <Appbar.Action icon="weather-cloudy" onPress={() => setShowWeather(!showWeather)} />
+        <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
       </Appbar.Header>
-      <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
-        {showWeather && <Weather />}
-        {/* Profile and language controls moved to Settings */}
-        <SafetyScore />
-        <PanicActions />
-        <EmergencyContacts />
-        <SafetyRecommendations />
-        {/* <OsmMap 
-          isFullScreen={isFullScreen}
-          onToggleFullScreen={toggleFullScreen}
-        /> */}
 
-        {/* <View style={{ flexDirection: "row", justifyContent: "center", marginTop: 8 }}>
-          <Button mode="contained" onPress={() => navigation.navigate("Authority")}>
-            {t(state.language, "authorityOpen")}
-          </Button>
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Top row: Weather and Safety Score centered */}
+        <View style={styles.topRow}>
+          <View style={styles.weatherContainer}>
+            <Weather />
+
+            {/* Safety score directly below weather */}
+            <View style={styles.safetyScoreContainer}>
+              <SafetyScore/>
+            </View>
+          </View>
         </View>
 
-        <Text style={{ textAlign: "center", marginTop: 16 }}>
-          Note: All data and flows are mock-only. No real APIs are called.
-        </Text> */}
+        {/* SOS large button centered under the top area */}
+        <View style={styles.centerZone}>
+          <PanicActions />
+        </View>
+
+        {/* Emergency contacts rendered in compact/rounded style */}
+        <View style={styles.contactsZone}>
+          <EmergencyContacts compact />
+        </View>
+
+        {/* Recommendations kept below */}
+        <View style={{ width: '100%' }}>
+          <SafetyRecommendations />
+        </View>
       </ScrollView>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 12,
+    gap: 12,
+    alignItems: 'center',
+  },
+  topRow: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  weatherContainer: {
+    width: '100%',
+    alignItems: 'center',
+  },
+  safetyScoreContainer: {
+    marginTop: 16,
+    width: '100%',
+    alignItems: 'center',
+  },
+  avatarWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 12,
+  },
+  avatar: { width: 64, height: 64, borderRadius: 8 },
+  centerZone: { width: '100%', alignItems: 'center', gap: 8 },
+  scoreWrap: { marginTop: 12 },
+  actionsRow: { flexDirection: 'row', width: '60%', justifyContent: 'space-between', marginTop: 8 },
+  iconAction: { alignItems: 'center' },
+  contactsZone: { width: '100%' }
+})

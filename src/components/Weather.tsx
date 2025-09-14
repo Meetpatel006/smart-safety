@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchOpenMeteoCurrentHour } from '../utils/api';
-import { Text, ActivityIndicator } from 'react-native-paper';
+import { Text, ActivityIndicator, Avatar, IconButton, Card, Surface, useTheme } from 'react-native-paper';
 
 type HourlyWeather = {
   time: string[];
@@ -17,96 +17,231 @@ type HourlyWeather = {
 };
 
 const Weather = () => {
-  // keep only the compact data object requested by the user
-  const [currentData, setCurrentData] = useState<{
-    temperature: number | null;
-    apparent_temperature: number | null;
-    humidity: number | null;
-    wind_speed: number | null;
-    wind_bearing: number | null;
-    visibility: number | null;
-    cloud_cover: number | null;
-    pressure: number | null;
-  } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [currentData, setCurrentData] = useState<any | null>(null)
+  const [loading, setLoading] = useState<boolean>(true)
+  const [error, setError] = useState<string | null>(null)
+  const theme = useTheme();
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      setLoading(true);
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          console.error('Permission to access location was denied');
-          setLoading(false);
-          return;
-        }
-        const location = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = location.coords;
+  const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`)
 
-        const { compact } = await fetchOpenMeteoCurrentHour(latitude, longitude);
-        setCurrentData(compact as any);
-      } catch (error) {
-        console.error('Error fetching weather data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchWeather();
-  }, []);
-
-
-  if (loading) return <ActivityIndicator style={{ marginRight: 16 }} />;
-
-  // Render a compact Card with labeled fields instead of a raw JSON string.
-  if (!currentData) {
-    return (
-      <View style={styles.container}>
-        <Text selectable>No weather data</Text>
-      </View>
-    );
+  const fetchWeatherFor = async (lat: number, lon: number) => {
+    try {
+      setError(null)
+      const { compact } = await fetchOpenMeteoCurrentHour(lat, lon)
+      setCurrentData(compact)
+    } catch (e: any) {
+      console.error('fetchWeatherFor error', e?.message || e)
+      setError(e?.message || 'Failed to fetch weather')
+      setCurrentData(null)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`);
+  const refresh = async () => {
+    setLoading(true)
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        setError('Location permission denied — showing default location')
+        await fetchWeatherFor(28.6139, 77.2090)
+        return
+      }
+      const loc = await Location.getCurrentPositionAsync({})
+      await fetchWeatherFor(loc.coords.latitude, loc.coords.longitude)
+    } catch (e: any) {
+      console.error('refresh error', e?.message || e)
+      setError(e?.message || 'Failed to refresh weather')
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { refresh() }, [])
+
+  // Determine a simple icon based on cloud cover / precipitation if available
+  const weatherIcon = () => {
+    const cc = currentData?.cloud_cover
+    if (cc == null) return 'weather-partly-cloudy'
+    if (cc < 20) return 'weather-sunny'
+    if (cc < 60) return 'weather-partly-cloudy'
+    return 'weather-cloudy'
+  }
+
+  const weatherDetails = [
+    { label: 'Humidity', value: currentData?.humidity != null ? `${currentData.humidity}%` : '—', icon: 'water-percent' },
+    { label: 'Wind Speed', value: currentData?.wind_speed != null ? `${currentData.wind_speed} m/s` : '—', icon: 'weather-windy' },
+    { label: 'Visibility', value: currentData?.visibility != null ? `${currentData.visibility} m` : '—', icon: 'eye' },
+    { label: 'Pressure', value: currentData?.pressure != null ? `${currentData.pressure} hPa` : '—', icon: 'gauge' },
+  ];
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Weather</Text>
-      <View style={styles.row}>
-        <Text selectable style={styles.tempText}>
-          {fmt(currentData.temperature, '°C')}
-        </Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Weather</Text>
+        <View style={styles.refreshContainer}>
+          <IconButton
+            icon="refresh"
+            onPress={refresh}
+            disabled={loading}
+            iconColor="#6B7280"
+            size={20}
+          />
+          {loading && <ActivityIndicator size={16} color="#6B7280" />}
+        </View>
       </View>
 
-      <Text selectable>Feels like: {fmt(currentData.apparent_temperature, '°C')}</Text>
-      <Text selectable>Humidity: {fmt(currentData.humidity, '%')}</Text>
-      <Text selectable>
-        Wind: {fmt(currentData.wind_speed, ' m/s')}
-      </Text>
-      <Text selectable>Visibility: {fmt(currentData.visibility, ' m')}</Text>
-      <Text selectable>Pressure: {fmt(currentData.pressure, ' hPa')}</Text>
-    </View>
-  );
-};
+      <View style={styles.weatherDisplay}>
+        <View style={styles.weatherIconContainer}>
+          <Avatar.Icon
+            size={80}
+            icon={weatherIcon() as any}
+            style={styles.weatherIcon}
+            color="#0077CC"
+          />
+        </View>
 
-export default Weather;
+        <View style={styles.temperatureSection}>
+          <Text style={styles.temperature}>
+            {currentData?.temperature == null ? '—' : `${currentData.temperature}°`}
+          </Text>
+          <Text style={styles.temperatureUnit}>C</Text>
+          <Text style={styles.feelsLike}>
+            {currentData?.apparent_temperature == null ? '' : `Feels like ${currentData.apparent_temperature}°`}
+          </Text>
+        </View>
+      </View>
+
+      {error && (
+        <View style={styles.errorIndicator}>
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      <View style={styles.detailsGrid}>
+        {weatherDetails.map((detail, index) => (
+          <View key={index} style={styles.detailItem}>
+            <View style={styles.detailIconContainer}>
+              <Avatar.Icon
+                size={36}
+                icon={detail.icon as any}
+                style={styles.detailIcon}
+                color="#6B7280"
+              />
+            </View>
+            <View style={styles.detailTextContainer}>
+              <Text style={styles.detailLabel}>{detail.label}</Text>
+              <Text style={styles.detailValue}>{detail.value}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </View>
+  )
+}
+
+export default Weather
 
 const styles = StyleSheet.create({
   container: {
-    marginRight: 16,
-    padding: 8,
-    elevation: 6,
-    zIndex: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    width: '100%',
+    alignItems: 'center',
+    padding: 24,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+    width: '100%',
   },
   title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1F2937',
   },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  tempText: { marginLeft: 10, fontWeight: '600' },
+  refreshContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  weatherDisplay: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  weatherIconContainer: {
+    marginBottom: 16,
+  },
+  weatherIcon: {
+    backgroundColor: '#F0F9FF',
+  },
+  temperatureSection: {
+    alignItems: 'center',
+  },
+  temperature: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#0077CC',
+    marginBottom: 4,
+  },
+  temperatureUnit: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#6B7280',
+    position: 'absolute',
+    top: 8,
+    right: -20,
+  },
+  feelsLike: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  errorIndicator: {
+    backgroundColor: '#FEF2F2',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  detailsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    width: '100%',
+  },
+  detailItem: {
+    width: '48%',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 8,
+    alignItems: 'center',
+  },
+  detailIconContainer: {
+    marginBottom: 8,
+  },
+  detailIcon: {
+    backgroundColor: '#F3F4F6',
+  },
+  detailTextContainer: {
+    alignItems: 'center',
+  },
+  detailLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    fontWeight: '500',
+    marginBottom: 2,
+    textAlign: 'center',
+  },
+  detailValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+    textAlign: 'center',
+  },
 });
