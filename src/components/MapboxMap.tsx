@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { StyleSheet, Platform, Alert, Dimensions, View } from 'react-native';
-import { Card } from 'react-native-paper';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 
@@ -127,6 +126,18 @@ export default function MapboxMap({
     }
   };
 
+  // When the webview map is ready, attempt to get and send current location
+  useEffect(() => {
+    if (mapReady && showCurrentLocation) {
+      // Delay slightly to allow WebView handlers to be ready to receive messages
+      const t = setTimeout(() => {
+        getCurrentLocation();
+      }, 250);
+      return () => clearTimeout(t);
+    }
+    return;
+  }, [mapReady, showCurrentLocation]);
+
   // Get current location
   const getCurrentLocation = async () => {
     if (!showCurrentLocation) return;
@@ -160,11 +171,19 @@ export default function MapboxMap({
 
       // Send location to WebView
       if (webViewRef.current) {
-        const message = JSON.stringify({
-          type: 'setLocation',
-          location: locationResult.coords,
-        });
-        webViewRef.current.injectJavaScript(`window.postMessage(${message}, '*');`);
+        try {
+          webViewRef.current.postMessage(JSON.stringify({
+            type: 'setLocation',
+            location: locationResult.coords,
+          }));
+        } catch (postErr) {
+          // Fallback for environments where postMessage might not be available
+          const message = JSON.stringify({
+            type: 'setLocation',
+            location: locationResult.coords,
+          });
+          webViewRef.current.injectJavaScript(`window.postMessage(${message}, '*');`);
+        }
       }
     } catch (err) {
       console.error('Location error:', err);
@@ -215,54 +234,73 @@ export default function MapboxMap({
     setSelectedStyle(style);
     // Send style change to WebView
     if (webViewRef.current) {
-      const message = JSON.stringify({
-        type: 'setStyle',
-        style: style,
-      });
-      webViewRef.current.injectJavaScript(`window.postMessage(${message}, '*');`);
+      try {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'setStyle',
+          style: style,
+        }));
+      } catch (postErr) {
+        const message = JSON.stringify({
+          type: 'setStyle',
+          style: style,
+        });
+        webViewRef.current.injectJavaScript(`window.postMessage(${message}, '*');`);
+      }
     }
   };
 
   return (
-    <View style={[styles.container, style]}>
-      <Card style={[styles.card, isFullScreen && styles.cardFullScreen]}>
-        <MapHeader
-          title="Mapbox Map"
-          loading={loadingLocation}
-          onRefresh={getCurrentLocation}
-        />
-
+    <View style={[styles.container, isFullScreen ? styles.containerFullScreen : undefined, style]}>
+      {isFullScreen ? (
+        // Full-screen: render only the map container so there is no card/header UI
         <MapContainer
           webViewKey={webViewKey}
-          height={isFullScreen ? Dimensions.get('window').height - 100 : mapHeight}
+          height={isFullScreen ? Dimensions.get('window').height - 56 : mapHeight}
           onWebViewMessage={handleWebViewMessage}
           webViewRef={webViewRef}
           isFullScreen={isFullScreen}
         />
+      ) : (
+        // Normal embedded view
+        <>
+          <MapHeader
+            title="Mapbox Map"
+            loading={loadingLocation}
+            onRefresh={getCurrentLocation}
+          />
 
-        {error && <ErrorMessage errorMsg={error} onRetry={getCurrentLocation} />}
+          <MapContainer
+            webViewKey={webViewKey}
+            height={mapHeight}
+            onWebViewMessage={handleWebViewMessage}
+            webViewRef={webViewRef}
+            isFullScreen={isFullScreen}
+          />
 
-        <LocationInfo
-          location={location}
-          address={address}
-          loadingAddress={loadingAddress}
-        />
+          {error && <ErrorMessage errorMsg={error} onRetry={getCurrentLocation} />}
 
-        <MapActionButtons
-          locationAvailable={locationAvailable}
-          loadingLocation={loadingLocation}
-          onGetCurrentLocation={getCurrentLocation}
-          onOpenExternalMap={openExternalMap}
-          onShareLocation={shareLocation}
-          onToggleFullScreen={handleToggleFullScreen}
-          isFullScreen={isFullScreen}
-        />
+          <LocationInfo
+            location={location}
+            address={address}
+            loadingAddress={loadingAddress}
+          />
 
-        <StyleSelector
-          selectedStyle={selectedStyle}
-          onSelectStyle={handleSelectStyle}
-        />
-      </Card>
+          <MapActionButtons
+            locationAvailable={locationAvailable}
+            loadingLocation={loadingLocation}
+            onGetCurrentLocation={getCurrentLocation}
+            onOpenExternalMap={openExternalMap}
+            onShareLocation={shareLocation}
+            onToggleFullScreen={handleToggleFullScreen}
+            isFullScreen={isFullScreen}
+          />
+
+          <StyleSelector
+            selectedStyle={selectedStyle}
+            onSelectStyle={handleSelectStyle}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -271,8 +309,9 @@ const styles = StyleSheet.create({
   container: {
     margin: 16,
   },
-  card: {
-    elevation: 4,
+  containerFullScreen: {
+    margin: 0,
+    flex: 1,
   },
   cardFullScreen: {
     margin: 0,

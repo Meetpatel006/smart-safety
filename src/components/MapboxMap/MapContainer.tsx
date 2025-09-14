@@ -62,8 +62,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   mapContainerFull: {
-    borderRadius: 0,
-    marginBottom: 0,
+    borderRadius: 12,
+    overflow: "hidden",
+    marginTop: 0,
+    marginBottom: 10,
     backgroundColor: "#000",
   },
   webView: {

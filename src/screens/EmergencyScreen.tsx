@@ -5,10 +5,10 @@ import Slider from '@react-native-community/slider'
 import {GeoFence, pointInCircle, pointInPolygon, haversineKm} from '../utils/geofenceLogic'
 import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
-import OsmMap from '../components/OsmMap'
+import MapboxMap from '../components/MapboxMap'
 import { useApp } from '../context/AppContext'
 import { t } from '../context/translations'
-import { reverseGeocode } from '../components/OsmMap/geoUtils'
+import { reverseGeocode } from '../components/MapboxMap/geoUtils'
 
 // Simple debug screen to load pre-bundled JSON geo-fences (created by importer script)
 export default function GeoFenceDebugScreen() {
@@ -261,10 +261,10 @@ export default function GeoFenceDebugScreen() {
       </View>
       
       <View >
-        <OsmMap 
+        <MapboxMap 
           geoFences={showOnlyNearby ? filteredZones : zones}
           isFullScreen={isMapFullScreen}
-          onToggleFullScreen={(to) => setIsMapFullScreen(to)}
+          onToggleFullScreen={() => setIsMapFullScreen(!isMapFullScreen)}
         />
       </View>
       
@@ -339,7 +339,7 @@ export default function GeoFenceDebugScreen() {
           <Appbar.Content title={t(state.language, "emergencySystem")} subtitle="Map" />
           <Appbar.Action icon="fullscreen-exit" onPress={() => setIsMapFullScreen(false)} />
         </Appbar.Header>
-        <OsmMap 
+        <MapboxMap 
           geoFences={showOnlyNearby ? filteredZones : zones}
           isFullScreen
           mapHeight={Dimensions.get('window').height - 56}

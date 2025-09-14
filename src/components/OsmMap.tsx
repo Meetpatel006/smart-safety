@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from "react";
-import { StyleSheet, Platform, Alert, Dimensions } from "react-native";
+import { StyleSheet, Platform, Alert, Dimensions, View } from "react-native";
 import { Card } from "react-native-paper";
 import { WebView } from 'react-native-webview';
 import * as Location from "expo-location";
@@ -257,8 +257,7 @@ export default function OsmMap({
   };
 
   return (
-  <Card style={[styles.container, isFullScreen ? styles.fullscreenContainer : undefined, style]}>
-      <Card.Content>
+    <View style={[styles.container, isFullScreen ? styles.fullscreenContainer : undefined, style]}>
         {/* Header Component */}
         <MapHeader
           title="Map"
@@ -299,8 +298,7 @@ export default function OsmMap({
           onToggleFullScreen={onToggleFullScreen ? () => onToggleFullScreen(!isFullScreen) : undefined}
           isFullScreen={!!isFullScreen}
         />
-      </Card.Content>
-    </Card>
+    </View>
   );
 }
 

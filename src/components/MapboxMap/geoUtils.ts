@@ -1,8 +1,6 @@
 
 import { Coordinates } from './types';
-
-// IMPORTANT: Replace with your Mapbox access token
-const MAPBOX_ACCESS_TOKEN = 'YOUR_MAPBOX_ACCESS_TOKEN';
+import { MAPBOX_ACCESS_TOKEN } from '../../config';
 
 // Convert decimal coordinates to DMS (Degrees, Minutes, Seconds)
 export const convertToDMS = (decimal: number, type: 'lat' | 'lon'): string => {
@@ -33,7 +31,7 @@ export const formatCoordinates = (lat: number, lon: number): Coordinates => {
 
 // Reverse geocode to get address from coordinates using Mapbox Geocoding API
 export const reverseGeocode = async (lat: number, lon: number, retryCount: number = 0): Promise<string | null> => {
-  if (!MAPBOX_ACCESS_TOKEN.startsWith('pk.')) {
+  if (!MAPBOX_ACCESS_TOKEN || !MAPBOX_ACCESS_TOKEN.startsWith('pk.')) {
     console.error('Mapbox access token is not set in geoUtils.ts');
     return 'Mapbox token not configured';
   }

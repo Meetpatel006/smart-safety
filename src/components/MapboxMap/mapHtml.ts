@@ -105,11 +105,11 @@ export const generateMapHTML = (accessToken?: string): string => {
               const data = JSON.parse(event.data);
               switch (data.type) {
                   case 'updateLocation':
-                      updateLocation(data.longitude, data.latitude, data.zoomLevel);
+                      updateLocation(data.longitude, data.latitude, data.accuracy || 0, data.zoomLevel);
                       break;
                   case 'setLocation':
                       if (data.location) {
-                          updateLocation(data.location.longitude, data.location.latitude, 14);
+                          updateLocation(data.location.longitude, data.location.latitude, data.location.accuracy || 0, 14);
                       }
                       break;
                   case 'setGeoFences':
@@ -146,15 +146,93 @@ export const generateMapHTML = (accessToken?: string): string => {
           window.addEventListener('message', handleMessageEvent);
 
           function updateLocation(lng, lat, zoom) {
-              if (userMarker) {
-                  userMarker.setLngLat([lng, lat]);
-              } else {
-                  userMarker = new mapboxgl.Marker().setLngLat([lng, lat]).addTo(map);
+              try {
+                  // Ensure map is initialized
+                  if (!map) return;
+
+                  // Accept either (lng, lat, zoom) or (lng, lat, accuracy, zoom)
+                  let accuracy = 0;
+                  let targetZoom = 14;
+                  if (arguments.length === 3) {
+                      // updateLocation(lng, lat, zoom)
+                      targetZoom = arguments[2] || 14;
+                  } else if (arguments.length >= 4) {
+                      // updateLocation(lng, lat, accuracy, zoom)
+                      accuracy = arguments[2] || 0;
+                      targetZoom = arguments[3] || 14;
+                  }
+
+                  // Update or create user marker (blue dot)
+                  if (userMarker) {
+                      userMarker.setLngLat([lng, lat]);
+                  } else {
+                      // Try color option first; fallback to element
+                      try {
+                          userMarker = new mapboxgl.Marker({ color: '#1976d2' }).setLngLat([lng, lat]).addTo(map);
+                      } catch (e) {
+                          const el = document.createElement('div');
+                          el.style.width = '14px';
+                          el.style.height = '14px';
+                          el.style.borderRadius = '50%';
+                          el.style.background = '#1976d2';
+                          el.style.border = '3px solid white';
+                          userMarker = new mapboxgl.Marker(el).setLngLat([lng, lat]).addTo(map);
+                      }
+                  }
+
+                  // Handle accuracy circle using Turf.js (accuracy in meters -> km)
+                  const srcId = 'user-accuracy-source';
+                  const fillLayerId = 'user-accuracy-fill';
+                  const lineLayerId = 'user-accuracy-line';
+
+                  // Default to 1 km radius when accuracy is not provided or zero
+                  const radiusKm = (accuracy && accuracy > 0) ? (accuracy / 1000) : 1;
+
+                  if (radiusKm > 0) {
+                      try {
+                          const center = [lng, lat];
+                          const turfCircle = turf.circle(center, radiusKm, { steps: 64, units: 'kilometers' });
+
+                          const geojson = {
+                              type: 'FeatureCollection',
+                              features: [turfCircle]
+                          };
+
+                          if (map.getSource(srcId)) {
+                              map.getSource(srcId).setData(geojson);
+                          } else {
+                              map.addSource(srcId, { type: 'geojson', data: geojson });
+                              // fill
+                              map.addLayer({
+                                  id: fillLayerId,
+                                  type: 'fill',
+                                  source: srcId,
+                                  paint: {
+                                      'fill-color': '#ff5252',
+                                      'fill-opacity': 0.12
+                                  }
+                              });
+                              // outline
+                              map.addLayer({
+                                  id: lineLayerId,
+                                  type: 'line',
+                                  source: srcId,
+                                  paint: {
+                                      'line-color': '#ff1744',
+                                      'line-width': 2,
+                                      'line-opacity': 0.9
+                                  }
+                              });
+                          }
+                      } catch (err) {
+                          console.error('Failed to create accuracy circle:', err);
+                      }
+                  }
+
+                  map.flyTo({ center: [lng, lat], zoom: targetZoom });
+              } catch (err) {
+                  console.error('updateLocation error:', err);
               }
-              map.flyTo({
-                  center: [lng, lat],
-                  zoom: zoom || 14
-              });
           }
 
           function renderGeoFences(fences) {
