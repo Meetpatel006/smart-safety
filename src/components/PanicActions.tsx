@@ -1,13 +1,14 @@
 
 import React from "react"
-import { View } from "react-native"
-import { Button, Snackbar, Text } from "react-native-paper"
+import { View, StyleSheet } from "react-native"
+import { Button, Snackbar, Text, IconButton, useTheme } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
 
 export default function PanicActions() {
   const { state } = useApp()
+  const theme = useTheme()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
 
@@ -52,53 +53,99 @@ export default function PanicActions() {
   }
 
   return (
-    <View style={{ padding: 16 }}>
-      <Text style={{ fontSize: 20, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>{t(state.language, "emergencySystem")}</Text>
-      
-      {/* SOS Button - Made larger and more prominent */}
-      <View style={{ marginBottom: 16, alignItems: 'center' }}>
-        <Button 
-          mode="contained" 
-          buttonColor="#D11A2A" 
-          onPress={() => trigger(t(state.language, "sos"))} 
+    <View style={styles.container}>
+      <Text style={styles.title}>{t(state.language, "emergencySystem")}</Text>
+
+      <View style={styles.sosWrapper}>
+        <Button
+          mode="contained"
+          buttonColor="#D11A2A"
+          onPress={() => trigger(t(state.language, "sos"))}
           disabled={loading}
-          style={{ 
-            width: 100, 
-            height: 100, 
-            justifyContent: 'center',
-            alignItems: 'center',
-            borderRadius: 100,
-            elevation: 8,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.3,
-            shadowRadius: 4,
-          }}
-          labelStyle={{ fontSize: 16, fontWeight: 'bold' }}
+          style={styles.sosButton}
+          labelStyle={styles.sosLabel}
+          accessibilityLabel="SOS Button"
+          accessibilityHint="Triggers emergency SOS alert"
         >
           {t(state.language, "sos")}
         </Button>
+
+        <View style={styles.actionRow}>
+          <Button
+            mode="contained"
+            icon="phone"
+            onPress={() => trigger("Code Call")}
+            buttonColor={theme.colors.primary}
+            style={styles.actionButton}
+            accessibilityLabel="Code Call"
+            accessibilityHint="Place a code call to your emergency contacts"
+            disabled={loading}
+          >
+            Code Call
+          </Button>
+
+          <Button
+            mode="contained-tonal"
+            icon="map-marker"
+            onPress={async () => {
+              // For now reuse trigger to send location-only SOS or perform location share
+              await trigger(t(state.language, "location"))
+            }}
+            style={styles.actionButton}
+            accessibilityLabel="Location"
+            accessibilityHint="Share your current location"
+            disabled={loading}
+          >
+            Location
+          </Button>
+        </View>
       </View>
-      
-      {/* Other action buttons */}
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-        <Button mode="contained-tonal" onPress={() => trigger(t(state.language, "help"))} disabled={loading}>
-          {t(state.language, "help")}
-        </Button>
-        <Button mode="contained" onPress={() => trigger(t(state.language, "urgentHelp"))} disabled={loading}>
-          {t(state.language, "urgentHelp")}
-        </Button>
-        <Button mode="outlined" onPress={() => trigger(t(state.language, "fakeCall"))} disabled={loading}>
-          {t(state.language, "fakeCall")}
-        </Button>
-        <Button mode="outlined" onPress={() => trigger(t(state.language, "silentAlert"))} disabled={loading}>
-          {t(state.language, "silentAlert")}
-        </Button>
-      </View>
-      
+
       <Snackbar visible={snack.visible} onDismiss={() => setSnack({ visible: false, msg: "" })} duration={2000}>
         {snack.msg}
       </Snackbar>
     </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    padding: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  sosWrapper: {
+    alignItems: 'center',
+    width: '100%'
+  },
+  sosButton: {
+    width: 180,
+    height: 180,
+    borderRadius: 180,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 10,
+  },
+  sosLabel: {
+    fontSize: 22,
+    fontWeight: '900',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    width: '100%',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  actionButton: {
+    flex: 1,
+    height: 48,
+    justifyContent: 'center',
+  }
+})

@@ -10,6 +10,8 @@ import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useTheme } from "react-native-paper"
+import DashboardLogo from "../components/Icons/DashboardLogo"
+import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo"
 
 export type RootStackParamList = {
   Auth: undefined
@@ -35,14 +37,14 @@ function MainTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="view-dashboard" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <DashboardLogo color={color} size={size} />,
         }}
       />
        <Tab.Screen
         name="Emergency"
         component={EmergencyScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="alarm-light" color={color} size={size} />,
+          tabBarIcon: ({ color, size }) => <EmergencyMapLogo color={color} size={size} />,
         }}
       />
       <Tab.Screen
