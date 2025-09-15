@@ -6,16 +6,68 @@ import { t } from "../context/translations"
 import { useEffect, useState } from "react"
 import geminiService, { GeminiRecommendation } from "../services/gemini"
 import { getGeoPrediction, fetchOpenMeteoCurrentHour, getWeatherPrediction } from "../utils/api"
+import * as Location from 'expo-location'
+import { GEMINI_API_URL, GEMINI_API_KEY } from '../config'
 
 export default function SafetyRecommendations() {
-  const { state } = useApp()
+  const { state, setCurrentLocation } = useApp()
   const [loading, setLoading] = useState(false)
   const [recs, setRecs] = useState<GeminiRecommendation[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [locationLoading, setLocationLoading] = useState(false)
+
+  // Function to get current location
+  const getCurrentLocation = async () => {
+    try {
+      setLocationLoading(true)
+      console.log('SafetyRecommendations: Requesting location permissions...')
+
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        throw new Error('Location permission denied')
+      }
+
+      console.log('SafetyRecommendations: Getting current position...')
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      })
+
+      console.log('SafetyRecommendations: Location obtained:', location.coords.latitude, location.coords.longitude)
+      setCurrentLocation(location)
+      return location
+    } catch (error: any) {
+      console.error('SafetyRecommendations: Failed to get location:', error)
+      setError(`Location error: ${error.message}`)
+      return null
+    } finally {
+      setLocationLoading(false)
+    }
+  }
 
   useEffect(() => {
     let mounted = true
-    async function load() {
+    const loc = state.currentLocation
+
+    console.log('SafetyRecommendations useEffect triggered, location:', loc)
+
+    const fetchRecommendations = async () => {
+      if (!loc || !loc.coords) {
+        console.log('SafetyRecommendations: No location available, attempting to get current location...')
+        // Try to get current location
+        const newLocation = await getCurrentLocation()
+        if (!newLocation || !mounted) return
+
+        // Use the newly obtained location
+        console.log('SafetyRecommendations: Using newly obtained location:', newLocation.coords.latitude, newLocation.coords.longitude)
+        await performRecommendationFetch(newLocation, mounted)
+      } else {
+        console.log('SafetyRecommendations: Location available, fetching recommendations:', loc.coords.latitude, loc.coords.longitude)
+        await performRecommendationFetch(loc, mounted)
+      }
+    }
+
+    const performRecommendationFetch = async (location: Location.LocationObject, isMounted: boolean) => {
       setLoading(true)
       setError(null)
       try {
@@ -28,49 +80,55 @@ export default function SafetyRecommendations() {
         let weatherModelFeatures: any = null
         let weatherModelCategory: string | null = null
 
-        const loc = state.currentLocation
         let geoResponse: any = null
         let weatherModelResponse: any = null
-        if (loc && loc.coords) {
-          try {
-            const g = await getGeoPrediction(loc.coords.latitude, loc.coords.longitude)
-            geoResponse = g
-            // Expecting safety_score_100 or predicted_safety_score
-            geoScore = g.safety_score_100 ?? g.predicted_safety_score ?? null
-          } catch (e) {
-            // ignore geo model error
-          }
 
-          try {
-            const { compact, modelFeatures } = await fetchOpenMeteoCurrentHour(loc.coords.latitude, loc.coords.longitude)
-            weatherCompact = compact
-            weatherModelFeatures = modelFeatures
-            if (modelFeatures && modelFeatures.temperature != null) {
-              const wm = await getWeatherPrediction(modelFeatures as any)
-              weatherModelResponse = wm
-              weatherScore = wm.safety_score_100 ?? wm.safety_score ?? null
-              weatherModelCategory = wm.safety_category ?? null
-              if (wm.safety_category && typeof wm.safety_category === 'string') {
-                // map categories to simplified weatherCode when possible
-                const c = String(wm.safety_category).toLowerCase()
-                if (c.includes('storm') || c.includes('rain')) weatherCode = 'rain'
-                else if (c.includes('heat')) weatherCode = 'heat'
-                else weatherCode = 'clear'
-              }
-            }
-          } catch (e) {
-            // ignore weather model error
-          }
+        console.log('SafetyRecommendations: Fetching geo prediction...')
+        try {
+          const g = await getGeoPrediction(location.coords.latitude, location.coords.longitude)
+          geoResponse = g
+          // Expecting safety_score_100 or predicted_safety_score
+          geoScore = g.safety_score_100 ?? g.predicted_safety_score ?? null
+          console.log('SafetyRecommendations: Geo prediction result:', geoScore)
+        } catch (e) {
+          console.warn('SafetyRecommendations: Failed to fetch geo prediction:', e)
+          // ignore geo model error
         }
 
+        console.log('SafetyRecommendations: Fetching weather data...')
+        try {
+          const { compact, modelFeatures } = await fetchOpenMeteoCurrentHour(location.coords.latitude, location.coords.longitude)
+          weatherCompact = compact
+          weatherModelFeatures = modelFeatures
+          if (modelFeatures && modelFeatures.temperature != null) {
+            console.log('SafetyRecommendations: Fetching weather prediction...')
+            const wm = await getWeatherPrediction(modelFeatures as any)
+            weatherModelResponse = wm
+            weatherScore = wm.safety_score_100 ?? wm.safety_score ?? null
+            weatherModelCategory = wm.safety_category ?? null
+            console.log('SafetyRecommendations: Weather prediction result:', weatherScore, weatherModelCategory)
+
+            if (wm.safety_category && typeof wm.safety_category === 'string') {
+              // map categories to simplified weatherCode when possible
+              const c = String(wm.safety_category).toLowerCase()
+              if (c.includes('storm') || c.includes('rain')) weatherCode = 'rain'
+              else if (c.includes('heat')) weatherCode = 'heat'
+              else weatherCode = 'clear'
+            }
+          }
+        } catch (e) {
+          console.warn('SafetyRecommendations: Failed to fetch weather prediction:', e)
+          // ignore weather model error
+        }
 
         const address = state.currentAddress ?? 'Unknown address'
-        const coords = loc && loc.coords ? `${loc.coords.latitude},${loc.coords.longitude}` : 'unknown'
+        const coords = `${location.coords.latitude},${location.coords.longitude}`
 
-  const timestamp = new Date().toISOString()
-  const dataVerified = Boolean(loc && loc.coords && (geoResponse || weatherModelResponse))
+        const timestamp = new Date().toISOString()
+        const dataVerified = Boolean(geoResponse || weatherModelResponse)
 
-  const systemPrompt = `System: You are a concise safety assistant.
+        console.log('SafetyRecommendations: Building Gemini prompt...')
+        const systemPrompt = `System: You are a concise safety assistant that provides JSON responses only.
 DATA_METADATA: {"timestamp":"${timestamp}", "dataVerified": ${dataVerified} }
 User location: ${address} (coords: ${coords}).
 Nearby incidents: ${JSON.stringify(MOCK_INCIDENTS)}
@@ -80,22 +138,28 @@ Weather model features: ${JSON.stringify(weatherModelFeatures ?? {})}
 Raw weather model response: ${JSON.stringify(weatherModelResponse ?? {})}
 Weather model category: ${String(weatherModelCategory ?? '')}
 
-Instruction: Please provide 5 short, prioritized safety recommendations tailored to this exact situation and the raw data above. Use only the real values provided; do not invent or assume missing values. Return a JSON array of objects with 'text' and optional 'confidence' fields only (no extra commentary).`
+IMPORTANT: Return ONLY a valid JSON array of objects with 'text' and optional 'confidence' fields. Do not include any markdown formatting, code blocks, or additional text. Example: [{"text": "Stay aware of surroundings"}, {"text": "Keep valuables secure"}]`
 
+        console.log('SafetyRecommendations: Calling Gemini API...')
+        console.log('SafetyRecommendations: Gemini API URL configured:', !!GEMINI_API_URL)
+        console.log('SafetyRecommendations: Gemini API Key configured:', !!GEMINI_API_KEY)
         const r = await geminiService.fetchGeminiRecommendations(systemPrompt, 5)
-        if (mounted) setRecs(r)
+        console.log('SafetyRecommendations: Gemini response:', r)
+
+        if (isMounted) setRecs(r)
       } catch (err: any) {
-        console.warn('Failed to fetch recommendations', err)
-        if (mounted) setError(String(err?.message ?? err))
+        console.warn('SafetyRecommendations: Failed to fetch recommendations', err)
+        if (isMounted) setError(String(err?.message ?? err))
       } finally {
-        if (mounted) setLoading(false)
+        if (isMounted) setLoading(false)
       }
     }
-    load()
+
+    fetchRecommendations()
     return () => {
       mounted = false
     }
-  }, [state.language])
+  }, [state.language, state.currentLocation])
 
   const fallback = [
     { text: "Avoid carrying valuables openly in crowded areas." },
@@ -104,6 +168,7 @@ Instruction: Please provide 5 short, prioritized safety recommendations tailored
   ]
 
   const shown = recs.length > 0 ? recs : fallback
+  const isLoading = locationLoading || loading
 
   return (
     <Card>
@@ -116,19 +181,29 @@ Instruction: Please provide 5 short, prioritized safety recommendations tailored
             </Text>
           ))}
 
-          {loading ? (
-            <View style={{ paddingVertical: 8 }}>
+          {isLoading ? (
+            <View style={{ paddingVertical: 8, alignItems: 'center' }}>
               <ActivityIndicator animating size={20} />
+              <Text style={{ marginTop: 8, fontSize: 12, color: 'gray' }}>
+                {locationLoading ? "Getting location..." : "Generating personalized recommendations..."}
+              </Text>
             </View>
           ) : (
-            shown.map((r, i) => (
-              <Text key={`r${i}`}>
-                 {r.text}
-              </Text>
-            ))
+            <View>
+              {recs.length === 0 && !error && (
+                <Text style={{ fontSize: 12, color: 'orange', marginBottom: 8 }}>
+                  Using general safety guidelines (AI recommendations unavailable)
+                </Text>
+              )}
+              {shown.map((r, i) => (
+                <Text key={`r${i}`} style={{ marginBottom: 4 }}>
+                   • {r.text}
+                </Text>
+              ))}
+            </View>
           )}
 
-          {error ? <Text style={{ color: 'red' }}>Error: {error}</Text> : null}
+          {error ? <Text style={{ color: 'red', fontSize: 12 }}>Error: {error}</Text> : null}
         </View>
       </Card.Content>
     </Card>
