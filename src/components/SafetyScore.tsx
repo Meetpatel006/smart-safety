@@ -1,107 +1,124 @@
 
-import { useMemo, useState, useEffect } from "react"
-import { View, StyleSheet, TouchableOpacity } from "react-native"
+import { useState, useEffect } from "react"
+import { View, StyleSheet } from "react-native"
 import { Text } from "react-native-paper"
-import { computeSafetyScore } from "../utils/safetyLogic"
+import { computeSafetyScore, SafetyScoreResult } from "../utils/safetyLogic"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
-import { getGeoPrediction, getWeatherPrediction, fetchOpenMeteoCurrentHour } from "../utils/api"
+import * as Location from 'expo-location'
 
 export default function SafetyScore() {
-  const { state } = useApp()
-  const [weather, setWeather] = useState<"clear" | "rain" | "storm" | "heat">("clear")
-  const [areaRisk, setAreaRisk] = useState(0.3)
-  const [loading, setLoading] = useState(false)
-  const [modelError, setModelError] = useState<string | null>(null)
-  const [predictedScore, setPredictedScore] = useState<number | null>(null)
-  const [predictedLabel, setPredictedLabel] = useState<string | null>(null)
-  const [weatherModelLoading, setWeatherModelLoading] = useState(false)
-  const [weatherModelError, setWeatherModelError] = useState<string | null>(null)
-  const [weatherModelScore, setWeatherModelScore] = useState<number | null>(null)
-  const [weatherModelCategory, setWeatherModelCategory] = useState<string | null>(null)
-  const [weatherModelConfidence, setWeatherModelConfidence] = useState<number | null>(null)
-  const result = useMemo(() => computeSafetyScore({ weatherCode: weather, areaRisk }), [weather, areaRisk])
+  const { state, setCurrentLocation } = useApp()
+  const [combinedResult, setCombinedResult] = useState<SafetyScoreResult | null>(null)
+  const [combinedLoading, setCombinedLoading] = useState(false)
+  const [combinedError, setCombinedError] = useState<string | null>(null)
+  const [locationLoading, setLocationLoading] = useState(false)
 
-  // Fetch geo model prediction when currentLocation changes
+  // Function to get current location
+  const getCurrentLocation = async () => {
+    try {
+      setLocationLoading(true)
+      console.log('Requesting location permissions...')
+
+      // Request location permissions
+      const { status } = await Location.requestForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        throw new Error('Location permission denied')
+      }
+
+      console.log('Getting current position...')
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+      })
+
+      console.log('Location obtained:', location.coords.latitude, location.coords.longitude)
+      setCurrentLocation(location)
+      return location
+    } catch (error: any) {
+      console.error('Failed to get location:', error)
+      setCombinedError(`Location error: ${error.message}`)
+      return null
+    } finally {
+      setLocationLoading(false)
+    }
+  }
+
+  // Fetch combined safety score using real API predictions
   useEffect(() => {
     let mounted = true
     const loc = state.currentLocation
-    if (!loc || !loc.coords) {
-      // reset model values when no location
-      setPredictedScore(null)
-      setPredictedLabel(null)
-      setModelError(null)
-      setLoading(false)
-      return
-    }
 
-    const fetchPrediction = async () => {
-      setLoading(true)
-      setModelError(null)
-      try {
-        const data = await getGeoPrediction(loc.coords.latitude, loc.coords.longitude)
-        if (!mounted) return
-        // Expecting fields: predicted_safety_score, predicted_risk_label, safety_score_100
-        const score = data.predicted_safety_score ?? data.safety_score_100 ?? null
-        const label = data.predicted_risk_label ?? null
-        if (typeof score === 'number') setPredictedScore(score)
-        else setPredictedScore(null)
-        if (label) setPredictedLabel(String(label))
-      } catch (e: any) {
-        if (!mounted) return
-        setModelError(e?.message || 'Failed to fetch geo model')
-        setPredictedScore(null)
-        setPredictedLabel(null)
-      } finally {
-        if (mounted) setLoading(false)
+    console.log('SafetyScore useEffect triggered, location:', loc)
+
+    const fetchSafetyScore = async () => {
+      if (!loc || !loc.coords) {
+        console.log('No location available, attempting to get current location...')
+        // Try to get current location
+        const newLocation = await getCurrentLocation()
+        if (!newLocation || !mounted) return
+
+        // Use the newly obtained location
+        console.log('Using newly obtained location:', newLocation.coords.latitude, newLocation.coords.longitude)
+        await performSafetyScoreFetch(newLocation, mounted)
+      } else {
+        console.log('Location available, fetching safety score:', loc.coords.latitude, loc.coords.longitude)
+        await performSafetyScoreFetch(loc, mounted)
       }
     }
 
-    // Also fetch weather model prediction for the current hour
-    const fetchWeatherModel = async () => {
-      setWeatherModelLoading(true)
-      setWeatherModelError(null)
+    const performSafetyScoreFetch = async (location: Location.LocationObject, isMounted: boolean) => {
+      setCombinedLoading(true)
+      setCombinedError(null)
       try {
-        const { compact, modelFeatures } = await fetchOpenMeteoCurrentHour(loc.coords.latitude, loc.coords.longitude)
-        if (!mounted) return
-        if (modelFeatures.temperature == null) throw new Error('Weather data missing')
-
-        const wm = await getWeatherPrediction(modelFeatures as any)
-        if (!mounted) return
-        // Response sample contains safety_score_100, safety_category, confidence
-        setWeatherModelScore(wm.safety_score_100 ?? wm.safety_score ?? null)
-        setWeatherModelCategory(wm.safety_category ?? null)
-        setWeatherModelConfidence(wm.confidence ?? null)
-      } catch (e: any) {
-        if (!mounted) return
-        setWeatherModelError(e?.message || 'Failed to fetch weather model')
-        setWeatherModelScore(null)
-        setWeatherModelCategory(null)
-        setWeatherModelConfidence(null)
+        console.log('Calling computeSafetyScore with:', {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        })
+        const result = await computeSafetyScore({
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude
+        })
+        console.log('Safety score result:', result)
+        if (isMounted) setCombinedResult(result)
+      } catch (error: any) {
+        console.warn('Failed to compute safety score:', error)
+        if (isMounted) setCombinedError(error?.message || 'Failed to fetch safety score')
       } finally {
-        if (mounted) setWeatherModelLoading(false)
+        if (isMounted) setCombinedLoading(false)
       }
     }
 
-    fetchPrediction()
-    fetchWeatherModel()
+    fetchSafetyScore()
     return () => { mounted = false }
   }, [state.currentLocation])
 
-  const displayScore = predictedScore ?? weatherModelScore ?? result.score
-  const displayLabel = predictedLabel ?? weatherModelCategory ?? result.status
+  const displayScore = combinedResult?.score
+  const displayLabel = combinedResult?.status
+  const isLoading = locationLoading || combinedLoading
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-  <Text style={styles.cardSubtitle}>Your safety score</Text>
+        <Text style={styles.cardSubtitle}>
+          Your safety score
+          {locationLoading && " (Getting location...)"}
+          {combinedLoading && !locationLoading && " (Calculating...)"}
+        </Text>
 
         <View style={styles.scoreRow}>
-          <Text style={styles.scoreNumber}>{displayScore ?? '--'}</Text>
+          <Text style={styles.scoreNumber}>
+            {isLoading ? "--" : (displayScore ?? "--")}
+          </Text>
           <Text style={styles.scoreMax}>/100</Text>
         </View>
-        <Text style={styles.scoreStatus}>{displayLabel ?? ''}</Text>
+        <Text style={styles.scoreStatus}>
+          {isLoading ? "Loading..." : (displayLabel ?? "")}
+        </Text>
       </View>
+
+      {combinedError && (
+        <Text style={styles.errorText}>{combinedError}</Text>
+      )}
 
       {/* Old detailed score/progress UI removed — visual card above now represents the score */}
     </View>
@@ -165,5 +182,11 @@ const styles = StyleSheet.create({
   footerLink: {
     color: 'rgba(255,255,255,0.95)',
     fontWeight: '600',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 8,
   },
 })

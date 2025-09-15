@@ -22,6 +22,8 @@ jobs:
       GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.jvmargs="-Xmx3g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError"
       MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
       MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+      GEMINI_API_URL: ${{ secrets.GEMINI_API_URL }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
 
     steps:
       - name: Checkout
@@ -82,12 +84,16 @@ jobs:
           echo "android.useAndroidX=true" >> android/gradle.properties
           echo "android.enableJetifier=true" >> android/gradle.properties
           echo "MAPBOX_ACCESS_TOKEN=${{ secrets.MAPBOX_ACCESS_TOKEN }}" >> android/gradle.properties
+          echo "GEMINI_API_URL=${{ secrets.GEMINI_API_URL }}" >> android/gradle.properties
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> android/gradle.properties
 
       - name: Build Release APK
         working-directory: android
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
           MAPBOX_ACCESS_TOKEN: ${{ secrets.MAPBOX_ACCESS_TOKEN }}
+          GEMINI_API_URL: ${{ secrets.GEMINI_API_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           ./gradlew clean
           ./gradlew assembleRelease --no-daemon --stacktrace --info

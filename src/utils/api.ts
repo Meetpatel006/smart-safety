@@ -94,7 +94,12 @@ export const triggerSOS = async (token, sosData) => {
 };
 
 // Fetch geo model prediction by lat/lon
-export const getGeoPrediction = async (latitude: number, longitude: number) => {
+export const getGeoPrediction = async (latitude: number, longitude: number): Promise<{
+  predicted_safety_score?: number
+  safety_score_100?: number
+  predicted_risk_label?: string
+  [key: string]: any
+}> => {
   try {
     const response = await fetch(GEO_MODEL_URL, {
       method: 'POST',
@@ -128,7 +133,13 @@ export const getWeatherPrediction = async (features: {
   cloud_cover: number,
   pressure: number,
   summary_clear?: number,
-}) => {
+}): Promise<{
+  safety_score_100?: number
+  safety_score?: number
+  safety_category?: string
+  confidence?: number
+  [key: string]: any
+}> => {
   try {
     const response = await fetch(WEATHER_MODEL_URL, {
       method: 'POST',
@@ -152,7 +163,27 @@ export const getWeatherPrediction = async (features: {
 }
 
 // Fetch Open-Meteo for the current hour and return a compact object and model-ready features
-export const fetchOpenMeteoCurrentHour = async (latitude: number, longitude: number) => {
+export const fetchOpenMeteoCurrentHour = async (latitude: number, longitude: number): Promise<{
+  compact: {
+    temperature: number | null
+    apparent_temperature: number | null
+    humidity: number | null
+    wind_speed: number | null
+    wind_bearing: number | null
+    visibility: number | null
+    cloud_cover: number | null
+    pressure: number | null
+  }
+  modelFeatures: {
+    temperature: number | null
+    humidity: number | null
+    wind_speed: number | null
+    wind_bearing: number | null
+    visibility: number | null
+    cloud_cover: number | null
+    pressure: number | null
+  }
+}> => {
   try {
     const hourlyParams = [
       'temperature_2m',

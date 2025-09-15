@@ -6,7 +6,6 @@ import { t } from "../context/translations"
 import { useEffect, useState } from "react"
 import geminiService, { GeminiRecommendation } from "../services/gemini"
 import { getGeoPrediction, fetchOpenMeteoCurrentHour, getWeatherPrediction } from "../utils/api"
-import { computeSafetyScore } from "../utils/safetyLogic"
 
 export default function SafetyRecommendations() {
   const { state } = useApp()
@@ -25,11 +24,17 @@ export default function SafetyRecommendations() {
         let weatherScore: number | null = null
         let areaRisk = 0.3
         let weatherCode: "clear" | "rain" | "storm" | "heat" = "clear"
+        let weatherCompact: any = null
+        let weatherModelFeatures: any = null
+        let weatherModelCategory: string | null = null
 
         const loc = state.currentLocation
+        let geoResponse: any = null
+        let weatherModelResponse: any = null
         if (loc && loc.coords) {
           try {
             const g = await getGeoPrediction(loc.coords.latitude, loc.coords.longitude)
+            geoResponse = g
             // Expecting safety_score_100 or predicted_safety_score
             geoScore = g.safety_score_100 ?? g.predicted_safety_score ?? null
           } catch (e) {
@@ -38,9 +43,13 @@ export default function SafetyRecommendations() {
 
           try {
             const { compact, modelFeatures } = await fetchOpenMeteoCurrentHour(loc.coords.latitude, loc.coords.longitude)
+            weatherCompact = compact
+            weatherModelFeatures = modelFeatures
             if (modelFeatures && modelFeatures.temperature != null) {
               const wm = await getWeatherPrediction(modelFeatures as any)
+              weatherModelResponse = wm
               weatherScore = wm.safety_score_100 ?? wm.safety_score ?? null
+              weatherModelCategory = wm.safety_category ?? null
               if (wm.safety_category && typeof wm.safety_category === 'string') {
                 // map categories to simplified weatherCode when possible
                 const c = String(wm.safety_category).toLowerCase()
@@ -54,16 +63,24 @@ export default function SafetyRecommendations() {
           }
         }
 
-        // Compute a display score preferring geo -> weather -> heuristic
-        const heuristic = computeSafetyScore({ weatherCode, areaRisk })
-        const displayScore = geoScore ?? weatherScore ?? heuristic.score
 
         const address = state.currentAddress ?? 'Unknown address'
         const coords = loc && loc.coords ? `${loc.coords.latitude},${loc.coords.longitude}` : 'unknown'
 
-        const systemPrompt = `System: You are a concise safety assistant. The user is at: ${address} (coords: ${coords}). The current safety score is ${displayScore} out of 100. Incidents near the user: ${JSON.stringify(
-          MOCK_INCIDENTS
-        )}. Provide 5 short prioritized safety recommendations tailored to this situation as a JSON array of objects with 'text' and optional 'confidence' fields.`
+  const timestamp = new Date().toISOString()
+  const dataVerified = Boolean(loc && loc.coords && (geoResponse || weatherModelResponse))
+
+  const systemPrompt = `System: You are a concise safety assistant.
+DATA_METADATA: {"timestamp":"${timestamp}", "dataVerified": ${dataVerified} }
+User location: ${address} (coords: ${coords}).
+Nearby incidents: ${JSON.stringify(MOCK_INCIDENTS)}
+Raw geo model response: ${JSON.stringify(geoResponse ?? {})}
+Local weather (compact): ${JSON.stringify(weatherCompact ?? {})}
+Weather model features: ${JSON.stringify(weatherModelFeatures ?? {})}
+Raw weather model response: ${JSON.stringify(weatherModelResponse ?? {})}
+Weather model category: ${String(weatherModelCategory ?? '')}
+
+Instruction: Please provide 5 short, prioritized safety recommendations tailored to this exact situation and the raw data above. Use only the real values provided; do not invent or assume missing values. Return a JSON array of objects with 'text' and optional 'confidence' fields only (no extra commentary).`
 
         const r = await geminiService.fetchGeminiRecommendations(systemPrompt, 5)
         if (mounted) setRecs(r)

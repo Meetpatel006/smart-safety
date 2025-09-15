@@ -1,4 +1,4 @@
-import { GEMINI_API_URL, GEMINI_API_KEY } from "../config";
+import { GEMINI_API_URL, GEMINI_API_KEY, GEMINI_MODEL } from "../config";
 
 export type GeminiRecommendation = {
   text: string;
@@ -27,11 +27,17 @@ export async function fetchGeminiRecommendations(context: string, limit = 5): Pr
     ]
   }
 
+  // Build chat-completions style payload compatible with Google Generative Language endpoint
+  const messages = [
+    { role: 'system', content: 'You are a concise safety assistant. Respond with a JSON array of recommendations when asked.' },
+    { role: 'user', content: context },
+  ]
+
   const payload = {
-    // This is a lightweight, generic payload. Adapt to your LLM provider's required shape.
-    prompt: `You are a safety assistant. Given the context:\n${context}\nProvide ${limit} concise, prioritized safety recommendations as a JSON array of objects with 'text' and optional 'confidence' fields.`,
-    max_tokens: 512,
+    model: GEMINI_MODEL || 'gemini-2.0-flash',
+    messages,
     temperature: 0.2,
+    max_tokens: 512,
   }
 
   const req = fetch(GEMINI_API_URL, {
@@ -53,32 +59,31 @@ export async function fetchGeminiRecommendations(context: string, limit = 5): Pr
     }
     const data = await (resp as Response).json()
 
-    // Attempt to normalize various possible shapes
-    if (Array.isArray(data)) {
-      return data.slice(0, limit).map((d: any) => ({ text: String(d.text ?? d) }))
-    }
-
-    // Some APIs return { choices: [{ text }] }
-    if (data.choices && Array.isArray(data.choices)) {
-      const combined = data.choices.map((c: any) => c.text).join('\n')
-      // Try parse JSON out of combined
-      try {
-        const parsed = JSON.parse(combined)
-        if (Array.isArray(parsed)) return parsed.slice(0, limit)
-      } catch {
-        // fallback - split by lines
-        return combined.split('\n').filter(Boolean).slice(0, limit).map((t: string) => ({ text: t.trim() }))
+    // Preferred: Google/OLM returns choices[0].message.content
+    try {
+      if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
+        const msg = data.choices[0].message || data.choices[0]
+        const content = msg.content ?? msg.text ?? ''
+        const text = typeof content === 'string' ? content : (content?.[0]?.text ?? '')
+        // Try parse JSON from content
+        try {
+          const parsed = JSON.parse(text)
+          if (Array.isArray(parsed)) return parsed.slice(0, limit)
+        } catch {
+          // fallback: try to extract JSON substring
+          const jsonMatch = String(text).match(/\[\s*\{[\s\S]*\}\s*\]/)
+          if (jsonMatch) {
+            try {
+              const parsed = JSON.parse(jsonMatch[0])
+              if (Array.isArray(parsed)) return parsed.slice(0, limit)
+            } catch { /* ignore */ }
+          }
+          // fallback: split lines
+          return String(text).split('\n').filter(Boolean).slice(0, limit).map((t: string) => ({ text: t.trim() }))
+        }
       }
-    }
-
-    // If model returned a text field
-    if (typeof data.text === 'string') {
-      try {
-        const parsed = JSON.parse(data.text)
-        if (Array.isArray(parsed)) return parsed.slice(0, limit)
-      } catch {
-        return data.text.split('\n').filter(Boolean).slice(0, limit).map((t: string) => ({ text: t.trim() }))
-      }
+    } catch (e) {
+      // fall through to static fallback below
     }
 
     // As a last resort, return a safe, static fallback
