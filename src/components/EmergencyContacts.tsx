@@ -1,7 +1,6 @@
 
 import { useState } from "react"
-import { View } from "react-native"
-import { Text, TextInput, TouchableOpacity, Modal, View } from "react-native"
+import { View, Text, TextInput, TouchableOpacity, Modal } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 

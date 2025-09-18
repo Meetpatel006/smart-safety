@@ -1,9 +1,9 @@
 
 import { useState, forwardRef, useImperativeHandle } from "react"
-import { View, StyleSheet } from "react-native"
-import { Text, TextInput, TouchableOpacity, Modal, View } from "react-native"
+import { View, StyleSheet, Text, TextInput, TouchableOpacity, Modal, ActivityIndicator } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
+import { useAppTheme } from "../context/ThemeContext"
 
 const ItineraryList = forwardRef<{ openNew: () => void }>((props, ref) => {
   const { state, addTrip, updateTrip, removeTrip } = useApp()
@@ -81,8 +81,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }>((props, ref) => {
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyTitle}>No trips planned yet</Text>
           <Text style={styles.emptySubtitle}>Start planning your safe travels by adding your first trip</Text>
-          <Button
-            mode="contained"
+          <TouchableOpacity
             onPress={() => {
               setEditingId(null)
               setTitle("")
@@ -90,127 +89,99 @@ const ItineraryList = forwardRef<{ openNew: () => void }>((props, ref) => {
               setNotes("")
               setVisible(true)
             }}
-            style={styles.emptyButton}
-            buttonColor={theme.colors.secondary}
+            style={[styles.emptyButtonTouchable, { backgroundColor: useAppTheme().colors.secondary }]}
           >
-            {t(state.language, "addTrip")}
-          </Button>
+            <Text style={{ color: 'white' }}>{t(state.language, "addTrip")}</Text>
+          </TouchableOpacity>
         </View>
       ) : (
-        <List.Section>
+        <View>
           {state.trips.map((tr) => (
-            <List.Item
-              key={tr.id}
-              title={tr.title}
-              description={() => (
-                <View>
-                  {tr.date && (
-                    <View style={styles.dateContainer}>
-                      <Text style={styles.dateIcon}>📅</Text>
-                      <Text style={[
-                        styles.tripDate,
-                        isUpcoming(tr.date) && styles.upcomingDate,
-                        isPast(tr.date) && styles.pastDate
-                      ]}>
-                        {formatDate(tr.date)}
-                        {isUpcoming(tr.date) && " (Upcoming)"}
-                        {isPast(tr.date) && " (Completed)"}
-                      </Text>
-                    </View>
-                  )}
-                  {tr.notes && (
-                    <View style={styles.notesContainer}>
-                      <Text style={styles.notesIcon}>📝</Text>
-                      <Text style={styles.tripNotes}>{tr.notes}</Text>
-                    </View>
-                  )}
-                </View>
-              )}
-              left={(props) => <List.Icon {...props} icon="map-marker" />}
-              right={() => (
-                <View style={styles.tripActions}>
-                  <IconButton
-                    icon="pencil"
-                    size={20}
-                    onPress={() => openEdit(tr.id, tr.title, tr.date, tr.notes)}
-                    style={styles.editButton}
-                  />
-                  <IconButton
-                    icon="delete"
-                    size={20}
-                    onPress={async () => {
-                      try {
-                        await removeTrip(tr.id)
-                      } catch (error) {
-                        console.error('Failed to remove trip:', error)
-                      }
-                    }}
-                    style={styles.deleteButton}
-                  />
-                </View>
-              )}
-              style={styles.tripItem}
-            />
+            <View key={tr.id} style={[styles.tripItem, { padding: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]}>
+              <View style={{ flex: 1, paddingRight: 8 }}>
+                <Text style={{ fontSize: 16, fontWeight: '600' }}>{tr.title}</Text>
+                {tr.date && (
+                  <View style={styles.dateContainer}>
+                    <Text style={styles.dateIcon}>📅</Text>
+                    <Text style={[
+                      styles.tripDate,
+                      isUpcoming(tr.date) && styles.upcomingDate,
+                      isPast(tr.date) && styles.pastDate
+                    ]}>
+                      {formatDate(tr.date)}
+                      {isUpcoming(tr.date) && " (Upcoming)"}
+                      {isPast(tr.date) && " (Completed)"}
+                    </Text>
+                  </View>
+                )}
+                {tr.notes && (
+                  <View style={styles.notesContainer}>
+                    <Text style={styles.notesIcon}>📝</Text>
+                    <Text style={styles.tripNotes}>{tr.notes}</Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.tripActions}>
+                <TouchableOpacity onPress={() => openEdit(tr.id, tr.title, tr.date, tr.notes)} style={styles.editButton}>
+                  <Text>✏️</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={async () => { try { await removeTrip(tr.id) } catch (error) { console.error('Failed to remove trip:', error) } }} style={styles.deleteButton}>
+                  <Text>🗑️</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           ))}
-        </List.Section>
+        </View>
       )}
 
-      <Portal>
-        <Modal
-          visible={visible}
-          onDismiss={() => setVisible(false)}
-          contentContainerStyle={styles.modalContainer}
-        >
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalContainer}>
           <Text style={styles.modalTitle}>
             {editingId ? 'Edit Trip' : 'Add New Trip'}
           </Text>
 
           <TextInput
-            label="Trip Title"
+            placeholder="Trip Title"
             value={title}
             onChangeText={setTitle}
             style={styles.input}
-            mode="outlined"
+            accessible
           />
 
           <TextInput
-            label="Date (YYYY-MM-DD)"
+            placeholder="Date (YYYY-MM-DD)"
             value={date}
             onChangeText={setDate}
             style={styles.input}
-            mode="outlined"
-            placeholder="2025-01-15"
+            placeholderTextColor="#888"
           />
 
           <TextInput
-            label="Notes (Optional)"
+            placeholder="Notes (Optional)"
             value={notes}
             onChangeText={setNotes}
             style={styles.input}
-            mode="outlined"
             multiline
             numberOfLines={3}
           />
 
           <View style={styles.modalActions}>
-            <Button
-              onPress={() => setVisible(false)}
-              style={styles.cancelButton}
-            >
-              {t(state.language, "cancel")}
-            </Button>
-            <Button
-              mode="contained"
-              onPress={save}
-              disabled={loading || !title.trim()}
-              loading={loading}
-              buttonColor={theme.colors.secondary}
-            >
-              {t(state.language, "save")}
-            </Button>
+            <TouchableOpacity onPress={() => setVisible(false)} style={[styles.cancelButtonTouchable, { paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 4 }]}> 
+              <Text>{t(state.language, "cancel")}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={save} disabled={loading || !title.trim()} style={[styles.saveButtonTouchable, { backgroundColor: useAppTheme().colors.secondary, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 4 }]}> 
+              {loading ? <ActivityIndicator color="white" /> : <Text style={{ color: 'white' }}>{t(state.language, "save")}</Text>}
+            </TouchableOpacity>
           </View>
-        </Modal>
-      </Portal>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 })
@@ -318,5 +289,24 @@ const styles = StyleSheet.create({
   },
   cancelButton: {
     marginRight: 8,
+  },
+  emptyButtonTouchable: {
+    minWidth: 150,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  cancelButtonTouchable: {
+    // placeholder for additional styles
+  },
+  saveButtonTouchable: {
+    // placeholder for additional styles
   },
 })

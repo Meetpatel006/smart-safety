@@ -1,5 +1,4 @@
-import { View, ScrollView, StyleSheet } from "react-native"
-import { Text, Switch, TextInput, TouchableOpacity, View, ScrollView } from "react-native"
+import { View, ScrollView, StyleSheet, Text, Switch, TextInput, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"

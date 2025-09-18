@@ -1,7 +1,6 @@
 
 import React, { useEffect, useRef } from "react"
-import { View, StyleSheet, Animated, Easing } from "react-native"
-import { Text, TouchableOpacity } from "react-native"
+import { View, StyleSheet, Animated, Easing, Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";

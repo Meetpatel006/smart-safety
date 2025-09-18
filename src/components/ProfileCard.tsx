@@ -1,7 +1,6 @@
 
 import { useState } from "react"
-import { View, TouchableOpacity, Animated } from "react-native"
-import { Text, TextInput, TouchableOpacity } from "react-native"
+import { View, TouchableOpacity, Animated, Text, TextInput } from "react-native"
 import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
@@ -58,8 +57,21 @@ export default function ProfileCard() {
                 </View>
               ) : (
                 <View style={{ gap: 8 }}>
-                  <TextInput label={t(state.language, "name")} value={name} onChangeText={setName} />
-                  <TextInput label={t(state.language, "email")} value={email} onChangeText={setEmail} autoCapitalize="none" />
+                  <Text style={{ marginBottom: 4, color: '#333' }}>{t(state.language, "name")}</Text>
+                  <TextInput
+                    placeholder={t(state.language, "name")}
+                    value={name}
+                    onChangeText={setName}
+                    style={{ borderWidth: 1, borderColor: '#e2e8f0', padding: 8, borderRadius: 4 }}
+                  />
+                  <Text style={{ marginBottom: 4, color: '#333' }}>{t(state.language, "email")}</Text>
+                  <TextInput
+                    placeholder={t(state.language, "email")}
+                    value={email}
+                    onChangeText={setEmail}
+                    autoCapitalize="none"
+                    style={{ borderWidth: 1, borderColor: '#e2e8f0', padding: 8, borderRadius: 4 }}
+                  />
                 </View>
               )}
             </View>

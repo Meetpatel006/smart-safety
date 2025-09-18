@@ -1,5 +1,4 @@
-import { View } from "react-native"
-import { Text, Switch } from "react-native"
+import { View, Text, Switch } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 

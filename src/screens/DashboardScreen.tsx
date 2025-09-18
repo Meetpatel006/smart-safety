@@ -1,5 +1,4 @@
-import { ScrollView, View, StyleSheet, Image } from "react-native"
-import { Text, TouchableOpacity } from "react-native"
+import { ScrollView, View, StyleSheet, Image, Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"

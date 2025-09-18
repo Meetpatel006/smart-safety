@@ -1,5 +1,4 @@
-import { View } from "react-native"
-import { Text, TouchableOpacity } from "react-native"
+import { View, Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 

@@ -1,7 +1,7 @@
-import { Text, ActivityIndicator } from "react-native"
+import { Text, ActivityIndicator, View } from "react-native"
 import { useApp } from "../context/AppContext"
 import { MOCK_INCIDENTS } from "../utils/mockData"
-import { View } from "react-native"
+// ...existing code...
 import { t } from "../context/translations"
 import { useEffect, useState } from "react"
 import geminiService, { GeminiRecommendation } from "../services/gemini"

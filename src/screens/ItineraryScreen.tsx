@@ -1,5 +1,4 @@
-import { View, ScrollView, StyleSheet } from "react-native"
-import { Text, TouchableOpacity, View } from "react-native"
+import { View, ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
