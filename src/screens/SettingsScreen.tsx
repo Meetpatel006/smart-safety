@@ -1,4 +1,5 @@
 import { View, ScrollView, StyleSheet, Text, Switch, TextInput, TouchableOpacity } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"
@@ -9,6 +10,7 @@ import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
   const { state, wipeMockData, logout, acknowledgeHighRisk } = useApp()
+  const theme = useAppTheme()
   const [muted, setMuted] = useState(false)
   const [minutes, setMinutes] = useState<string>("15")
 
@@ -24,8 +26,8 @@ export default function SettingsScreen() {
   }, [])
 
   return (
-    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
-      <View style={{ backgroundColor: '#0077CC', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
+    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}> 
+      <View style={{ backgroundColor: theme.colors.primary, paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
         <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "settings")}</Text>
       </View>
 
@@ -39,7 +41,7 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <View style={styles.card}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#0077CC', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <Text style={{ color: 'white', fontSize: 20 }}>🛡️</Text>
               </View>
               <Text style={styles.sectionTitle}>Safety & Alerts</Text>

@@ -1,6 +1,7 @@
 
 import { useState } from "react"
 import { ScrollView, Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native"
+import { useAppTheme } from '../../context/ThemeContext'
 import { useApp } from "../../context/AppContext"
 import { t } from "../../context/translations"
 
@@ -40,7 +41,7 @@ export default function LoginScreen({ navigation }: any) {
 
         {msg && <Text style={{ color: msg.type === 'error' ? '#c53030' : '#2f855a', marginBottom: 8 }}>{msg.text}</Text>}
 
-        <TouchableOpacity onPress={onSubmit} style={{ backgroundColor: '#0077CC', padding: 12, borderRadius: 6, alignItems: 'center', marginTop: 8 }} disabled={loading}>
+        <TouchableOpacity onPress={onSubmit} style={{ backgroundColor: (useAppTheme()).colors.primary, padding: 12, borderRadius: 6, alignItems: 'center', marginTop: 8 }} disabled={loading}>
           {loading ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff' }}>{t(lang, "signIn")}</Text>}
         </TouchableOpacity>
 

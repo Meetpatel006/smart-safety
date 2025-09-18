@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { View, FlatList, Text, TouchableOpacity } from 'react-native'
+import { useAppTheme } from '../context/ThemeContext'
 import transitionStore, { TransitionRecord } from '../geoFence/transitionStore'
 import { t } from '../context/translations'
 import { useApp } from '../context/AppContext'
@@ -8,6 +9,7 @@ import { clearTransitions } from '../geoFence/transitionStore'
 
 export default function TransitionsScreen() {
   const { state } = useApp()
+  const theme = useAppTheme()
   const [items, setItems] = useState<TransitionRecord[]>([])
   const [unsyncedCount, setUnsyncedCount] = useState(0)
   const [syncing, setSyncing] = useState(false)
@@ -32,7 +34,7 @@ export default function TransitionsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ height: 56, backgroundColor: '#0077CC', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ height: 56, backgroundColor: theme.colors.primary, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{t(state.language, 'transitions') || 'Transitions'}</Text>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           <TouchableOpacity onPress={async () => { setSyncing(true); try { await syncTransitions(); await load(); } finally { setSyncing(false) } }}>

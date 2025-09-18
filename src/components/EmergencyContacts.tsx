@@ -1,11 +1,13 @@
 
 import { useState } from "react"
 import { View, Text, TextInput, TouchableOpacity, Modal } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
 export default function EmergencyContacts({ compact = false }: { compact?: boolean }) {
   const { state, addContact, updateContact, removeContact } = useApp()
+  const theme = useAppTheme()
   const [visible, setVisible] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [name, setName] = useState("")
@@ -33,7 +35,7 @@ export default function EmergencyContacts({ compact = false }: { compact?: boole
     <View style={{ padding: compact ? 8 : 16 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 8 : 16 }}>
         <Text style={{ fontSize: compact ? 16 : 20, fontWeight: 'bold' }}>{t(state.language, "emergencyContacts")}</Text>
-        {!compact && <TouchableOpacity onPress={openNew} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}><Text style={{ color: '#fff' }}>{t(state.language, "add")}</Text></TouchableOpacity>}
+  {!compact && <TouchableOpacity onPress={openNew} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: theme.colors.primary, borderRadius: 4 }}><Text style={{ color: '#fff' }}>{t(state.language, "add")}</Text></TouchableOpacity>}
       </View>
 
       {compact ? (
@@ -80,7 +82,7 @@ export default function EmergencyContacts({ compact = false }: { compact?: boole
             />
             <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
               <TouchableOpacity onPress={() => setVisible(false)} style={{ paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 4 }}><Text>{t(state.language, "cancel")}</Text></TouchableOpacity>
-              <TouchableOpacity onPress={save} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}>
+              <TouchableOpacity onPress={save} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: theme.colors.primary, borderRadius: 4 }}>
                 <Text style={{ color: '#fff' }}>{t(state.language, "save")}</Text>
               </TouchableOpacity>
             </View>

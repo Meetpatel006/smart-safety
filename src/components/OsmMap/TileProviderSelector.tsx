@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { useAppTheme } from '../../context/ThemeContext'
 import { TileProvider } from './types';
 
 interface TileProviderSelectorProps {
@@ -21,7 +22,7 @@ const TileProviderSelector = ({
           <TouchableOpacity
             key={provider}
             onPress={() => onChangeTileProvider(provider as TileProvider)}
-            style={[styles.chip, tileProvider === provider ? styles.chipSelected : undefined]}
+            style={[styles.chip, tileProvider === provider ? styles.chipSelected : undefined, { borderColor: tileProvider === provider ? (useAppTheme()).colors.primary : undefined }]}
           >
             <Text style={[styles.chipText, tileProvider === provider ? styles.chipTextSelected : undefined]}>
               {provider.charAt(0).toUpperCase() + provider.slice(1)}
@@ -57,9 +58,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     alignItems: 'center',
   },
-  chipSelected: { borderColor: '#0077CC', backgroundColor: '#eff6ff' },
+  chipSelected: { borderColor: '#3b82f6', backgroundColor: '#eff6ff' },
   chipText: { color: '#111827' },
-  chipTextSelected: { color: '#0077CC', fontWeight: '600' },
+  chipTextSelected: { color: '#3b82f6', fontWeight: '600' },
 });
 
 export default TileProviderSelector;

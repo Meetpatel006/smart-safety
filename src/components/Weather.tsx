@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet, ScrollView, Text } from 'react-native';
+import { useAppTheme } from '../context/ThemeContext';
 import * as Location from 'expo-location';
 import { fetchOpenMeteoCurrentHour } from '../utils/api';
-import { Text } from 'react-native';
 
 type HourlyWeather = {
   time: string[];
@@ -17,6 +17,7 @@ type HourlyWeather = {
 };
 
 const Weather = () => {
+  const theme = useAppTheme()
   const [currentData, setCurrentData] = useState<any | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
@@ -77,7 +78,7 @@ const Weather = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Weather</Text>
+        <Text style={[styles.title, { color: theme.colors.primary }]}>Weather</Text>
         <View style={styles.refreshContainer}>
           <Text onPress={refresh} style={{ color: '#6B7280', fontWeight: '600' }}>Refresh</Text>
         </View>
@@ -86,16 +87,16 @@ const Weather = () => {
       <View style={styles.weatherDisplay}>
         <View style={styles.weatherIconContainer}>
           <View style={[styles.weatherIcon, { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }]}>
-            <Text style={{ color: '#0077CC', fontSize: 24 }}>⛅</Text>
+            <Text style={{ color: theme.colors.primary, fontSize: 24 }}>⛅</Text>
           </View>
         </View>
 
         <View style={styles.temperatureSection}>
-          <Text style={styles.temperature}>
+          <Text style={[styles.temperature, { color: theme.colors.primary }]}>
             {currentData?.temperature == null ? '—' : `${currentData.temperature}°`}
           </Text>
           <Text style={styles.temperatureUnit}>C</Text>
-          <Text style={styles.feelsLike}>
+          <Text style={[styles.feelsLike, { color: '#6B7280' }]}> 
             {currentData?.apparent_temperature == null ? '' : `Feels like ${currentData.apparent_temperature}°`}
           </Text>
         </View>
@@ -111,9 +112,9 @@ const Weather = () => {
         {weatherDetails.map((detail, index) => (
           <View key={index} style={styles.detailItem}>
             <View style={styles.detailIconContainer}>
-              <View style={[styles.detailIcon, { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }]}>
-                <Text style={{ color: '#6B7280' }}>•</Text>
-              </View>
+                  <View style={[styles.detailIcon, { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ color: '#6B7280' }}>•</Text>
+                  </View>
             </View>
             <View style={styles.detailTextContainer}>
               <Text style={styles.detailLabel}>{detail.label}</Text>
@@ -166,7 +167,7 @@ const styles = StyleSheet.create({
   temperature: {
     fontSize: 48,
     fontWeight: 'bold',
-    color: '#0077CC',
+    color: '#111827',
     marginBottom: 4,
   },
   temperatureUnit: {

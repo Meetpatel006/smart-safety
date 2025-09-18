@@ -1,4 +1,5 @@
 import { ScrollView, View, StyleSheet, Image, Text, TouchableOpacity } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"
@@ -10,6 +11,7 @@ import { useState } from "react"
 
 export default function DashboardScreen({ navigation }: any) {
   const { state, acknowledgeHighRisk } = useApp()
+  const theme = useAppTheme()
   const [isFullScreen, setIsFullScreen] = useState(false)
   const [showWeather, setShowWeather] = useState(false)
 
@@ -19,7 +21,7 @@ export default function DashboardScreen({ navigation }: any) {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ height: 56, backgroundColor: '#0077CC', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+      <View style={{ height: 56, backgroundColor: theme.colors.primary, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
         <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{t(state.language, "dashboard")}</Text>
         <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
           <Text style={{ color: '#fff', fontSize: 16 }}>⚙️</Text>

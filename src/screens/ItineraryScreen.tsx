@@ -1,4 +1,5 @@
 import { View, ScrollView, StyleSheet, Text, TouchableOpacity } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
@@ -6,6 +7,7 @@ import { useRef } from "react"
 
 export default function ItineraryScreen() {
   const { state } = useApp()
+  const theme = useAppTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
 
   const handleAddTrip = () => {
@@ -15,8 +17,8 @@ export default function ItineraryScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
-      <View style={{ backgroundColor: '#0077CC', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
+    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}> 
+      <View style={{ backgroundColor: theme.colors.primary, paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
         <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "itinerary")}</Text>
       </View>
 
@@ -25,7 +27,7 @@ export default function ItineraryScreen() {
         <View style={styles.section}>
           <View style={styles.card}>
             <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
-              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#0077CC', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: theme.colors.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
                 <Text style={{ color: 'white', fontSize: 20 }}>🗺️</Text>
               </View>
               <View style={{ flex: 1 }}>

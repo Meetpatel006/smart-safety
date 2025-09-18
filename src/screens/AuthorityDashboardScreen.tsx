@@ -1,6 +1,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { Text, TouchableOpacity, View, Modal, ScrollView } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { getAlerts } from "../utils/api";
@@ -15,6 +16,7 @@ const mockTourists = [
 
 export default function AuthorityDashboardScreen() {
   const { state } = useApp()
+  const theme = useAppTheme()
   const [filter, setFilter] = useState<"All" | "Open" | "Resolved">("All")
   const [selected, setSelected] = useState<(typeof mockTourists)[0] | null>(null)
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -51,7 +53,7 @@ export default function AuthorityDashboardScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <View style={{ backgroundColor: '#0077CC', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
+      <View style={{ backgroundColor: theme.colors.primary, paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
         <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "authority")}</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 12, gap: 12 }}>
@@ -84,7 +86,7 @@ export default function AuthorityDashboardScreen() {
                       paddingVertical: 8,
                       paddingHorizontal: 12,
                       borderRadius: 6,
-                      backgroundColor: filter === value ? '#0077CC' : 'transparent',
+                      backgroundColor: filter === value ? theme.colors.primary : 'transparent',
                     }}
                   >
                     <Text style={{ color: filter === value ? '#fff' : '#333', fontWeight: '600', fontSize: 12 }}>
@@ -124,7 +126,7 @@ export default function AuthorityDashboardScreen() {
                 <View key={area} style={{ marginBottom: 8 }}>
                   <Text style={{ fontSize: 14, color: '#333', marginBottom: 4 }}>{area}</Text>
                   <View style={{ height: 10, backgroundColor: "#eee", borderRadius: 5 }}>
-                    <View style={{ width: `${width}%`, height: 10, backgroundColor: "#0077CC", borderRadius: 5 }} />
+                    <View style={{ width: `${width}%`, height: 10, backgroundColor: theme.colors.primary, borderRadius: 5 }} />
                   </View>
                 </View>
               )
@@ -153,7 +155,7 @@ export default function AuthorityDashboardScreen() {
               Location: {selected?.lat.toFixed(3)}, {selected?.lng.toFixed(3)} (mock)
             </Text>
             <Text style={{ fontSize: 16, marginBottom: 16, color: '#333' }}>Sharing: {state.shareLocation ? "Yes" : "No"}</Text>
-            <TouchableOpacity onPress={() => setSelected(null)} style={{ backgroundColor: '#0077CC', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 4, alignSelf: 'flex-end' }}>
+            <TouchableOpacity onPress={() => setSelected(null)} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 4, alignSelf: 'flex-end' }}>
               <Text style={{ color: 'white', fontWeight: '600' }}>Close</Text>
             </TouchableOpacity>
           </View>

@@ -1,5 +1,6 @@
 import React, {useEffect, useState, useContext} from 'react'
 import {View, Text, ScrollView, StyleSheet, ActivityIndicator, Modal, Dimensions, TouchableOpacity} from 'react-native'
+import { useAppTheme } from '../context/ThemeContext'
 import Slider from '@react-native-community/slider'
 import {GeoFence, pointInCircle, pointInPolygon, haversineKm} from '../utils/geofenceLogic'
 import * as FileSystem from 'expo-file-system'
@@ -12,6 +13,7 @@ import { reverseGeocode } from '../components/MapboxMap/geoUtils'
 // Simple debug screen to load pre-bundled JSON geo-fences (created by importer script)
 export default function GeoFenceDebugScreen() {
   const { state } = useApp()
+  const theme = useAppTheme()
   const [zones, setZones] = useState<GeoFence[]>([])
   const [filteredZones, setFilteredZones] = useState<GeoFence[]>([])
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
@@ -187,7 +189,7 @@ export default function GeoFenceDebugScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.appHeader}>
+      <View style={[styles.appHeader, { backgroundColor: theme.colors.primary }] }>
         <Text style={styles.appHeaderTitle}>{t(state.language, "emergencySystem")}</Text>
       </View>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
@@ -358,7 +360,7 @@ const styles = StyleSheet.create({
     height: 56,
     justifyContent: 'center',
     paddingHorizontal: 16,
-    backgroundColor: '#0077CC',
+    // backgroundColor is applied inline using theme.colors.primary
   },
   appHeaderTitle: {
     color: '#fff',

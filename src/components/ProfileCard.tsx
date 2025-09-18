@@ -1,6 +1,7 @@
 
 import { useState } from "react"
 import { View, TouchableOpacity, Animated, Text, TextInput } from "react-native"
+import { useAppTheme } from '../context/ThemeContext'
 import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
@@ -90,7 +91,7 @@ export default function ProfileCard() {
                       updateProfile({ name, email })
                       setEditing(false)
                     }}
-                    style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}
+                    style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: (useAppTheme()).colors.primary, borderRadius: 4 }}
                   >
                     <Text style={{ color: '#fff' }}>{t(state.language, "save")}</Text>
                   </TouchableOpacity>
