@@ -1,7 +1,7 @@
 
 import { useState } from "react"
 import { ScrollView } from "react-native"
-import { Button, Card, HelperText, Text, TextInput } from "react-native-paper"
+import { Text, TextInput, TouchableOpacity, View } from "react-native"
 import { useApp } from "../../context/AppContext"
 import { t } from "../../context/translations"
 

@@ -260,7 +260,7 @@ git push
 
 ```powershell
 # create an annotated tag
-git tag -a v0.3.0-migrate-nativewind -m "Checkpoint: migrate to NativeWind/Gluestack - phase A"
+git tag -a v1.1.23-migrate-nativewind -m "Checkpoint: migrate to NativeWind/Gluestack - phase A"
 # push tags
 git push origin --tags
 ```
@@ -302,7 +302,7 @@ git push --force
 # switch to main
 git checkout main
 # reset main to tag
-git reset --hard v0.2.5-stable
+git reset --hard v1.1.22
 # push force to remote
 git push --force origin main
 ```

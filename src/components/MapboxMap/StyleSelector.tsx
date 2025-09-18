@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Chip } from 'react-native-paper';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { MAPBOX_STYLES } from './constants';
 
 interface StyleSelectorProps {
@@ -20,15 +19,11 @@ const StyleSelector = ({
       <Text style={styles.selectorLabel}>Map Style:</Text>
       <View style={styles.selectorChips}>
         {stylesKeys.map((styleKey) => (
-          <Chip
-            key={styleKey}
-            selected={selectedStyle === styleKey}
-            onPress={() => onSelectStyle(styleKey)}
-            compact
-            style={styles.chip}
-          >
-            {MAPBOX_STYLES[styleKey].name}
-          </Chip>
+          <TouchableOpacity key={styleKey} onPress={() => onSelectStyle(styleKey)} style={[styles.chip, selectedStyle === styleKey ? styles.chipSelected : undefined]}>
+            <Text style={[styles.chipText, selectedStyle === styleKey ? styles.chipTextSelected : undefined]}>
+              {MAPBOX_STYLES[styleKey].name}
+            </Text>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -51,6 +46,23 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    backgroundColor: '#fff',
+  },
+  chipSelected: {
+    borderColor: '#0077CC',
+    backgroundColor: '#eff6ff',
+  },
+  chipText: {
+    color: '#111827',
+  },
+  chipTextSelected: {
+    color: '#0077CC',
+    fontWeight: '600',
   },
 });
 

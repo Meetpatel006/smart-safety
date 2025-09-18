@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchOpenMeteoCurrentHour } from '../utils/api';
-import { Text, ActivityIndicator, Avatar, IconButton, Card, Surface, useTheme } from 'react-native-paper';
+import { Text } from 'react-native';
 
 type HourlyWeather = {
   time: string[];
@@ -20,7 +20,7 @@ const Weather = () => {
   const [currentData, setCurrentData] = useState<any | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
-  const theme = useTheme();
+  
 
   const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`)
 
@@ -79,25 +79,15 @@ const Weather = () => {
       <View style={styles.header}>
         <Text style={styles.title}>Weather</Text>
         <View style={styles.refreshContainer}>
-          <IconButton
-            icon="refresh"
-            onPress={refresh}
-            disabled={loading}
-            iconColor="#6B7280"
-            size={20}
-          />
-          {loading && <ActivityIndicator size={16} color="#6B7280" />}
+          <Text onPress={refresh} style={{ color: '#6B7280', fontWeight: '600' }}>Refresh</Text>
         </View>
       </View>
 
       <View style={styles.weatherDisplay}>
         <View style={styles.weatherIconContainer}>
-          <Avatar.Icon
-            size={80}
-            icon={weatherIcon() as any}
-            style={styles.weatherIcon}
-            color="#0077CC"
-          />
+          <View style={[styles.weatherIcon, { width: 80, height: 80, borderRadius: 40, alignItems: 'center', justifyContent: 'center' }]}>
+            <Text style={{ color: '#0077CC', fontSize: 24 }}>⛅</Text>
+          </View>
         </View>
 
         <View style={styles.temperatureSection}>
@@ -121,12 +111,9 @@ const Weather = () => {
         {weatherDetails.map((detail, index) => (
           <View key={index} style={styles.detailItem}>
             <View style={styles.detailIconContainer}>
-              <Avatar.Icon
-                size={36}
-                icon={detail.icon as any}
-                style={styles.detailIcon}
-                color="#6B7280"
-              />
+              <View style={[styles.detailIcon, { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' }]}>
+                <Text style={{ color: '#6B7280' }}>•</Text>
+              </View>
             </View>
             <View style={styles.detailTextContainer}>
               <Text style={styles.detailLabel}>{detail.label}</Text>

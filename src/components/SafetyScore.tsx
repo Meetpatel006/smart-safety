@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react"
 import { View, StyleSheet } from "react-native"
-import { Text } from "react-native-paper"
+import { Text } from "react-native"
 import { computeSafetyScore, SafetyScoreResult } from "../utils/safetyLogic"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"

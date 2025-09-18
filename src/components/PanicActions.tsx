@@ -1,14 +1,13 @@
 
 import React, { useEffect, useRef } from "react"
 import { View, StyleSheet, Animated, Easing } from "react-native"
-import { Button, Snackbar, Text, IconButton, useTheme } from "react-native-paper"
+import { Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
 
 export default function PanicActions() {
   const { state } = useApp()
-  const theme = useTheme()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
 
@@ -197,18 +196,15 @@ export default function PanicActions() {
               }
             ]}
           >
-          <Button
-            mode="contained"
-            buttonColor="#D11A2A"
+          <TouchableOpacity
             onPress={handleSOSPress}
             disabled={loading}
             style={styles.sosButton}
-            labelStyle={styles.sosLabel}
             accessibilityLabel="SOS Button"
             accessibilityHint="Triggers emergency SOS alert"
           >
-            SOS
-          </Button>
+            <Text style={styles.sosLabel}>SOS</Text>
+          </TouchableOpacity>
         </Animated.View>
   </View>
   </View>
@@ -217,9 +213,11 @@ export default function PanicActions() {
         Click <Text style={styles.sosTextHighlight}>SOS button</Text> to call the help.
       </Animated.Text>
 
-      <Snackbar visible={snack.visible} onDismiss={() => setSnack({ visible: false, msg: "" })} duration={2000}>
-        {snack.msg}
-      </Snackbar>
+      {snack.visible && (
+        <View style={{ position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: '#333', padding: 12, borderRadius: 8 }}>
+          <Text style={{ color: '#fff', textAlign: 'center' }}>{snack.msg}</Text>
+        </View>
+      )}
     </Animated.View>
   )
 }
@@ -278,6 +276,7 @@ const styles = StyleSheet.create({
     borderRadius: 100,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#D11A2A',
     elevation: 10,
     shadowColor: '#D11A2A',
     shadowOffset: {

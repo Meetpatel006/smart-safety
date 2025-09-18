@@ -1,5 +1,5 @@
 import { View, ScrollView, StyleSheet } from "react-native"
-import { Appbar, List, Text, Switch, TextInput, Button, Card, Divider, Avatar, useTheme } from "react-native-paper"
+import { Text, Switch, TextInput, TouchableOpacity, View, ScrollView } from "react-native"
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"
@@ -10,7 +10,6 @@ import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
   const { state, wipeMockData, logout, acknowledgeHighRisk } = useApp()
-  const theme = useTheme()
   const [muted, setMuted] = useState(false)
   const [minutes, setMinutes] = useState<string>("15")
 
@@ -26,10 +25,10 @@ export default function SettingsScreen() {
   }, [])
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header style={{ backgroundColor: theme.colors.primary }}>
-        <Appbar.Content title={t(state.language, "settings")} titleStyle={{ color: 'white' }} />
-      </Appbar.Header>
+    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
+      <View style={{ backgroundColor: '#0077CC', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
+        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "settings")}</Text>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Section */}
@@ -39,16 +38,17 @@ export default function SettingsScreen() {
 
         {/* Safety & Alerts Section */}
         <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Safety & Alerts"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="shield-alert" size={40} style={{ backgroundColor: theme.colors.primary }} />}
-            />
-            <Card.Content>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#0077CC', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Text style={{ color: 'white', fontSize: 20 }}>🛡️</Text>
+              </View>
+              <Text style={styles.sectionTitle}>Safety & Alerts</Text>
+            </View>
+            <View style={{ padding: 16 }}>
               <Text style={styles.cardSubtitle}>Manage your safety notifications and emergency settings</Text>
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>
@@ -62,11 +62,10 @@ export default function SettingsScreen() {
                     const { setGlobalMute } = await import('../utils/alertHelpers')
                     await setGlobalMute(v)
                   }}
-                  color={theme.colors.primary}
                 />
               </View>
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>
@@ -78,45 +77,42 @@ export default function SettingsScreen() {
               <View style={styles.timeInputContainer}>
                 <TextInput
                   style={styles.timeInput}
-                  mode="outlined"
                   keyboardType="numeric"
                   value={minutes}
                   onChangeText={setMinutes}
-                  label="Minutes"
-                  dense
+                  placeholder="Minutes"
                 />
-                <Button
-                  mode="contained"
+                <TouchableOpacity
                   onPress={async () => {
                     const m = Math.max(1, parseInt(minutes || '0', 10) || 0)
                     await acknowledgeHighRisk(m)
                   }}
-                  style={styles.acknowledgeButton}
-                  buttonColor={theme.colors.secondary}
+                  style={[styles.acknowledgeButton, { backgroundColor: '#FF7A00' }]}
                 >
-                  Acknowledge
-                </Button>
+                  <Text style={{ color: 'white', textAlign: 'center' }}>Acknowledge</Text>
+                </TouchableOpacity>
               </View>
 
               <Text style={styles.warningText}>
                 If you don't acknowledge, alerts will escalate at 5/15/30+ minutes by default.
               </Text>
-            </Card.Content>
-          </Card>
+            </View>
+          </View>
         </View>
 
         {/* Preferences Section */}
         <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Preferences"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="cog" size={40} style={{ backgroundColor: theme.colors.secondary }} />}
-            />
-            <Card.Content>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF7A00', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Text style={{ color: 'white', fontSize: 20 }}>⚙️</Text>
+              </View>
+              <Text style={styles.sectionTitle}>Preferences</Text>
+            </View>
+            <View style={{ padding: 16 }}>
               <Text style={styles.cardSubtitle}>Customize your app experience</Text>
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>
@@ -126,7 +122,7 @@ export default function SettingsScreen() {
               </View>
               <LanguageToggle />
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>
@@ -135,44 +131,47 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <OfflineBadge />
-            </Card.Content>
-          </Card>
+            </View>
+          </View>
         </View>
-
-        
 
         {/* Account Actions Section */}
         <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Account"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="account" size={40} style={{ backgroundColor: '#FF5722' }} />}
-            />
-            <Card.Content>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FF5722', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Text style={{ color: 'white', fontSize: 20 }}>👤</Text>
+              </View>
+              <Text style={styles.sectionTitle}>Account</Text>
+            </View>
+            <View style={{ padding: 16 }}>
               <Text style={styles.cardSubtitle}>Manage your account and data</Text>
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
-              <List.Item
-                title={t(state.language, "wipeData")}
-                description="Clear all mock data from the app"
-                onPress={wipeMockData}
-                left={(props) => <List.Icon {...props} icon="delete" color="#F44336" />}
-                style={styles.listItem}
-              />
+              <TouchableOpacity onPress={wipeMockData} style={styles.listItem}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}>
+                  <Text style={{ fontSize: 20, marginRight: 12 }}>🗑️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingTitle}>{t(state.language, "wipeData")}</Text>
+                    <Text style={styles.settingDescription}>Clear all mock data from the app</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
 
-              <Divider style={styles.divider} />
+              <View style={{ height: 1, backgroundColor: '#e0e0e0', marginVertical: 12 }} />
 
-              <List.Item
-                title={t(state.language, "logout")}
-                description="Sign out of your account"
-                onPress={logout}
-                left={(props) => <List.Icon {...props} icon="logout" color="#FF5722" />}
-                style={styles.listItem}
-              />
-            </Card.Content>
-          </Card>
+              <TouchableOpacity onPress={logout} style={styles.listItem}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 12 }}>
+                  <Text style={{ fontSize: 20, marginRight: 12 }}>🚪</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.settingTitle}>{t(state.language, "logout")}</Text>
+                    <Text style={styles.settingDescription}>Sign out of your account</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </View>

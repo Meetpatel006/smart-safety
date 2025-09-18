@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Chip } from 'react-native-paper';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { TileProvider } from './types';
 
 interface TileProviderSelectorProps {
@@ -19,15 +18,15 @@ const TileProviderSelector = ({
       <Text style={styles.providerLabel}>Map Tile Provider:</Text>
       <View style={styles.providerChips}>
         {providers.map((provider) => (
-          <Chip
+          <TouchableOpacity
             key={provider}
-            selected={tileProvider === provider}
             onPress={() => onChangeTileProvider(provider as TileProvider)}
-            compact
-            style={styles.chip}
+            style={[styles.chip, tileProvider === provider ? styles.chipSelected : undefined]}
           >
-            {provider.charAt(0).toUpperCase() + provider.slice(1)}
-          </Chip>
+            <Text style={[styles.chipText, tileProvider === provider ? styles.chipTextSelected : undefined]}>
+              {provider.charAt(0).toUpperCase() + provider.slice(1)}
+            </Text>
+          </TouchableOpacity>
         ))}
       </View>
     </View>
@@ -50,7 +49,17 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 9999,
+    backgroundColor: '#fff',
+    alignItems: 'center',
   },
+  chipSelected: { borderColor: '#0077CC', backgroundColor: '#eff6ff' },
+  chipText: { color: '#111827' },
+  chipTextSelected: { color: '#0077CC', fontWeight: '600' },
 });
 
 export default TileProviderSelector;

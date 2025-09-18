@@ -1,13 +1,12 @@
 
 import { useState, forwardRef, useImperativeHandle } from "react"
 import { View, StyleSheet } from "react-native"
-import { Button, Card, IconButton, List, Modal, Portal, TextInput, Text, useTheme, Divider } from "react-native-paper"
+import { Text, TextInput, TouchableOpacity, Modal, View } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
 const ItineraryList = forwardRef<{ openNew: () => void }>((props, ref) => {
   const { state, addTrip, updateTrip, removeTrip } = useApp()
-  const theme = useTheme()
   const [visible, setVisible] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [title, setTitle] = useState("")

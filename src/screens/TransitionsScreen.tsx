@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback } from 'react'
-import { View, FlatList } from 'react-native'
-import { List, Appbar, Text, Badge } from 'react-native-paper'
+import { View, FlatList, Text, TouchableOpacity } from 'react-native'
 import transitionStore, { TransitionRecord } from '../geoFence/transitionStore'
 import { t } from '../context/translations'
 import { useApp } from '../context/AppContext'
@@ -33,19 +32,25 @@ export default function TransitionsScreen() {
 
   return (
     <View style={{ flex: 1 }}>
-      <Appbar.Header>
-        <Appbar.Content title={t(state.language, 'transitions') || 'Transitions'} subtitle={unsyncedCount > 0 ? `${unsyncedCount} unsynced` : ''} />
-        <Appbar.Action icon={syncing ? 'cloud-sync' : 'cloud'} onPress={async () => { setSyncing(true); try { const r = await syncTransitions(); await load(); } finally { setSyncing(false) } }} />
-        <Appbar.Action icon="delete" onPress={async () => { await clearTransitions(); await load() }} />
-      </Appbar.Header>
+      <View style={{ height: 56, backgroundColor: '#0077CC', paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{t(state.language, 'transitions') || 'Transitions'}</Text>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <TouchableOpacity onPress={async () => { setSyncing(true); try { await syncTransitions(); await load(); } finally { setSyncing(false) } }}>
+            <Text style={{ color: '#fff' }}>{syncing ? 'Syncing…' : 'Sync'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={async () => { await clearTransitions(); await load() }}>
+            <Text style={{ color: '#fff' }}>Clear</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
       <FlatList
         data={items}
         keyExtractor={(it) => it.id}
         renderItem={({ item }) => (
-          <List.Item
-            title={`${item.type.toUpperCase()} — ${item.fenceName || item.fenceId}`}
-            description={`${new Date(item.at).toLocaleString()} ${item.coords ? `@ ${item.coords.latitude.toFixed(4)},${item.coords.longitude.toFixed(4)}` : ''}`}
-          />
+          <View style={{ paddingVertical: 12, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+            <Text style={{ fontWeight: '600', color: '#111827' }}>{`${item.type.toUpperCase()} — ${item.fenceName || item.fenceId}`}</Text>
+            <Text style={{ color: '#6b7280', marginTop: 2 }}>{`${new Date(item.at).toLocaleString()} ${item.coords ? `@ ${item.coords.latitude.toFixed(4)},${item.coords.longitude.toFixed(4)}` : ''}`}</Text>
+          </View>
         )}
         ListEmptyComponent={() => <Text style={{ padding: 12, textAlign: 'center' }}>No transitions recorded</Text>}
       />

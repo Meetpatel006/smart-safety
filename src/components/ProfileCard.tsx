@@ -1,7 +1,7 @@
 
 import { useState } from "react"
 import { View, TouchableOpacity, Animated } from "react-native"
-import { Button, Card, Text, TextInput } from "react-native-paper"
+import { Text, TextInput, TouchableOpacity } from "react-native"
 import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
@@ -46,9 +46,9 @@ export default function ProfileCard() {
     <View style={{ position: "relative", marginBottom: 16 }}>
       <TouchableOpacity onPress={flipCard} activeOpacity={0.9} style={{ position: "relative" }}>
         <Animated.View style={[frontAnimatedStyle, { backfaceVisibility: "hidden" }]}>
-          <Card>
-            <Card.Title title={t(state.language, "profile")} />
-            <Card.Content>
+          <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, marginVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#333' }}>{t(state.language, "profile")}</Text>
+            <View>
               {!editing ? (
                 <View style={{ gap: 1 }}>
                   <Text>Name: {state.user?.name}</Text>
@@ -62,31 +62,35 @@ export default function ProfileCard() {
                   <TextInput label={t(state.language, "email")} value={email} onChangeText={setEmail} autoCapitalize="none" />
                 </View>
               )}
-            </Card.Content>
-            <Card.Actions>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12, gap: 8 }}>
               {!editing ? (
-                <Button onPress={() => setEditing(true)}>{t(state.language, "edit")}</Button>
+                <TouchableOpacity onPress={() => setEditing(true)} style={{ paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 4 }}>
+                  <Text>{t(state.language, "edit")}</Text>
+                </TouchableOpacity>
               ) : (
                 <>
-                  <Button onPress={() => setEditing(false)}>{t(state.language, "cancel")}</Button>
-                  <Button
-                    mode="contained"
+                  <TouchableOpacity onPress={() => setEditing(false)} style={{ paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 4 }}>
+                    <Text>{t(state.language, "cancel")}</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
                     onPress={() => {
                       updateProfile({ name, email })
                       setEditing(false)
                     }}
+                    style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}
                   >
-                    {t(state.language, "save")}
-                  </Button>
+                    <Text style={{ color: '#fff' }}>{t(state.language, "save")}</Text>
+                  </TouchableOpacity>
                 </>
               )}
-            </Card.Actions>
-          </Card>
+            </View>
+          </View>
         </Animated.View>
         <Animated.View style={[backAnimatedStyle, { backfaceVisibility: "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }]}>
-          <Card style={{ height: "100%" }}>
-            <Card.Title title="QR Code" />
-            <Card.Content style={{ 
+          <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, marginVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2, height: "100%" }}>
+            <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#333' }}>QR Code</Text>
+            <View style={{ 
               alignItems: "center", 
               justifyContent: "center",
               paddingVertical: 0
@@ -96,8 +100,8 @@ export default function ProfileCard() {
               ) : (
                 <Text>No Tourist ID available</Text>
               )}
-            </Card.Content>
-          </Card>
+            </View>
+          </View>
         </Animated.View>
       </TouchableOpacity>
     </View>

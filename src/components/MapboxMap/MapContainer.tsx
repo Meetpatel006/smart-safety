@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { WebViewMessage } from './types';
 import { generateMapHTML } from './mapHtml';

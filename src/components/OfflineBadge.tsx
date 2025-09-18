@@ -1,5 +1,5 @@
 import { View } from "react-native"
-import { HelperText, Switch, Text } from "react-native-paper"
+import { Text, Switch } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
@@ -9,9 +9,9 @@ export default function OfflineBadge() {
     <View style={{ gap: 6 }}>
       <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
         <Switch value={state.offline} onValueChange={setOffline} />
-        <Text variant="labelLarge">{t(state.language, "offlineMode")}</Text>
+        <Text style={{ fontSize: 16, fontWeight: '500' }}>{t(state.language, "offlineMode")}</Text>
       </View>
-      {state.offline && <HelperText type="info">{t(state.language, "offlineInfo")}</HelperText>}
+      {state.offline && <Text style={{ fontSize: 12, color: '#666', marginTop: 4 }}>{t(state.language, "offlineInfo")}</Text>}
     </View>
   )
 }

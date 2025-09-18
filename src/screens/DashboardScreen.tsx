@@ -1,5 +1,5 @@
 import { ScrollView, View, StyleSheet, Image } from "react-native"
-import { Appbar, Button, Text, IconButton } from "react-native-paper"
+import { Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"
@@ -20,10 +20,12 @@ export default function DashboardScreen({ navigation }: any) {
 
   return (
     <View style={{ flex: 1 }}>
-      <Appbar.Header>
-        <Appbar.Content title={t(state.language, "dashboard")} />
-        <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
-      </Appbar.Header>
+      <View style={{ height: 56, backgroundColor: '#0077CC', paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text style={{ color: '#fff', fontSize: 18, fontWeight: '700' }}>{t(state.language, "dashboard")}</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('Settings')}>
+          <Text style={{ color: '#fff', fontSize: 16 }}>⚙️</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView contentContainerStyle={styles.container}>
         {/* Panic actions at the top (large SOS button area) */}

@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import { Text } from 'react-native-paper';
+import { View, StyleSheet, ActivityIndicator, Platform, Text } from 'react-native';
 import * as Location from 'expo-location';
 import { formatCoordinates } from './geoUtils';
 

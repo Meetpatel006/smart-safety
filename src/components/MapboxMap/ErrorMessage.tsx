@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
 interface ErrorMessageProps {
   errorMsg: string | null;
@@ -14,9 +13,9 @@ const ErrorMessage = ({ errorMsg, onRetry }: ErrorMessageProps) => {
   return (
     <View style={styles.errorContainer}>
       <Text style={styles.errorText}>{errorMsg}</Text>
-      <Button mode="outlined" onPress={onRetry} compact>
-        Retry
-      </Button>
+      <TouchableOpacity onPress={onRetry} style={styles.btn}>
+        <Text style={styles.btnText}>Retry</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -35,6 +34,18 @@ const styles = StyleSheet.create({
     color: "#d32f2f",
     flex: 1,
     marginRight: 8,
+  },
+  btn: {
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#fff',
+  },
+  btnText: {
+    color: '#c62828',
+    fontWeight: '600',
   },
 });
 

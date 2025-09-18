@@ -1,7 +1,7 @@
 
 import { useState } from "react"
 import { View } from "react-native"
-import { Button, IconButton, List, Modal, Portal, TextInput, Text } from "react-native-paper"
+import { Text, TextInput, TouchableOpacity, Modal, View } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
@@ -34,7 +34,7 @@ export default function EmergencyContacts({ compact = false }: { compact?: boole
     <View style={{ padding: compact ? 8 : 16 }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: compact ? 8 : 16 }}>
         <Text style={{ fontSize: compact ? 16 : 20, fontWeight: 'bold' }}>{t(state.language, "emergencyContacts")}</Text>
-        {!compact && <Button onPress={openNew}>{t(state.language, "add")}</Button>}
+        {!compact && <TouchableOpacity onPress={openNew} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}><Text style={{ color: '#fff' }}>{t(state.language, "add")}</Text></TouchableOpacity>}
       </View>
 
       {compact ? (
@@ -45,49 +45,49 @@ export default function EmergencyContacts({ compact = false }: { compact?: boole
                 <Text style={{ fontWeight: '600' }}>{c.name}</Text>
                 <Text>{c.phone}</Text>
               </View>
-              <IconButton icon="phone" onPress={() => {/* ideally initiate phone call */}} />
+              <TouchableOpacity onPress={() => {/* ideally initiate phone call */}} style={{ padding: 8 }}><Text>📞</Text></TouchableOpacity>
             </View>
           ))}
         </View>
       ) : (
-        <List.Section>
+        <View>
           {state.contacts.map((c) => (
-            <List.Item
-              key={c.id}
-              title={`${c.name} (${c.phone})`}
-              right={() => (
-                <View style={{ flexDirection: "row" }}>
-                  <IconButton icon="pencil" onPress={() => openEdit(c.id, c.name, c.phone)} />
-                  <IconButton icon="delete" onPress={() => removeContact(c.id)} />
-                </View>
-              )}
-            />
+            <View key={c.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f8f9fa', padding: 12, marginBottom: 8, borderRadius: 8 }}>
+              <Text style={{ flex: 1 }}>{c.name} ({c.phone})</Text>
+              <View style={{ flexDirection: "row" }}>
+                <TouchableOpacity onPress={() => openEdit(c.id, c.name, c.phone)} style={{ padding: 8, marginRight: 4 }}><Text>✏️</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => removeContact(c.id)} style={{ padding: 8 }}><Text>🗑️</Text></TouchableOpacity>
+              </View>
+            </View>
           ))}
-        </List.Section>
+        </View>
       )}
 
-      <Portal>
-        <Modal
-          visible={visible}
-          onDismiss={() => setVisible(false)}
-          contentContainerStyle={{ backgroundColor: "white", padding: 16, margin: 16, borderRadius: 8 }}
-        >
-          <TextInput label="Name" value={name} onChangeText={setName} style={{ marginBottom: 8 }} />
-          <TextInput
-            label="Phone"
-            value={phone}
-            onChangeText={setPhone}
-            keyboardType="phone-pad"
-            style={{ marginBottom: 8 }}
-          />
-          <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
-            <Button onPress={() => setVisible(false)}>{t(state.language, "cancel")}</Button>
-            <Button mode="contained" onPress={save}>
-              {t(state.language, "save")}
-            </Button>
+      <Modal
+        visible={visible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setVisible(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: "white", padding: 16, margin: 16, borderRadius: 8, width: '90%' }}>
+            <TextInput placeholder="Name" value={name} onChangeText={setName} style={{ borderWidth: 1, borderColor: '#ccc', padding: 12, marginBottom: 8, borderRadius: 4 }} />
+            <TextInput
+              placeholder="Phone"
+              value={phone}
+              onChangeText={setPhone}
+              keyboardType="phone-pad"
+              style={{ borderWidth: 1, borderColor: '#ccc', padding: 12, marginBottom: 8, borderRadius: 4 }}
+            />
+            <View style={{ flexDirection: "row", justifyContent: "flex-end", gap: 8 }}>
+              <TouchableOpacity onPress={() => setVisible(false)} style={{ paddingHorizontal: 16, paddingVertical: 8, borderWidth: 1, borderColor: '#ccc', borderRadius: 4 }}><Text>{t(state.language, "cancel")}</Text></TouchableOpacity>
+              <TouchableOpacity onPress={save} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#0077CC', borderRadius: 4 }}>
+                <Text style={{ color: '#fff' }}>{t(state.language, "save")}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Modal>
-      </Portal>
+        </View>
+      </Modal>
     </View>
   )
 }

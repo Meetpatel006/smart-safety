@@ -1,4 +1,4 @@
-import { Card, Text, ActivityIndicator } from "react-native-paper"
+import { Text, ActivityIndicator } from "react-native"
 import { useApp } from "../context/AppContext"
 import { MOCK_INCIDENTS } from "../utils/mockData"
 import { View } from "react-native"
@@ -171,9 +171,9 @@ IMPORTANT: Return ONLY a valid JSON array of objects with 'text' and optional 'c
   const isLoading = locationLoading || loading
 
   return (
-    <Card>
-      <Card.Title title={t(state.language, "safetyRecommendations")} />
-      <Card.Content>
+    <View style={{ backgroundColor: '#fff', borderRadius: 8, padding: 16, marginVertical: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4, elevation: 2 }}>
+      <Text style={{ fontSize: 18, fontWeight: '600', marginBottom: 12, color: '#333' }}>{t(state.language, "safetyRecommendations")}</Text>
+      <View>
         <View style={{ gap: 6 }}>
           {MOCK_INCIDENTS.map((inc) => (
             <Text key={inc.id}>
@@ -205,7 +205,7 @@ IMPORTANT: Return ONLY a valid JSON array of objects with 'text' and optional 'c
 
           {error ? <Text style={{ color: 'red', fontSize: 12 }}>Error: {error}</Text> : null}
         </View>
-      </Card.Content>
-    </Card>
+      </View>
+    </View>
   )
 }

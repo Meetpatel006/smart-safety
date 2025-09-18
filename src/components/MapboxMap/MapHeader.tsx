@@ -1,7 +1,6 @@
 
 import React from 'react';
-import { View, StyleSheet, ActivityIndicator } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, ActivityIndicator, Text, TouchableOpacity } from 'react-native';
 
 interface MapHeaderProps {
   title: string;
@@ -13,15 +12,9 @@ const MapHeader = ({ title, loading, onRefresh }: MapHeaderProps) => {
   return (
     <View style={styles.header}>
       <Text style={styles.title}>{title}</Text>
-      <Button
-        mode="outlined"
-        onPress={onRefresh}
-        disabled={loading}
-        compact
-        icon="refresh"
-      >
-        {loading ? "Locating..." : "Refresh"}
-      </Button>
+      <TouchableOpacity onPress={onRefresh} disabled={loading} style={styles.btn}>
+        <Text style={styles.btnText}>{loading ? "Locating..." : "Refresh"}</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -36,6 +29,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: "bold",
+  },
+  btn: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  btnText: {
+    color: '#111827',
+    fontWeight: '600',
   },
 });
 

@@ -1,6 +1,5 @@
 import React, {useEffect, useState, useContext} from 'react'
-import {View, Text, ScrollView, StyleSheet, ActivityIndicator, Modal, Dimensions} from 'react-native'
-import { Appbar } from 'react-native-paper'
+import {View, Text, ScrollView, StyleSheet, ActivityIndicator, Modal, Dimensions, TouchableOpacity} from 'react-native'
 import Slider from '@react-native-community/slider'
 import {GeoFence, pointInCircle, pointInPolygon, haversineKm} from '../utils/geofenceLogic'
 import * as FileSystem from 'expo-file-system'
@@ -188,9 +187,9 @@ export default function GeoFenceDebugScreen() {
 
   return (
     <View style={styles.container}>
-      <Appbar.Header>
-        <Appbar.Content title={t(state.language, "emergencySystem")} />
-      </Appbar.Header>
+      <View style={styles.appHeader}>
+        <Text style={styles.appHeaderTitle}>{t(state.language, "emergencySystem")}</Text>
+      </View>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         {loadingLocation ? (
@@ -334,11 +333,11 @@ export default function GeoFenceDebugScreen() {
       presentationStyle="fullScreen"
     >
       <View style={{ flex: 1, backgroundColor: '#000' }}>
-        <Appbar.Header>
-          <Appbar.BackAction onPress={() => setIsMapFullScreen(false)} />
-          <Appbar.Content title={t(state.language, "emergencySystem")} subtitle="Map" />
-          <Appbar.Action icon="fullscreen-exit" onPress={() => setIsMapFullScreen(false)} />
-        </Appbar.Header>
+        <View style={styles.modalHeader}>
+          <TouchableOpacity onPress={() => setIsMapFullScreen(false)}><Text style={styles.modalHeaderBtn}>Back</Text></TouchableOpacity>
+          <Text style={styles.modalHeaderTitle}>{t(state.language, "emergencySystem")} — Map</Text>
+          <TouchableOpacity onPress={() => setIsMapFullScreen(false)}><Text style={styles.modalHeaderBtn}>Exit</Text></TouchableOpacity>
+        </View>
         <MapboxMap 
           geoFences={showOnlyNearby ? filteredZones : zones}
           isFullScreen
@@ -355,6 +354,34 @@ const styles = StyleSheet.create({
   container: {flex: 1},
   scrollContainer: {flex: 1},
   content: {padding: 16},
+  appHeader: {
+    height: 56,
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    backgroundColor: '#0077CC',
+  },
+  appHeaderTitle: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  modalHeader: {
+    height: 56,
+    backgroundColor: '#111827',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+  },
+  modalHeaderTitle: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalHeaderBtn: {
+    color: '#60a5fa',
+    fontWeight: '600',
+  },
   header: {
     marginBottom: 16,
   },

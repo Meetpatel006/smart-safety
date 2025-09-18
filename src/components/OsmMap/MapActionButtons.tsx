@@ -1,6 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text, Button } from 'react-native-paper';
+import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 
 interface MapActionButtonsProps {
   locationAvailable: boolean;
@@ -23,15 +22,9 @@ const MapActionButtons = ({
 }: MapActionButtonsProps) => {
   return (
     <View style={styles.actionsRow}>
-      <Button
-        mode="outlined"
-        onPress={onGetCurrentLocation}
-        disabled={loadingLocation}
-        compact
-        icon="crosshairs-gps"
-      >
-        My Location
-      </Button>
+      <TouchableOpacity onPress={onGetCurrentLocation} disabled={loadingLocation} style={styles.btn}>
+        <Text style={styles.btnText}>My Location</Text>
+      </TouchableOpacity>
       
       {/* <Button
         mode="contained"
@@ -44,14 +37,9 @@ const MapActionButtons = ({
       </Button> */}
       
       {onToggleFullScreen && (
-        <Button
-          mode="outlined"
-          onPress={onToggleFullScreen}
-          compact
-          icon={isFullScreen ? 'fullscreen-exit' : 'fullscreen'}
-        >
-          {isFullScreen ? 'Exit Full' : 'Full Screen'}
-        </Button>
+        <TouchableOpacity onPress={onToggleFullScreen} style={styles.btn}>
+          <Text style={styles.btnText}>{isFullScreen ? 'Exit Full' : 'Full Screen'}</Text>
+        </TouchableOpacity>
       )}
 
       {/* <Button
@@ -73,6 +61,17 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 8,
     marginBottom: 12,
+  },
+  btn: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  btnText: {
+    color: '#111827',
+    fontWeight: '600',
   },
 });
 

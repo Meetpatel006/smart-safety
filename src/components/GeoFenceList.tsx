@@ -1,7 +1,7 @@
 
 import React from "react"
 import { View } from "react-native"
-import { Button, Card, List, Snackbar } from "react-native-paper"
+import { Text, TouchableOpacity, View } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
@@ -15,27 +15,30 @@ export default function GeoFenceList() {
   }
 
   return (
-    <Card>
-      <Card.Title title={t(state.language, "geofence")} />
-      <Card.Content>
-        <List.Section>
-          {state.geofences.map((g) => (
-            <List.Item
-              key={g.id}
-              title={`${g.name} — Risk: ${g.risk}`}
-              right={() => (
-                <View style={{ flexDirection: "row", gap: 6 }}>
-                  <Button onPress={() => fire(g.name, "enter")}>{t(state.language, "enter")}</Button>
-                  <Button onPress={() => fire(g.name, "exit")}>{t(state.language, "exit")}</Button>
-                </View>
-              )}
-            />
-          ))}
-        </List.Section>
-      </Card.Content>
-      <Snackbar visible={snack.visible} onDismiss={() => setSnack({ visible: false, msg: "" })} duration={2000}>
-        {snack.msg}
-      </Snackbar>
-    </Card>
+    <View style={{ backgroundColor: 'white', borderRadius: 8, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }}>
+      <View style={{ padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+        <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#333' }}>{t(state.language, "geofence")}</Text>
+      </View>
+      <View style={{ padding: 16 }}>
+        {state.geofences.map((g) => (
+          <View key={g.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}>
+            <Text style={{ flex: 1, fontSize: 16, color: '#333' }}>{g.name} — Risk: {g.risk}</Text>
+            <View style={{ flexDirection: "row", gap: 6 }}>
+              <TouchableOpacity onPress={() => fire(g.name, "enter")} style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#4CAF50', borderRadius: 4 }}>
+                <Text style={{ color: 'white', fontSize: 12 }}>{t(state.language, "enter")}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => fire(g.name, "exit")} style={{ paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#FF9800', borderRadius: 4 }}>
+                <Text style={{ color: 'white', fontSize: 12 }}>{t(state.language, "exit")}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))}
+      </View>
+      {snack.visible && (
+        <View style={{ position: 'absolute', bottom: 20, left: 16, right: 16, backgroundColor: '#333', padding: 12, borderRadius: 8 }}>
+          <Text style={{ color: '#fff', textAlign: 'center' }}>{snack.msg}</Text>
+        </View>
+      )}
+    </View>
   )
 }

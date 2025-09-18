@@ -1,9 +1,9 @@
 import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-navigation/native"
-import { PaperProvider } from "react-native-paper"
+import { ThemeProvider } from './src/context/ThemeContext'
 import { AppProvider } from "./src/context/AppContext"
 import { RootNavigator } from "./src/navigation"
-import { paperTheme } from "./src/theme/paper"
 import ToastListener from './src/components/ToastListener'
+import './global.css'
 import { StatusBar } from "expo-status-bar"
 import { useEffect, useState } from "react"
 import * as SplashScreen from "expo-splash-screen"
@@ -119,13 +119,13 @@ function AppContent() {
 
   return (
     <AppProvider>
-      <PaperProvider theme={paperTheme}>
-  <ToastListener />
+      <ThemeProvider>
+        <ToastListener />
         <NavigationContainer theme={navTheme}>
           <StatusBar style="auto" />
           <RootNavigator />
         </NavigationContainer>
-      </PaperProvider>
+      </ThemeProvider>
     </AppProvider>
   )
 }

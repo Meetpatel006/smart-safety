@@ -1,5 +1,5 @@
 import { View, ScrollView, StyleSheet } from "react-native"
-import { Appbar, Card, Avatar, Button, Text, useTheme, Divider } from "react-native-paper"
+import { Text, TouchableOpacity, View } from "react-native"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
@@ -7,7 +7,6 @@ import { useRef } from "react"
 
 export default function ItineraryScreen() {
   const { state } = useApp()
-  const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
 
   const handleAddTrip = () => {
@@ -17,39 +16,34 @@ export default function ItineraryScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header style={{ backgroundColor: theme.colors.primary }}>
-        <Appbar.Content
-          title={t(state.language, "itinerary")}
-          titleStyle={{ color: 'white' }}
-        />
-      </Appbar.Header>
+    <View style={[styles.container, { backgroundColor: '#FFFFFF' }]}>
+      <View style={{ backgroundColor: '#0077CC', paddingTop: 50, paddingBottom: 16, paddingHorizontal: 16 }}>
+        <Text style={{ color: 'white', fontSize: 20, fontWeight: 'bold' }}>{t(state.language, "itinerary")}</Text>
+      </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Trip Management Section */}
         <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Trip Planning"
-              titleStyle={styles.sectionTitle}
-              subtitle="Manage your travel itinerary and trip details"
-              subtitleStyle={styles.cardSubtitle}
-              left={(props) => <Avatar.Icon {...props} icon="map-marker-path" size={40} style={{ backgroundColor: theme.colors.primary }} />}
-              right={(props) => (
-                <Button
-                  mode="contained"
-                  onPress={handleAddTrip}
-                  buttonColor={theme.colors.secondary}
-                  style={styles.addButton}
-                >
-                  {t(state.language, "addTrip")}
-                </Button>
-              )}
-            />
-            <Card.Content>
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#e0e0e0' }}>
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#0077CC', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+                <Text style={{ color: 'white', fontSize: 20 }}>🗺️</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.sectionTitle}>Trip Planning</Text>
+                <Text style={styles.cardSubtitle}>Manage your travel itinerary and trip details</Text>
+              </View>
+              <TouchableOpacity
+                onPress={handleAddTrip}
+                style={[styles.addButton, { backgroundColor: '#FF7A00', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 4 }]}
+              >
+                <Text style={{ color: 'white', fontWeight: '600' }}>{t(state.language, "addTrip")}</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={{ padding: 16 }}>
               <ItineraryList ref={itineraryListRef} />
-            </Card.Content>
-          </Card>
+            </View>
+          </View>
         </View>
       </ScrollView>
     </View>

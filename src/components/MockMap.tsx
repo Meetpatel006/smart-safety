@@ -1,11 +1,10 @@
 import { View } from "react-native"
-import { Text, useTheme, Button } from "react-native-paper"
+import { Text, TouchableOpacity } from "react-native"
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 
 export default function MockMap() {
   const { state, toggleShareLocation } = useApp()
-  const theme = useTheme()
 
   return (
     <View style={{ borderWidth: 1, borderColor: "#ddd", borderRadius: 8, padding: 12 }}>
@@ -28,7 +27,7 @@ export default function MockMap() {
             width: 14,
             height: 14,
             borderRadius: 7,
-            backgroundColor: theme.colors.primary,
+            backgroundColor: '#0077CC',
           }}
         />
         <View
@@ -57,9 +56,9 @@ export default function MockMap() {
       </View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", marginTop: 8 }}>
         <Text>{state.shareLocation ? t(state.language, "stopShare") : t(state.language, "shareLocation")}</Text>
-        <Button mode="contained-tonal" onPress={toggleShareLocation}>
-          {state.shareLocation ? t(state.language, "stopShare") : t(state.language, "shareLocation")}
-        </Button>
+        <TouchableOpacity onPress={toggleShareLocation} style={{ paddingHorizontal: 16, paddingVertical: 8, backgroundColor: '#e3f2fd', borderRadius: 4 }}>
+          <Text style={{ color: '#1976d2' }}>{state.shareLocation ? t(state.language, "stopShare") : t(state.language, "shareLocation")}</Text>
+        </TouchableOpacity>
       </View>
     </View>
   )

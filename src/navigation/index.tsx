@@ -9,7 +9,7 @@ import SettingsScreen from "../screens/SettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { useTheme } from "react-native-paper"
+import { useAppTheme } from "../context/ThemeContext"
 import DashboardLogo from "../components/Icons/DashboardLogo"
 import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo"
 
@@ -25,7 +25,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator()
 
 function MainTabs() {
-  const theme = useTheme()
+  const theme = useAppTheme()
   return (
     <Tab.Navigator
       screenOptions={{
