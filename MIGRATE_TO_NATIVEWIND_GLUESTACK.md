@@ -80,7 +80,7 @@ module.exports = {
 };
 ```
 
-5. Wrap your app with Gluestack provider (optional)
+5. Wrap your app with Gluestack provider
 
 Gluestack UI may expose a Provider for themes — check `@gluestack-ui/core` docs. If you don't need a provider, you can simply use NativeWind classes and Gluestack components directly.
 
@@ -197,3 +197,121 @@ If you'd like, I can:
 - Create a `ThemeContext` and small adapter components for Button/Text/TextInput to make migration incremental.
 
 Mark which option you prefer and I'll continue with the edits.
+
+Git workflow: phased commits, tags, and rollback
+-----------------------------------------------
+Add the migration in small, reversible commits so it's easy to review and roll back if anything breaks. Below is a recommended phased commit strategy, example PowerShell commands, and rollback steps you can copy into your terminal.
+
+IMPORTANT WARNING
+-----------------
+Do NOT commit or push migration changes directly to `main`. Work only on the feature branch `feature/remove-react-paper` (or other short-lived feature branches) and create a Pull Request for review. If you don't have permission to push branches or merge PRs to remote/main, coordinate with a maintainer. Avoid force-pushing `main` under any circumstance unless explicitly instructed by the release manager.
+
+Suggested coordination steps if you lack permissions:
+- Create the changes locally on `feature/remove-react-paper` and push the branch to your fork or request a maintainer to add your branch to the upstream repository.
+- Open a PR and request at least one reviewer before merging.
+- Do not use `git push --force` on shared branches (including `feature/remove-react-paper`) unless you have coordinated with reviewers and documented the reason in the PR.
+
+1) Prepare branch
+- Create and push a feature branch before starting work:
+
+```powershell
+# create branch and switch to it
+git checkout -b feature/remove-react-paper
+# push branch upstream
+git push -u origin feature/remove-react-paper
+```
+
+2) Phased commits (small, focused commits with clear messages)
+- Make changes in small logical chunks and commit each chunk with an explanatory message. Example phases and suggested commit messages:
+
+- Phase A — Install & config
+  - npm/yarn installs, add `babel.config.js` plugin, add `tailwind.config.js`.
+  - Commit message: "chore(migrate): add NativeWind & Gluestack deps; add tailwind and babel configs"
+
+- Phase B — Theme scaffolding
+  - Add `ThemeContext`, migrate color tokens to `tailwind.config.js`.
+  - Commit message: "feat(theme): add ThemeContext and map paper theme to Tailwind tokens"
+
+- Phase C — Adapter components
+  - Add small adapter components (Button/Text/Input) and update a few screens to use them.
+  - Commit message: "refactor(ui): add Gluestack/NativeWind adapters and migrate sample components"
+
+- Phase D — Replace Paper usage
+  - Replace remaining `react-native-paper` usage progressively.
+  - Commit message: "refactor(ui): replace react-native-paper usages with nativewind/gluestack"
+
+- Phase E — Cleanup
+  - Remove `react-native-paper` from package.json and run install.
+  - Commit message: "chore(cleanup): remove react-native-paper and update deps"
+
+Example PowerShell commit sequence (for Phase A):
+
+```powershell
+# stage files
+git add babel.config.js tailwind.config.js package.json package-lock.json
+# commit
+git commit -m "chore(migrate): add NativeWind & Gluestack deps; add tailwind and babel configs"
+# push
+git push
+```
+
+3) Use tags for stable checkpoints
+- After a working phase or milestone, create an annotated tag so you can easily return to a known-good state:
+
+```powershell
+# create an annotated tag
+git tag -a v0.3.0-migrate-nativewind -m "Checkpoint: migrate to NativeWind/Gluestack - phase A"
+# push tags
+git push origin --tags
+```
+
+4) Code review and CI
+- Open a PR from `feature/remove-react-paper` to your main branch. Keep each PR small (one or two phases). Run your CI/tests and make sure everything passes before merging.
+
+5) Rollback strategies (when things go wrong)
+- Rollback a single commit (not yet pushed):
+
+```powershell
+# undo last commit but keep working tree changes
+git reset --soft HEAD~1
+# or discard changes entirely
+git reset --hard HEAD~1
+```
+
+- Revert a pushed commit (produces a new commit that undoes changes):
+
+```powershell
+# revert a single commit by hash
+git revert <commit-hash>
+git push
+```
+
+- Reset branch to a previous tag or commit (force push required if already pushed remotely). Use carefully — this rewrites history.
+
+```powershell
+# reset to annotated tag
+git reset --hard v0.3.0-migrate-nativewind
+# force push to update remote branch (only if you understand the history rewrite impact)
+git push --force
+```
+
+6) Emergency rollback (restore main to a known-good tag)
+- If a merge into `main` breaks production and you need to revert to a previous tag quickly:
+
+```powershell
+# switch to main
+git checkout main
+# reset main to tag
+git reset --hard v0.2.5-stable
+# push force to remote
+git push --force origin main
+```
+
+Notes and best practices
+- Keep commits atomic and focused. Prefer multiple small PRs over one massive change.
+- Include test runs or smoke-test steps in PR descriptions so reviewers know how to validate.
+- Avoid force pushes to shared branches unless coordinating with your team.
+- Use annotated tags (with messages) for important checkpoints.
+- When in doubt, create a backup branch before history-rewriting commands: `git branch backup-before-reset`.
+
+With these Git practices added to the migration guide, the migration becomes much easier to review and revert if necessary.
