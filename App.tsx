@@ -1,8 +1,6 @@
 import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-navigation/native"
-import { GluestackUIProvider, createConfig } from '@gluestack-ui/core'
-
-// Create a default config
-const config = createConfig({})
+import { GluestackUIProvider } from '@gluestack-ui/core'
+import { config } from '@gluestack-ui/config'
 import { AppProvider } from "./src/context/AppContext"
 import { RootNavigator } from "./src/navigation"
 import ToastListener from './src/components/ToastListener'
