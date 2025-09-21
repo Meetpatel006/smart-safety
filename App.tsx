@@ -1,5 +1,8 @@
 import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-navigation/native"
-import { ThemeProvider } from './src/context/ThemeContext'
+import { GluestackUIProvider, createConfig } from '@gluestack-ui/core'
+
+// Create a default config
+const config = createConfig({})
 import { AppProvider } from "./src/context/AppContext"
 import { RootNavigator } from "./src/navigation"
 import ToastListener from './src/components/ToastListener'
@@ -118,15 +121,15 @@ function AppContent() {
   }
 
   return (
-    <AppProvider>
-      <ThemeProvider>
+    <GluestackUIProvider config={config}>
+      <AppProvider>
         <ToastListener />
         <NavigationContainer theme={navTheme}>
           <StatusBar style="auto" />
           <RootNavigator />
         </NavigationContainer>
-      </ThemeProvider>
-    </AppProvider>
+      </AppProvider>
+    </GluestackUIProvider>
   )
 }
 
