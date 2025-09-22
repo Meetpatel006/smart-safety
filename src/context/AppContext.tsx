@@ -97,7 +97,7 @@ const defaultState: AppState = {
   currentAddress: null,
 }
 
-export function AppProvider({ children }: { children: React.ReactNode }) {
+export function AppProvider({ children }: { children?: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState)
   const [hydrated, setHydrated] = useState(false)
   // load persisted app state once on mount

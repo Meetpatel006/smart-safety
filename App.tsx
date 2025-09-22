@@ -1,19 +1,18 @@
+import React, { useEffect, useState } from "react"
 import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-navigation/native"
-import { GluestackUIProvider } from '@gluestack-ui/core'
-import { config } from '@gluestack-ui/config'
 import { AppProvider } from "./src/context/AppContext"
+import { ThemeProvider } from './src/context/ThemeContext'
 import { RootNavigator } from "./src/navigation"
 import ToastListener from './src/components/ToastListener'
 import './global.css'
 import { StatusBar } from "expo-status-bar"
-import { useEffect, useState } from "react"
 import * as SplashScreen from "expo-splash-screen"
 import * as Notifications from 'expo-notifications'
 import { View, Text, ActivityIndicator } from "react-native"
-import React from "react"
 
-// Prevent the splash screen from auto-hiding
-SplashScreen.preventAutoHideAsync()
+
+// Prevent the splash screen from auto-hiding (ignore any promise rejection)
+SplashScreen.preventAutoHideAsync().catch(() => {})
 
 // Notification handler: allow sound for foreground notifications
 Notifications.setNotificationHandler({
@@ -36,10 +35,10 @@ const navTheme = {
 
 // Error Boundary Component
 class ErrorBoundary extends React.Component<
-  { children: React.ReactNode },
+  { children?: React.ReactNode },
   { hasError: boolean }
 > {
-  constructor(props: { children: React.ReactNode }) {
+  constructor(props: { children?: React.ReactNode }) {
     super(props)
     this.state = { hasError: false }
   }
@@ -48,7 +47,8 @@ class ErrorBoundary extends React.Component<
     return { hasError: true }
   }
 
-  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+  // Use a loose type for errorInfo to avoid issues with React typings across versions
+  componentDidCatch(error: Error, errorInfo: any) {
     console.error('App Error:', error, errorInfo)
   }
 
@@ -119,15 +119,20 @@ function AppContent() {
   }
 
   return (
-    <GluestackUIProvider config={config}>
+    <ThemeProvider>
       <AppProvider>
         <ToastListener />
-        <NavigationContainer theme={navTheme}>
-          <StatusBar style="auto" />
-          <RootNavigator />
-        </NavigationContainer>
+        <NavigationContainer
+          theme={navTheme}
+          children={(
+            <>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </>
+          )}
+        />
       </AppProvider>
-    </GluestackUIProvider>
+    </ThemeProvider>
   )
 }
 
