@@ -3,7 +3,9 @@
   "compilerOptions": {
     "allowJs": false,
     "noEmit": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "jsx": "react-jsx",
+    "lib": ["ES2019", "DOM"]
   },
   "include": [
     "**/*.ts",
