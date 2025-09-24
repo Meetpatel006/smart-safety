@@ -5,6 +5,7 @@ import { Button, Snackbar, Text, IconButton, useTheme } from "react-native-paper
 import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
+import { queueSOS } from "../utils/offlineQueue";
 
 export default function PanicActions() {
   const { state } = useApp()
@@ -129,8 +130,29 @@ export default function PanicActions() {
   }
 
   const trigger = async (label: string) => {
+    let queuedThisPress = false
     if (state.offline) {
-      setSnack({ visible: true, msg: "Offline: queued mock alert " + label })
+      // create sos payload and queue it
+      const sosData = {
+        location: {
+          coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0],
+          locationName: state.currentAddress || 'Current Location'
+        },
+        safetyScore: state.user?.safetyScore || 100,
+        sosReason: {
+          reason: label,
+          weatherInfo: 'N/A',
+          extra: 'queued-offline'
+        }
+      };
+      try {
+        const en = await queueSOS({ token: state.token, sosData })
+        try { console.log('PanicActions: queued SOS while offline', { label, queuedId: en?.id }) } catch (e) { }
+        setSnack({ visible: true, msg: "Offline: queued alert " + label })
+        queuedThisPress = true
+      } catch (e) {
+        setSnack({ visible: true, msg: "Failed to queue alert locally." })
+      }
       return;
     }
     if (!state.token) {
@@ -162,7 +184,18 @@ export default function PanicActions() {
       await triggerSOS(state.token, sosData);
       setSnack({ visible: true, msg: "Sent alert: " + label })
     } catch (error: any) {
-      setSnack({ visible: true, msg: error.message || "Failed to send alert." });
+      // On network or server failure, queue for retry (but avoid double-queueing during same press)
+      try {
+        if (!queuedThisPress) {
+          const en = await queueSOS({ token: state.token, sosData: { location: { coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0], locationName: state.currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
+          try { console.log('PanicActions: send failed, queued for retry', { label, queuedId: en?.id }) } catch (e) { }
+        } else {
+          try { console.log('PanicActions: already queued during this press, skipping duplicate queue') } catch (e) { }
+        }
+        setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
+      } catch (qe) {
+        setSnack({ visible: true, msg: error.message || "Failed to send or queue alert." })
+      }
     } finally {
       setLoading(false);
     }

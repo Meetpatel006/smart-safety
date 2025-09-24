@@ -1,5 +1,5 @@
 import type React from "react"
-import { createContext, useContext, useEffect, useMemo, useState } from "react"
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react"
 import geofenceService from '../geoFence/geofenceService'
 import { appendTransition } from '../geoFence/transitionStore'
 import { syncTransitions } from '../geoFence/syncTransitions'
@@ -8,6 +8,7 @@ import { showToast } from '../utils/toast'
 import { triggerHighRiskAlert, startProgressiveAlert, stopProgressiveAlert, acknowledgeHighRisk as ackHighRisk } from '../utils/alertHelpers'
 import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
+import { drainSOSQueue, clearSOSQueue } from '../utils/offlineQueue'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
 import { login as apiLogin, register as apiRegister, getTouristData, tripsToItinerary, itineraryToTrips } from "../utils/api"
@@ -50,6 +51,7 @@ type AppState = {
 
 type AppContextValue = {
   state: AppState
+  netInfoAvailable?: boolean | null
   login: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
   register: (params: {
     name: string
@@ -100,6 +102,87 @@ const defaultState: AppState = {
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<AppState>(defaultState)
   const [hydrated, setHydrated] = useState(false)
+  const [netInfoAvailable, setNetInfoAvailable] = useState<boolean | null>(null)
+  // Drain queued SOS items when app becomes hydrated and online, or when offline->online transition occurs.
+  const drainingRef = useRef(false)
+  const prevOfflineRef = useRef<boolean | null>(null)
+  const tokenRef = useRef<string | null>(null)
+  const stateRef = useRef<AppState>(state)
+
+  // keep refs updated with latest state/token to avoid stale closures in listeners
+  useEffect(() => { tokenRef.current = state.token }, [state.token])
+  useEffect(() => { stateRef.current = state }, [state])
+
+  // Centralized offline setter so both UI toggle and NetInfo use same logic
+  const handleSetOffline = (v: boolean) => {
+    try { console.log('handleSetOffline called, offline=', v) } catch (e) { }
+    setState(s => ({ ...s, offline: v }))
+    // if switching to online, attempt to drain queued SOS items
+    if (!v) {
+      if (drainingRef.current) return
+      drainingRef.current = true
+      ;(async () => {
+        try {
+          const tokenNow = tokenRef.current
+          if (tokenNow) {
+            try { console.log('drainSOSQueue starting (setOffline false)') } catch (e) { }
+            const res = await drainSOSQueue(tokenNow)
+            try { console.log('drainSOSQueue result (setOffline false)', res) } catch (e) { }
+            if (res && Array.isArray(res.failed) && res.failed.length === 0 && Array.isArray(res.success) && res.success.length > 0) {
+              try { await clearSOSQueue(); try { console.log('clearSOSQueue called after successful drain') } catch (e) { } } catch (e) { }
+            }
+          } else {
+            try { console.log('drainSOSQueue skipped: no token') } catch (e) { }
+          }
+        } catch (e) {
+          console.warn('drainSOSQueue on setOffline(false) error', e)
+        } finally {
+          drainingRef.current = false
+        }
+      })()
+    }
+  }
+  // Automatic connectivity listener (dynamic import so app still runs if NetInfo missing)
+  useEffect(() => {
+    let unsub: any = null
+    let mounted = true
+    ;(async () => {
+      try {
+        const mod: any = await import('@react-native-community/netinfo')
+        const NetInfo = mod && (mod.default || mod)
+        if (!NetInfo) {
+          try { console.log('NetInfo import resolved but no default export') } catch (e) { }
+          setNetInfoAvailable(false)
+          return
+        }
+        setNetInfoAvailable(true)
+        try { console.log('NetInfo available - fetching initial state') } catch (e) { }
+        try {
+          const st = await NetInfo.fetch()
+          const online = !!st.isConnected && (typeof st.isInternetReachable === 'undefined' ? true : !!st.isInternetReachable)
+          try { console.log('NetInfo initial fetch isConnected=', st.isConnected, 'isInternetReachable=', st.isInternetReachable, '=> online=', online) } catch (e) { }
+          // update offline flag using centralized handler
+          handleSetOffline(!online)
+        } catch (e) {
+          try { console.warn('NetInfo initial fetch failed', e) } catch (ee) { }
+        }
+
+        unsub = NetInfo.addEventListener((st: any) => {
+          const online = !!st.isConnected && (typeof st.isInternetReachable === 'undefined' ? true : !!st.isInternetReachable)
+          try { console.log('NetInfo event, isConnected=', st.isConnected, 'isInternetReachable=', st.isInternetReachable, '=> online=', online) } catch (e) { }
+          // update offline flag using centralized handler
+          handleSetOffline(!online)
+        })
+      } catch (e) {
+        try { console.log('NetInfo not available; automatic connectivity detection disabled') } catch (ee) { }
+        setNetInfoAvailable(false)
+      }
+    })()
+    return () => {
+      mounted = false
+      try { if (unsub) unsub() } catch (e) { }
+    }
+  }, [])
   // load persisted app state once on mount
   useEffect(() => {
     let mounted = true
@@ -189,6 +272,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const saveState = async () => { try { await writeJSON(STORAGE_KEY, state) } catch (error) { console.warn('Error saving app state:', error) } }
   saveState()
 
+    // removed automatic drain from this broad state effect to avoid repeated attempts
+
     return () => {
       mounted = false
   try { geofenceService.off('enter', () => {}); geofenceService.off('exit', () => {}); geofenceService.off('primary', () => {}) } catch (e) {}
@@ -199,6 +284,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<AppContextValue>(
     () => ({
       state,
+      netInfoAvailable: netInfoAvailable,
       async login(email, password) {
         try {
           const data = await apiLogin(email, password)
@@ -246,7 +332,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
       async register(params) {
-        try {
+          try {
           const data = await apiRegister(params)
           return { ok: true, message: "Registration successful", regTxHash: data.audit.regTxHash }
         } catch (error: any) {
@@ -317,7 +403,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         setState((s) => ({ ...s, shareLocation: !s.shareLocation }))
       },
       setOffline(v) {
-        setState((s) => ({ ...s, offline: v }))
+        handleSetOffline(v)
       },
       setLanguage(lang) {
         setState((s) => ({ ...s, language: lang }))

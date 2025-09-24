@@ -6,6 +6,8 @@ import OfflineBadge from "../components/OfflineBadge"
 import ProfileCard from "../components/ProfileCard"
 import { t } from "../context/translations"
 import { useEffect, useState } from "react"
+import { Alert } from 'react-native'
+import { getSOSQueue } from '../utils/offlineQueue'
 import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
@@ -49,6 +51,21 @@ export default function SettingsScreen() {
               <Text style={styles.cardSubtitle}>Manage your safety notifications and emergency settings</Text>
 
               <Divider style={styles.divider} />
+              <Button
+                mode="outlined"
+                onPress={async () => {
+                  try {
+                    const q = await getSOSQueue()
+                    console.log('Queued SOS items:', q)
+                    Alert.alert('Queued SOS', `Count: ${q.length}\n\n${JSON.stringify(q, null, 2)}`)
+                  } catch (e) {
+                    console.warn('Failed reading SOS queue', e)
+                    Alert.alert('Queued SOS', 'Failed to read queue. See console for details.')
+                  }
+                }}
+              >
+                View queued SOS
+              </Button>
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>
