@@ -220,23 +220,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   // start geofence monitoring and periodic sync after hydration
+  // NOTE: this effect should only run once after hydration to avoid re-registering
+  // listeners and re-creating intervals on every state change (which can cause
+  // frequent re-renders and UI jitter, especially on lower-end devices).
   useEffect(() => {
     if (!hydrated) return
     let mounted = true
 
     ;(async () => {
       try {
-  await geofenceService.loadFences()
-  // start geofence monitoring; transitions will be logged on enter/exit
-  await geofenceService.startMonitoring({ intervalMs: 30000 })
+        await geofenceService.loadFences()
+        // start geofence monitoring; transitions will be logged on enter/exit
+        await geofenceService.startMonitoring({ intervalMs: 30000 })
 
-    geofenceService.on('enter', ({ fence, location }) => {
+        geofenceService.on('enter', ({ fence, location }) => {
           try { showToast(`Entered: ${fence.name} (${fence.category || 'zone'})`) } catch (e) { try { Alert.alert('Geo-fence entered', `${fence.name} (${fence.category || 'zone'})`) } catch (ee) { console.log('enter alert failed', ee) } }
           try {
             const rl = (fence.riskLevel || '').toString().toLowerCase()
             if (rl.includes('high')) {
-      // Start progressive alert escalation for sustained presence
-      try { startProgressiveAlert(`High risk area: ${fence.name}`, fence.category || 'High risk zone') } catch (e) { /* ignore */ }
+              // Start progressive alert escalation for sustained presence
+              try { startProgressiveAlert(`High risk area: ${fence.name}`, fence.category || 'High risk zone') } catch (e) { /* ignore */ }
             }
           } catch (e) { /* ignore */ }
           try { appendTransition({ id: `t${Date.now()}`, fenceId: fence.id, fenceName: fence.name, type: 'enter', at: Date.now(), coords: { latitude: location.latitude, longitude: location.longitude } }) } catch (e) { /* ignore */ }
@@ -266,20 +269,32 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let syncInterval: any = null
     try {
       // keep a safety net sync for transitions every 15 minutes (batch uploads handle samples)
-      syncInterval = setInterval(async () => { try { if (!state.offline) await syncTransitions() } catch (e) {} }, 15 * 60 * 1000)
+      // Use stateRef.current to avoid this effect depending on changing `state`.
+      syncInterval = setInterval(async () => { try { if (!stateRef.current.offline) await syncTransitions() } catch (e) {} }, 15 * 60 * 1000)
     } catch (e) { /* ignore */ }
 
-  const saveState = async () => { try { await writeJSON(STORAGE_KEY, state) } catch (error) { console.warn('Error saving app state:', error) } }
-  saveState()
-
-    // removed automatic drain from this broad state effect to avoid repeated attempts
+    // Persist current state once on start (use stateRef to avoid depending on `state`)
+    const saveState = async () => { try { await writeJSON(STORAGE_KEY, stateRef.current) } catch (error) { console.warn('Error saving app state:', error) } }
+    saveState()
 
     return () => {
       mounted = false
-  try { geofenceService.off('enter', () => {}); geofenceService.off('exit', () => {}); geofenceService.off('primary', () => {}) } catch (e) {}
-  try { if (syncInterval) clearInterval(syncInterval) } catch (e) {}
+      try { geofenceService.off('enter', () => {}); geofenceService.off('exit', () => {}); geofenceService.off('primary', () => {}) } catch (e) {}
+      try { if (syncInterval) clearInterval(syncInterval) } catch (e) {}
     }
-  }, [state, hydrated])
+  }, [hydrated])
+
+  // Persist state changes with a small debounce to avoid frequent disk writes when
+  // the app state updates rapidly (this also helps reduce re-renders related to
+  // storage operations).
+  useEffect(() => {
+    const id = setTimeout(() => {
+      (async () => {
+        try { await writeJSON(STORAGE_KEY, state) } catch (error) { console.warn('Error saving app state:', error) }
+      })()
+    }, 800)
+    return () => clearTimeout(id)
+  }, [state])
 
   const value = useMemo<AppContextValue>(
     () => ({
