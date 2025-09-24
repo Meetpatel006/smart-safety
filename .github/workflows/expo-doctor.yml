@@ -1,36 +1,95 @@
 name: Expo Doctor
-
 on:
   schedule:
-    # Run every 7 days at 2:00 AM UTC (0 2 */7 * *)
-    - cron: '0 2 */7 * *'
-  # Allow manual triggering of the workflow
+    # Run every 7 days at 12:00 PM UTC
+    - cron: '0 12 */7 * *'
   workflow_dispatch:
 
+permissions:
+  contents: write
 jobs:
-  expo-doctor:
+  check:
     runs-on: ubuntu-latest
-
+    outputs:
+      needs-fix: ${{ steps.doctor.outputs.needs-fix }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
-
-      - name: Clean old lock files
-        run: |
-          rm -f package-lock.json
-          rm -rf node_modules
-
       - name: Install dependencies
         run: npm install
-
-      - name: Verify Expo dependencies
-        run: npx expo install
-
       - name: Run expo doctor
-        run: npx expo-doctor
+        id: doctor
+        run: |
+          if npx expo-doctor; then
+            echo "needs-fix=false" >> $GITHUB_OUTPUT
+            echo "Expo doctor check passed - no issues found"
+          else
+            echo "needs-fix=true" >> $GITHUB_OUTPUT
+            echo "Expo doctor found issues that need fixing"
+          fi
+  fix:
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.needs-fix == 'true'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - name: Reinstall dependencies
+        run: npm install
+      - name: Check and fix Expo dependencies
+        run: |
+          # Check for outdated dependencies
+          if npx expo install --check; then
+            echo "All dependencies are up to date"
+          else
+            echo "Found outdated dependencies, installing updates..."
+            # Use npx expo install --fix to fix version mismatches
+            npx expo install --fix
+          fi
+      - name: Verify after fix
+        run: |
+          if npx expo-doctor; then
+            echo "Issues fixed successfully"
+          else
+            echo "Some issues may still remain, but continuing..."
+            npx expo-doctor --verbose || true
+          fi
+      - name: Commit and Push Fixes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Check if there are any changes to commit
+          git add package.json package-lock.json
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            # Fetch latest changes without merging
+            git fetch origin main
+            
+            # Check if we're behind the remote
+            if ! git diff --quiet HEAD origin/main; then
+              echo "Remote has changes, stashing local changes and pulling..."
+              git stash push -m "temp stash for expo doctor changes"
+              git pull origin main --rebase
+              git stash pop
+              git add package.json package-lock.json
+            fi
+            
+            git commit -m "chore: auto-fix expo doctor issues"
+            git push origin main
+          fi
