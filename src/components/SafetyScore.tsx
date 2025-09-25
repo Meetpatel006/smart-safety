@@ -8,7 +8,7 @@ import { useApp } from "../context/AppContext"
 import * as Location from 'expo-location'
 
 export default function SafetyScore() {
-  const { state, setCurrentLocation } = useApp()
+  const { state, setCurrentLocation, setComputedSafetyScore } = useApp()
   const [combinedResult, setCombinedResult] = useState<SafetyScoreResult | null>(null)
   const [combinedLoading, setCombinedLoading] = useState(false)
   const [combinedError, setCombinedError] = useState<string | null>(null)
@@ -79,7 +79,15 @@ export default function SafetyScore() {
           longitude: location.coords.longitude
         })
         console.log('Safety score result:', result)
-        if (isMounted) setCombinedResult(result)
+        if (isMounted) {
+          setCombinedResult(result)
+          try {
+            // Update global computed safety score so other components (e.g. SMS) can use it
+            if (typeof result?.score === 'number' && result.score !== state.computedSafetyScore) {
+              setComputedSafetyScore(result.score)
+            }
+          } catch (e) { /* ignore */ }
+        }
       } catch (error: any) {
         console.warn('Failed to compute safety score:', error)
         if (isMounted) setCombinedError(error?.message || 'Failed to fetch safety score')

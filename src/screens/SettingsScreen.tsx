@@ -11,10 +11,11 @@ import { getSOSQueue } from '../utils/offlineQueue'
 import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
-  const { state, wipeMockData, logout, acknowledgeHighRisk } = useApp()
+  const { state, wipeMockData, logout, acknowledgeHighRisk, setAuthorityPhone } = useApp()
   const theme = useTheme()
   const [muted, setMuted] = useState(false)
   const [minutes, setMinutes] = useState<string>("15")
+  const [authorityPhoneLocal, setAuthorityPhoneLocal] = useState<string>(state.authorityPhone || '')
 
   useEffect(() => {
     (async () => {
@@ -25,6 +26,8 @@ export default function SettingsScreen() {
       }
       setMuted(!!s?.muted)
     })()
+    // keep local authority phone in sync when screen mounts
+    setAuthorityPhoneLocal(state.authorityPhone || '')
   }, [])
 
   return (
@@ -142,6 +145,22 @@ export default function SettingsScreen() {
                 </View>
               </View>
               <LanguageToggle />
+
+              <Divider style={styles.divider} />
+
+              <View style={{ marginTop: 8 }}>
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>Authority Phone Number</Text>
+                <TextInput
+                  label="Authority Phone"
+                  value={authorityPhoneLocal}
+                  onChangeText={setAuthorityPhoneLocal}
+                  keyboardType="phone-pad"
+                  mode="outlined"
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
+                  <Button mode="contained" onPress={() => { setAuthorityPhone(authorityPhoneLocal || null) }}>{t(state.language, "save")}</Button>
+                </View>
+              </View>
 
               <Divider style={styles.divider} />
 

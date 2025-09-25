@@ -6,6 +6,8 @@ import { useApp } from "../context/AppContext"
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
 import { queueSOS } from "../utils/offlineQueue";
+import { sendSMS } from "../utils/sms";
+import { queueSMS } from "../utils/smsQueue";
 
 export default function PanicActions() {
   const { state } = useApp()
@@ -153,6 +155,13 @@ export default function PanicActions() {
       } catch (e) {
         setSnack({ visible: true, msg: "Failed to queue alert locally." })
       }
+      // Also queue SMS so contacts/authority can be notified when connectivity restored
+      try {
+  const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
+        if (recipients.length) {
+          await queueSMS({ payload: { recipients, message: buildSmsMessage(label) } })
+        }
+      } catch (e) { console.warn('Failed to queue SMS while offline', e) }
       return;
     }
     if (!state.token) {
@@ -182,6 +191,19 @@ export default function PanicActions() {
       };
 
       await triggerSOS(state.token, sosData);
+      // Try to send SMS notifications (best-effort)
+      try {
+  const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
+        if (recipients.length) {
+          const smsRes = await sendSMS({ recipients, message: buildSmsMessage(label) })
+          if (!smsRes.ok) {
+            // queue SMS for retry
+            try { await queueSMS({ payload: { recipients, message: buildSmsMessage(label) } }) } catch (e) { console.warn('queueSMS failed after sendSMS not available', e) }
+          }
+        }
+      } catch (e) {
+        console.warn('sendSMS failed after SOS', e)
+      }
       setSnack({ visible: true, msg: "Sent alert: " + label })
     } catch (error: any) {
       // On network or server failure, queue for retry (but avoid double-queueing during same press)
@@ -193,12 +215,52 @@ export default function PanicActions() {
           try { console.log('PanicActions: already queued during this press, skipping duplicate queue') } catch (e) { }
         }
         setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
+          // queue SMS if send failed
+          try {
+            const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
+            if (recipients.length) await queueSMS({ payload: { recipients, message: buildSmsMessage(label) } })
+          } catch (e) { console.warn('Failed to queue SMS after send error', e) }
       } catch (qe) {
         setSnack({ visible: true, msg: error.message || "Failed to send or queue alert." })
       }
     } finally {
       setLoading(false);
     }
+  }
+
+  const buildSmsMessage = (label: string) => {
+    const loc = state.currentLocation
+    const coords = loc && loc.coords ? `${loc.coords.latitude.toFixed(6)},${loc.coords.longitude.toFixed(6)}` : null
+    const name = state.user?.name || 'Unknown Tourist'
+    const phone = state.user?.phone || ''
+    const addr = state.currentAddress || ''
+    // Prefer the dashboard-computed safety score if available, otherwise fall back to profile score
+    const score = (typeof state.computedSafetyScore === 'number') ? state.computedSafetyScore : (typeof state.user?.safetyScore === 'number' ? state.user!.safetyScore : null)
+    const mapLink = coords ? `https://maps.google.com/?q=${coords}` : null
+
+    // Build message lines conditionally to avoid sending 'Unknown'/'N/A' placeholders
+    const parts = [] as string[]
+    parts.push(`SOS Alert: ${label}`)
+    parts.push(`Name: ${name}`)
+    if (phone) parts.push(`Phone: ${phone}`)
+
+    // Always include a Location line: prefer human-readable address, otherwise fallback to coords
+      // Always include a Location line: prefer human-readable address, otherwise fallback to coords.
+      // When an address is present, include the map link inline (no separate Map/Coords lines).
+      if (addr) {
+        const inline = mapLink ? `${addr} — Map: ${mapLink}` : addr
+        parts.push(`Location: ${inline}`)
+      } else if (coords) {
+        const inline = mapLink ? `${coords} — Map: ${mapLink}` : coords
+        parts.push(`Location: ${inline}`)
+      } else {
+        parts.push(`Location: unavailable`)
+      }
+    
+      // map/link already included inline when address/coords exist; no separate Map line needed
+    
+    if (score !== null && score !== undefined) parts.push(`SafetyScore: ${score}`)
+    return parts.join('\n')
   }
 
   return (

@@ -3,7 +3,6 @@ import {View, Text, ScrollView, StyleSheet, ActivityIndicator, Modal, Dimensions
 import { Appbar } from 'react-native-paper'
 import Slider from '@react-native-community/slider'
 import {GeoFence, pointInCircle, pointInPolygon, haversineKm} from '../utils/geofenceLogic'
-import * as FileSystem from 'expo-file-system'
 import * as Location from 'expo-location'
 import MapboxMap from '../components/MapboxMap'
 import { useApp } from '../context/AppContext'
@@ -12,7 +11,7 @@ import { reverseGeocode } from '../components/MapboxMap/geoUtils'
 
 // Simple debug screen to load pre-bundled JSON geo-fences (created by importer script)
 export default function GeoFenceDebugScreen() {
-  const { state } = useApp()
+  const { state, setCurrentAddress } = useApp()
   const [zones, setZones] = useState<GeoFence[]>([])
   const [filteredZones, setFilteredZones] = useState<GeoFence[]>([])
   const [userLocation, setUserLocation] = useState<{latitude: number, longitude: number} | null>(null)
@@ -130,6 +129,9 @@ export default function GeoFenceDebugScreen() {
           /(Delhi|Jammu and Kashmir|Ladakh)/i
         ];
         
+        // Persist the full reverse-geocoded address to app context so other features (SMS) can use it
+        try { setCurrentAddress(address) } catch (e) { /* ignore */ }
+
         for (const pattern of statePatterns) {
           const match = address.match(pattern);
           if (match) {
@@ -145,6 +147,7 @@ export default function GeoFenceDebugScreen() {
       }
     } catch (error) {
       console.error('Error getting user state:', error);
+      try { setCurrentAddress(null) } catch (e) { /* ignore */ }
       setUserState(null);
     }
   };

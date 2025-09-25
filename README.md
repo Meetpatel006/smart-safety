@@ -2,8 +2,8 @@
 
 ## Project Documentation
 
-**Version:** 1.1.22
-**Date:** September 15, 2025
+**Version:** 1.1.27
+**Date:** September 26, 2025
 
 ---
 
@@ -130,6 +130,13 @@ Our Smart Tourist Safety application provides an integrated platform with the fo
 - Offline alert generation
 - SMS fallback when data connectivity is unavailable
 - Synchronized data updates when connectivity is restored
+  
+Enhanced SMS notifications (v1.1.27)
+- Client-side SMS fallback using Expo's native SMS composer (`expo-sms`) as a best-effort channel when data connectivity is unavailable.
+- SMS messages include full tourist information: name, phone, the dashboard-provided human-readable address (when available), GPS coordinates, and an inline Google Maps link (https://maps.google.com/?q=<lat>,<lng>). The dashboard-computed safety score is also included when available.
+- An "Authority Phone" can be configured in the app Settings so authorities receive SMS alerts by default; emergency contacts are also included.
+- Outbound SMS are enqueued in local persistent storage when the device cannot send immediately. Queued SMS are drained automatically when connectivity is restored and retried; successful sends clear the queue entries.
+- The SMS queue uses the same durable AsyncStorage-backed pattern as offline SOS queuing to ensure alerts are not lost while offline.
 
 ### 7. Authority Dashboard
 - Real-time tourist monitoring

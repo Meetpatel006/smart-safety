@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
   TRANSITIONS: 'transitions:v1',
   ALERT_ESCALATION: 'alert:escalation:v1',
   SOS_QUEUE: 'sos:queue:v1',
+  SMS_QUEUE: 'sms:queue:v1',
 }
 
 export default STORAGE_KEYS

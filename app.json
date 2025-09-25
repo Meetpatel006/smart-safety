@@ -3,7 +3,7 @@
     "sdkVersion": "54.0.0",
     "name": "SIH Smart Safety",
     "slug": "smart-safety",
-    "version": "1.1.23",
+    "version": "1.1.27",
     "scheme": "sihsmart",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

@@ -9,6 +9,7 @@ import { triggerHighRiskAlert, startProgressiveAlert, stopProgressiveAlert, ackn
 import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
 import { drainSOSQueue, clearSOSQueue } from '../utils/offlineQueue'
+import { drainSMSQueue, clearSMSQueue } from '../utils/smsQueue'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
 import { login as apiLogin, register as apiRegister, getTouristData, tripsToItinerary, itineraryToTrips } from "../utils/api"
@@ -44,6 +45,8 @@ type AppState = {
   shareLocation: boolean
   offline: boolean
   language: Lang
+  authorityPhone?: string | null
+  computedSafetyScore?: number | null
   currentPrimary?: { id: string; name: string; risk?: string } | null
   currentLocation: Location.LocationObject | null
   currentAddress: string | null
@@ -75,6 +78,8 @@ type AppContextValue = {
   toggleShareLocation: () => void
   setOffline: (v: boolean) => void
   setLanguage: (lang: Lang) => void
+  setAuthorityPhone: (phone: string | null) => void
+  setComputedSafetyScore: (score: number | null) => void
   wipeMockData: () => Promise<void>
   acknowledgeHighRisk: (minutes: number) => Promise<void>
   setCurrentLocation: (location: Location.LocationObject | null) => void
@@ -95,8 +100,11 @@ const defaultState: AppState = {
   shareLocation: false,
   offline: false,
   language: "en",
+  authorityPhone: null,
+  computedSafetyScore: null,
   currentLocation: null,
   currentAddress: null,
+  currentPrimary: null,
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -131,6 +139,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (res && Array.isArray(res.failed) && res.failed.length === 0 && Array.isArray(res.success) && res.success.length > 0) {
               try { await clearSOSQueue(); try { console.log('clearSOSQueue called after successful drain') } catch (e) { } } catch (e) { }
             }
+            // Attempt to drain queued SMS as well (best-effort)
+            try {
+              const smsRes = await drainSMSQueue()
+              try { console.log('drainSMSQueue result', smsRes) } catch (e) { }
+              if (smsRes && Array.isArray(smsRes.failed) && smsRes.failed.length === 0 && Array.isArray(smsRes.success) && smsRes.success.length > 0) {
+                try { await clearSMSQueue(); try { console.log('clearSMSQueue called after successful drain') } catch (e) { } } catch (e) { }
+              }
+            } catch (e) { console.warn('drainSMSQueue failed', e) }
           } else {
             try { console.log('drainSOSQueue skipped: no token') } catch (e) { }
           }
@@ -422,6 +438,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       setLanguage(lang) {
         setState((s) => ({ ...s, language: lang }))
+      },
+      setAuthorityPhone(phone) {
+        setState((s) => ({ ...s, authorityPhone: phone }))
+      },
+      setComputedSafetyScore(score) {
+        setState((s) => ({ ...s, computedSafetyScore: score }))
       },
       async wipeMockData() {
         await remove(STORAGE_KEY)

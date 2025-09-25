@@ -28,6 +28,9 @@ export const GEMINI_API_KEY = Constants.expoConfig?.extra?.GEMINI_API_KEY || pro
 // Optional model name to send to the LLM endpoint. Default follows the example.
 export const GEMINI_MODEL = Constants.expoConfig?.extra?.GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash'
 
+// Fallback authority phone number (can be overridden via expo.extra in app config)
+export const AUTHORITY_PHONE = Constants.expoConfig?.extra?.AUTHORITY_PHONE || process.env.AUTHORITY_PHONE || ''
+
 if (!GEMINI_API_URL || !GEMINI_API_KEY) {
   console.info('Gemini LLM not fully configured. GEMINI_API_URL or GEMINI_API_KEY missing. Using local fallback recommendations.');
 }
