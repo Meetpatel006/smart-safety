@@ -9,6 +9,7 @@ import { triggerHighRiskAlert, startProgressiveAlert, stopProgressiveAlert, ackn
 import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
 import { drainSOSQueue, clearSOSQueue } from '../utils/offlineQueue'
+import { drainSmsQueue } from '../services/smsService'
 import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
 import type { Lang } from "./translations"
 import { login as apiLogin, register as apiRegister, getTouristData, tripsToItinerary, itineraryToTrips } from "../utils/api"
@@ -44,6 +45,7 @@ type AppState = {
   shareLocation: boolean
   offline: boolean
   language: Lang
+  authorityPhone?: string | null
   currentPrimary?: { id: string; name: string; risk?: string } | null
   currentLocation: Location.LocationObject | null
   currentAddress: string | null
@@ -75,6 +77,7 @@ type AppContextValue = {
   toggleShareLocation: () => void
   setOffline: (v: boolean) => void
   setLanguage: (lang: Lang) => void
+  setAuthorityPhone: (phone: string | null) => void
   wipeMockData: () => Promise<void>
   acknowledgeHighRisk: (minutes: number) => Promise<void>
   setCurrentLocation: (location: Location.LocationObject | null) => void
@@ -95,6 +98,7 @@ const defaultState: AppState = {
   shareLocation: false,
   offline: false,
   language: "en",
+  authorityPhone: '112', // temporary authority number (user requested)
   currentLocation: null,
   currentAddress: null,
 }
@@ -131,6 +135,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (res && Array.isArray(res.failed) && res.failed.length === 0 && Array.isArray(res.success) && res.success.length > 0) {
               try { await clearSOSQueue(); try { console.log('clearSOSQueue called after successful drain') } catch (e) { } } catch (e) { }
             }
+            // attempt to drain queued SMS as well
+            try {
+              const smsRes = await drainSmsQueue()
+              try { console.log('drainSmsQueue result', smsRes) } catch (e) { }
+            } catch (e) { console.warn('drainSmsQueue failed', e) }
           } else {
             try { console.log('drainSOSQueue skipped: no token') } catch (e) { }
           }
@@ -361,6 +370,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       async updateProfile(patch) {
         setState((s) => ({ ...s, user: s.user ? { ...s.user, ...patch } : null }))
         // In real app: call backend to update profile
+      },
+      setAuthorityPhone(phone: string | null) {
+        setState((s) => ({ ...s, authorityPhone: phone }))
       },
       addContact(c) {
         setState((s) => ({ ...s, contacts: [...s.contacts, { ...c, id: `c${Date.now()}` }] }))

@@ -2,16 +2,18 @@
 import React, { useEffect, useRef } from "react"
 import { View, StyleSheet, Animated, Easing } from "react-native"
 import { Button, Snackbar, Text, IconButton, useTheme } from "react-native-paper"
-import { useApp } from "../context/AppContext"
+import { useApp } from "../context/AppContext"; // Ensure this import is not duplicated
 import { t } from "../context/translations"
 import { triggerSOS } from "../utils/api";
 import { queueSOS } from "../utils/offlineQueue";
+import smsService from "../services/smsService";
 
 export default function PanicActions() {
   const { state } = useApp()
   const theme = useTheme()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
+  const [sosTriggered, setSosTriggered] = React.useState<boolean>(false);
 
   // Animation values
   const pulseAnim = useRef(new Animated.Value(1)).current
@@ -112,6 +114,23 @@ export default function PanicActions() {
   }, [])
 
   const handleSOSPress = () => {
+    if (sosTriggered) {
+      return; // Prevent multiple triggers
+    }
+
+    console.log('SOS Button Pressed');
+    console.log('Current State:', {
+      isOffline: state.offline,
+      hasToken: !!state.token,
+      hasLocation: !!state.currentLocation,
+      emergencyContacts: state.contacts,
+      authorityPhone: state.authorityPhone,
+      userPhone: state.user?.phone,
+      emergencyContactPhone: state.user?.emergencyContact?.phone
+    });
+
+    setSosTriggered(true); // Set the triggered state
+
     // Add press animation
     Animated.sequence([
       Animated.timing(scaleAnim, {
@@ -126,10 +145,20 @@ export default function PanicActions() {
       }),
     ]).start()
 
-    trigger(t(state.language, "sos"))
+    trigger(t(state.language, "sos"));
   }
 
   const trigger = async (label: string) => {
+    // Add detailed console logs for debugging
+    console.log('\n=== SOS TRIGGER START ===');
+    console.log('Label:', label);
+    console.log('User:', state.user?.name);
+    console.log('Location:', {
+      lat: state.currentLocation?.coords.latitude,
+      lng: state.currentLocation?.coords.longitude,
+      address: state.currentAddress
+    });
+
     let queuedThisPress = false
     if (state.offline) {
       // create sos payload and queue it
@@ -153,6 +182,34 @@ export default function PanicActions() {
       } catch (e) {
         setSnack({ visible: true, msg: "Failed to queue alert locally." })
       }
+      // Build recipients and queue SMS to emergency contacts when offline
+      try {
+        const buildRecipients = (s: any) => {
+          const set = new Set<string>()
+          if (s.authorityPhone) set.add(`${s.authorityPhone}`)
+          const userPhone = s.user?.emergencyContact?.phone || s.user?.phone
+          if (userPhone) set.add(`${userPhone}`)
+          // add all app contacts as fallback
+          ;(s.contacts || []).forEach((c: any) => { if (c?.phone) set.add(`${c.phone}`) })
+          return Array.from(set)
+        }
+        const recipients = buildRecipients(state)
+        if (recipients.length) {
+          const body = `EMERGENCY ALERT: ${label}\n` + smsService.formatTouristInfo(state)
+          await smsService.queueSms(recipients, body)
+          
+          // Attempt to drain queue in background
+          setTimeout(async () => {
+            try {
+              console.log('Attempting to drain SMS queue...');
+              const result = await smsService.drainSmsQueue();
+              console.log('SMS queue drain result:', result);
+            } catch (e) {
+              console.warn('Failed to drain SMS queue:', e);
+            }
+          }, 1000);
+        }
+      } catch (e) { console.warn('PanicActions: failed to queue SMS', e) }
       return;
     }
     if (!state.token) {
@@ -183,6 +240,90 @@ export default function PanicActions() {
 
       await triggerSOS(state.token, sosData);
       setSnack({ visible: true, msg: "Sent alert: " + label })
+      // Also attempt to send SMS to emergency contacts when online
+      try {
+        // Send SMS first to authority, then to emergency contacts/others
+        console.log('\n=== SMS PREPARATION ===');
+        
+        const authorityPhone = state.authorityPhone ? [`${state.authorityPhone}`] : [];
+        console.log('Authority Phone:', authorityPhone);
+        
+        const emergencyContacts = new Set<string>();
+        const userPhone = state.user?.emergencyContact?.phone || state.user?.phone;
+        if (userPhone) emergencyContacts.add(`${userPhone}`);
+        (state.contacts || []).forEach((c: any) => { 
+          console.log('Processing contact:', c);
+          if (c?.phone) emergencyContacts.add(`${c.phone}`); 
+        });
+        
+        // Remove authority from emergency contacts if present
+        if (authorityPhone.length) emergencyContacts.delete(authorityPhone[0]);
+
+        console.log('\n=== SMS DETAILS ===');
+        console.log('Final Recipients:', {
+          authorityPhone,
+          emergencyContacts: Array.from(emergencyContacts)
+        });
+
+        const body = `EMERGENCY ALERT: ${label}\n` + smsService.formatTouristInfo(state);
+        console.log('\nMessage Content:');
+        console.log(body);
+
+        let queuedSMS = false;
+
+        // 1. Send to authority
+        if (authorityPhone.length) {
+          try {
+            await smsService.sendSms(authorityPhone, body);
+          } catch (e) {
+            try { 
+              await smsService.queueSms(authorityPhone, body);
+              queuedSMS = true;
+            } catch (qe) { 
+              console.warn('PanicActions: failed to send or queue SMS to authority', qe); 
+            }
+          }
+        }
+
+        // 2. Send to emergency contacts/others
+        const emergencyList = Array.from(emergencyContacts);
+        if (emergencyList.length) {
+          try {
+            // Send sequentially to each emergency contact
+            for (const contact of emergencyList) {
+              try {
+                await smsService.sendSms([contact], body);
+                // Small delay between sends
+                await new Promise(r => setTimeout(r, 500));
+              } catch (e) {
+                console.warn(`Failed to send SMS to ${contact}, queuing instead:`, e);
+                await smsService.queueSms([contact], body);
+                queuedSMS = true;
+              }
+            }
+          } catch (e) {
+            try { 
+              await smsService.queueSms(emergencyList, body);
+              queuedSMS = true;
+            } catch (qe) { 
+              console.warn('PanicActions: failed to send or queue SMS to contacts', qe); 
+            }
+          }
+        }
+
+        // If any SMS were queued, attempt to drain the queue in background
+        if (queuedSMS) {
+          setTimeout(async () => {
+            try {
+              console.log('Attempting to drain SMS queue after failed sends...');
+              const result = await smsService.drainSmsQueue();
+              console.log('SMS queue drain result:', result);
+            } catch (e) {
+              console.warn('Failed to drain SMS queue:', e);
+            }
+          }, 1000);
+        }
+      } catch (e) { console.warn('PanicActions: SMS notify failed', e) }
     } catch (error: any) {
       // On network or server failure, queue for retry (but avoid double-queueing during same press)
       try {
@@ -195,9 +336,15 @@ export default function PanicActions() {
         setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
       } catch (qe) {
         setSnack({ visible: true, msg: error.message || "Failed to send or queue alert." })
+        // Reset button state on complete failure
+        setSosTriggered(false);
       }
     } finally {
       setLoading(false);
+      // Keep button disabled (grey) only if we successfully queued or sent the SOS
+      if (!queuedThisPress && !state.offline) {
+        setSosTriggered(false);
+      }
     }
   }
 
@@ -232,15 +379,21 @@ export default function PanicActions() {
           >
           <Button
             mode="contained"
-            buttonColor="#D11A2A"
+            buttonColor={sosTriggered ? "#808080" : "#D11A2A"}
             onPress={handleSOSPress}
-            disabled={loading}
-            style={styles.sosButton}
-            labelStyle={styles.sosLabel}
+            disabled={loading || sosTriggered}
+            style={[
+              styles.sosButton,
+              sosTriggered && { opacity: 0.8 }
+            ]}
+            labelStyle={[
+              styles.sosLabel,
+              sosTriggered && { color: '#FFFFFF' }
+            ]}
             accessibilityLabel="SOS Button"
             accessibilityHint="Triggers emergency SOS alert"
           >
-            SOS
+            {sosTriggered ? "SOS SENT" : "SOS"}
           </Button>
         </Animated.View>
   </View>

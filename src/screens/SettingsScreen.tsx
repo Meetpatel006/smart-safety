@@ -7,14 +7,15 @@ import ProfileCard from "../components/ProfileCard"
 import { t } from "../context/translations"
 import { useEffect, useState } from "react"
 import { Alert } from 'react-native'
-import { getSOSQueue } from '../utils/offlineQueue'
+
 import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
-  const { state, wipeMockData, logout, acknowledgeHighRisk } = useApp()
+  const { state, wipeMockData, logout, acknowledgeHighRisk, setAuthorityPhone: setAuthorityPhoneInContext } = useApp()
   const theme = useTheme()
   const [muted, setMuted] = useState(false)
   const [minutes, setMinutes] = useState<string>("15")
+  const [authorityPhone, setAuthorityPhone] = useState<string>(state.authorityPhone || '')
 
   useEffect(() => {
     (async () => {
@@ -51,21 +52,32 @@ export default function SettingsScreen() {
               <Text style={styles.cardSubtitle}>Manage your safety notifications and emergency settings</Text>
 
               <Divider style={styles.divider} />
-              <Button
-                mode="outlined"
-                onPress={async () => {
-                  try {
-                    const q = await getSOSQueue()
-                    console.log('Queued SOS items:', q)
-                    Alert.alert('Queued SOS', `Count: ${q.length}\n\n${JSON.stringify(q, null, 2)}`)
-                  } catch (e) {
-                    console.warn('Failed reading SOS queue', e)
-                    Alert.alert('Queued SOS', 'Failed to read queue. See console for details.')
-                  }
-                }}
-              >
-                View queued SOS
-              </Button>
+
+              <View style={{ marginTop: 12 }}>
+                <Text style={{ fontWeight: '600', marginBottom: 8 }}>Authority phone (temporary)</Text>
+                <TextInput
+                  label="Authority Number"
+                  value={authorityPhone}
+                  onChangeText={setAuthorityPhone}
+                  keyboardType="phone-pad"
+                  mode="outlined"
+                />
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 8 }}>
+                  <Button
+                    mode="contained"
+                    onPress={async () => {
+                        try {
+                          setAuthorityPhoneInContext(authorityPhone || null)
+                        } catch (e) {
+                          console.warn('Failed saving authority phone', e)
+                        }
+                      }}
+                  >
+                    Save
+                  </Button>
+                </View>
+              </View>
+
 
               <View style={styles.settingItem}>
                 <View style={styles.settingText}>

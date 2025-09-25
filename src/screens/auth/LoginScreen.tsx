@@ -28,11 +28,15 @@ export default function LoginScreen({ navigation }: any) {
   }
 
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 16 }}>
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        enabled
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      enabled
+    >
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center", padding: 16 }}
       >
         <Card>
           <Card.Title title={t(lang, "login")} />
@@ -68,8 +72,8 @@ export default function LoginScreen({ navigation }: any) {
             <Button onPress={() => navigation.navigate("Register")} disabled={loading}>{t(lang, "register")}</Button>
           </Card.Content>
         </Card>
-      </KeyboardAvoidingView>
-    </ScrollView>
+      </ScrollView>
+    </KeyboardAvoidingView>
   )
 }
 

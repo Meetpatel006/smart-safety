@@ -180,6 +180,18 @@ The Node.js backend provides the following services:
 - Alert prioritization and routing
 - Authority notification system
 
+### SMS offline support
+
+This project now includes basic SMS support using `expo-sms` for sending emergency SMS messages to configured emergency contacts and authority contacts. Notes:
+
+- `expo-sms` must be installed in the project (this repo includes it in `package.json`).
+- SMS is only available on native devices (Android/iOS). The web platform will skip sending.
+- On devices where SMS is unavailable or sending fails, messages are queued locally and retried when the app regains connectivity.
+- To test: run the app on a physical device (simulator may not support SMS). Trigger the SOS button and confirm messages are sent/queued.
+
+Permissions: on Android, ensure the app has SEND_SMS permission if required by your Expo workflow. With Expo Go this may be limited; building a standalone app is recommended for full SMS behavior.
+
+
 ### Blockchain Anchoring
 - Critical event hashing and anchoring
 - Immutable audit trail creation
