@@ -9,7 +9,7 @@ import { queueSOS } from "../utils/offlineQueue";
 import smsService from "../services/smsService";
 
 export default function PanicActions() {
-  const { state } = useApp()
+  const { state, requestSMSPermission } = useApp()
   const theme = useTheme()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
@@ -160,6 +160,8 @@ export default function PanicActions() {
     });
 
     let queuedThisPress = false
+    let hasSMSPermission = state.permissions?.sms.granted || false
+    let queuedSMS = false
     if (state.offline) {
       // create sos payload and queue it
       const sosData = {
@@ -239,7 +241,7 @@ export default function PanicActions() {
       };
 
       await triggerSOS(state.token, sosData);
-      setSnack({ visible: true, msg: "Sent alert: " + label })
+      
       // Also attempt to send SMS to emergency contacts when online
       try {
         // Send SMS first to authority, then to emergency contacts/others
@@ -269,19 +271,17 @@ export default function PanicActions() {
         console.log('\nMessage Content:');
         console.log(body);
 
-        let queuedSMS = false;
+        // First, check if we have SMS permission - if not, request it
+        console.log('🚨 Preparing to send emergency SMS...');
 
         // 1. Send to authority
         if (authorityPhone.length) {
           try {
-            await smsService.sendSms(authorityPhone, body);
+            console.log('📞 Sending SMS to authority:', authorityPhone);
+            const result = await smsService.sendSms(authorityPhone, body);
+            console.log('Authority SMS result:', result);
           } catch (e) {
-            try { 
-              await smsService.queueSms(authorityPhone, body);
-              queuedSMS = true;
-            } catch (qe) { 
-              console.warn('PanicActions: failed to send or queue SMS to authority', qe); 
-            }
+            console.warn('Failed to send SMS to authority, will be queued:', e);
           }
         }
 
@@ -289,24 +289,28 @@ export default function PanicActions() {
         const emergencyList = Array.from(emergencyContacts);
         if (emergencyList.length) {
           try {
-            // Send sequentially to each emergency contact
-            for (const contact of emergencyList) {
-              try {
-                await smsService.sendSms([contact], body);
-                // Small delay between sends
-                await new Promise(r => setTimeout(r, 500));
-              } catch (e) {
-                console.warn(`Failed to send SMS to ${contact}, queuing instead:`, e);
-                await smsService.queueSms([contact], body);
-                queuedSMS = true;
-              }
+            console.log('👥 Sending SMS to emergency contacts:', emergencyList);
+            const results = await smsService.sendSmsToMultiple(emergencyList, body);
+            console.log('Emergency contacts SMS results:', results);
+            
+            if (results.success.length > 0) {
+              console.log(`✅ Successfully sent SMS to ${results.success.length} contacts`);
+            }
+            if (results.queued.length > 0) {
+              console.log(`📝 Queued SMS for ${results.queued.length} contacts (will retry when permission available)`);
+              queuedSMS = true;
+            }
+            if (results.failed.length > 0) {
+              console.log(`❌ Failed to send SMS to ${results.failed.length} contacts`);
             }
           } catch (e) {
+            console.warn('Failed to send SMS to emergency contacts:', e);
+            // Fallback to queuing all contacts
             try { 
               await smsService.queueSms(emergencyList, body);
               queuedSMS = true;
             } catch (qe) { 
-              console.warn('PanicActions: failed to send or queue SMS to contacts', qe); 
+              console.warn('PanicActions: failed to queue SMS to contacts', qe); 
             }
           }
         }
@@ -324,6 +328,11 @@ export default function PanicActions() {
           }, 1000);
         }
       } catch (e) { console.warn('PanicActions: SMS notify failed', e) }
+      
+      // Show success message after SMS handling
+      const smsStatus = (hasSMSPermission && !queuedSMS) ? "SMS sent" : "SMS queued";
+      setSnack({ visible: true, msg: `Alert sent: ${label} • ${smsStatus}` })
+      
     } catch (error: any) {
       // On network or server failure, queue for retry (but avoid double-queueing during same press)
       try {

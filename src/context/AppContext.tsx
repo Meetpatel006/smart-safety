@@ -10,7 +10,8 @@ import STORAGE_KEYS from '../constants/storageKeys'
 import { readJSON, writeJSON, remove } from '../utils/storage'
 import { drainSOSQueue, clearSOSQueue } from '../utils/offlineQueue'
 import { drainSmsQueue } from '../services/smsService'
-import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData"
+import { requestEssentialPermissions, requestSMSWhenNeeded, checkAllPermissions, type AllPermissionsStatus } from '../services/permissionService'
+import { MOCK_CONTACTS, MOCK_GROUP } from "../utils/mockData"
 import type { Lang } from "./translations"
 import { login as apiLogin, register as apiRegister, getTouristData, tripsToItinerary, itineraryToTrips } from "../utils/api"
 import * as Location from 'expo-location';
@@ -49,6 +50,7 @@ type AppState = {
   currentPrimary?: { id: string; name: string; risk?: string } | null
   currentLocation: Location.LocationObject | null
   currentAddress: string | null
+  permissions?: AllPermissionsStatus | null
 }
 
 type AppContextValue = {
@@ -82,6 +84,8 @@ type AppContextValue = {
   acknowledgeHighRisk: (minutes: number) => Promise<void>
   setCurrentLocation: (location: Location.LocationObject | null) => void
   setCurrentAddress: (address: string | null) => void
+  refreshPermissions: () => Promise<AllPermissionsStatus>
+  requestSMSPermission: () => Promise<boolean>
 }
 
 const AppContext = createContext<AppContextValue | undefined>(undefined)
@@ -101,6 +105,7 @@ const defaultState: AppState = {
   authorityPhone: '112', // temporary authority number (user requested)
   currentLocation: null,
   currentAddress: null,
+  permissions: null,
 }
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -197,11 +202,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     let mounted = true
     ;(async () => {
       try {
+        // First, request essential permissions during hydration (excluding SMS)
+        console.log('🔐 Starting essential permission requests during app hydration...')
+        const permissionResults = await requestEssentialPermissions()
+        
         const parsed = await readJSON<typeof defaultState>(STORAGE_KEY, undefined)
         if (parsed && mounted) {
-          // restore persisted state (including token). We'll avoid overwriting trips so that
-          // server-sourced itineraries can be refreshed below if needed.
-          setState((prev) => ({ ...defaultState, ...prev, ...parsed }))
+          // restore persisted state (including token) and add permissions
+          setState((prev) => ({ ...defaultState, ...prev, ...parsed, permissions: permissionResults }))
           // If the persisted state contains a token but trips are empty, fetch /me now
           try {
             if (parsed.token && (!Array.isArray(parsed.trips) || parsed.trips.length === 0)) {
@@ -218,9 +226,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           } catch (e) {
             console.warn('Hydration: failed to refresh /me', e)
           }
+        } else if (mounted) {
+          // No persisted state, but we still have permissions
+          setState(prev => ({ ...prev, permissions: permissionResults }))
         }
       } catch (error) {
-        console.warn('Error loading app state:', error)
+        console.warn('Error loading app state or requesting permissions:', error)
       } finally {
         if (mounted) setHydrated(true)
       }
@@ -447,6 +458,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       },
       setCurrentAddress(address) {
         setState((s) => ({ ...s, currentAddress: address }))
+      },
+      async refreshPermissions() {
+        console.log('🔄 Refreshing app permissions...')
+        const permissionResults = await requestEssentialPermissions()
+        setState(s => ({ ...s, permissions: permissionResults }))
+        return permissionResults
+      },
+      async requestSMSPermission() {
+        console.log('🚨 Requesting SMS permission for emergency use...')
+        const result = await requestSMSWhenNeeded()
+        // Update the SMS permission in state
+        setState(s => ({ 
+          ...s, 
+          permissions: s.permissions ? { ...s.permissions, sms: result } : null 
+        }))
+        return result.granted
       },
     }),
     [state, hydrated],

@@ -1,41 +1,11 @@
-import { Platform, PermissionsAndroid } from 'react-native'
+import { Platform, PermissionsAndroid, Alert } from 'react-native'
 import SendSMS from 'react-native-sms'
 import STORAGE_KEYS from '../constants/storageKeys'
 import { pushToList, readJSON, writeJSON } from '../utils/storage'
 
-async function requestSMSPermission() {
-  try {
-    // First check if we already have permission
-    const hasPermission = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.SEND_SMS);
-    if (hasPermission) {
-      console.log('SMS Permission: Already granted');
-      return true;
-    }
-
-    // If not, request permission
-    const granted = await PermissionsAndroid.request(
-      PermissionsAndroid.PERMISSIONS.SEND_SMS,
-      {
-        title: "SMS Permission",
-        message: "This app needs access to send SMS messages " +
-                "for emergency alerts.",
-        buttonNeutral: "Ask Me Later",
-        buttonNegative: "Cancel",
-        buttonPositive: "OK"
-      }
-    );
-    console.log('SMS Permission:', granted);
-    return granted === PermissionsAndroid.RESULTS.GRANTED;
-  } catch (err) {
-    console.warn('SMS Permission error:', err);
-    return false;
-  }
-}
-
 export type SmsEntry = {
   id: string
   timestamp: number
-
   recipients: string[]
   body: string
   attempts?: number
@@ -43,60 +13,163 @@ export type SmsEntry = {
 
 const QUEUE_KEY = STORAGE_KEYS.SMS_QUEUE
 
+async function checkSMSPermission(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true; // iOS doesn't need explicit SMS permission
+  }
 
-// On web, expo-sms is not available
+  try {
+    const granted = await PermissionsAndroid.check(PermissionsAndroid.PERMISSIONS.SEND_SMS);
+    console.log('SMS Permission Check:', granted);
+    return granted;
+  } catch (err) {
+    console.warn('SMS Permission check error:', err);
+    return false;
+  }
+}
+
+async function requestSMSPermissionDirect(): Promise<boolean> {
+  if (Platform.OS !== 'android') {
+    return true; // iOS doesn't need explicit SMS permission
+  }
+
+  try {
+    const granted = await PermissionsAndroid.request(
+      PermissionsAndroid.PERMISSIONS.SEND_SMS,
+      {
+        title: "Emergency SMS Access",
+        message: "This app needs SMS permission to send emergency alerts to your contacts and authorities when you're in danger.",
+        buttonNeutral: "Ask Me Later",
+        buttonNegative: "Cancel", 
+        buttonPositive: "Allow"
+      }
+    );
+    
+    console.log('SMS Permission Request Result:', granted);
+    return granted === PermissionsAndroid.RESULTS.GRANTED;
+  } catch (err) {
+    console.warn('SMS Permission request error:', err);
+    return false;
+  }
+}
+
+// On web, SMS is not available
 export async function sendSms(recipients: string[], body: string) {
   if (Platform.OS === 'web') {
     console.warn('sendSms: SMS not supported on web')
     return { result: 'unsupported' }
   }
 
-  // Request SMS permission if needed
-  const hasPermission = await requestSMSPermission();
+  console.log('=== SENDING SMS ===');
+  console.log('Recipients:', recipients);
+  console.log('Body:', body);
+
+  // Check permission first
+  const hasPermission = await checkSMSPermission();
+  console.log('Has SMS Permission:', hasPermission);
+
   if (!hasPermission) {
-    console.error('SMS permission denied');
-    throw new Error('SMS permission denied');
+    console.log('No SMS permission - attempting to request...');
+    const permissionGranted = await requestSMSPermissionDirect();
+    
+    if (!permissionGranted) {
+      console.warn('SMS permission denied - queuing message instead');
+      await queueSms(recipients, body);
+      return { result: 'queued_no_permission' }
+    }
   }
 
-  return new Promise<{ result: string }>(async (resolve, reject) => {
-    // Log the SMS attempt
-    console.log('Attempting to send SMS:', {
-      recipients: recipients,
-      body: body
-    });
-
+  return new Promise<{ result: string }>((resolve, reject) => {
+    console.log('Sending SMS with react-native-sms...');
+    
     try {
-      // Send SMS sequentially to avoid device restrictions
-      for (const recipient of recipients) {
-        console.log(`Sending SMS to ${recipient}...`);
-        await new Promise<void>((innerResolve, innerReject) => {
-          SendSMS.send({
-            body: body,
-            recipients: [recipient], // Send to one recipient at a time
-            successTypes: ['sent', 'completed'] as any,
-            allowAndroidSendWithoutReadPermission: false,
-          }, (completed, cancelled, error) => {
-            console.log(`SMS to ${recipient}:`, { completed, cancelled, error });
-            if (completed) {
-              innerResolve();
-            } else if (cancelled) {
-              innerReject(new Error('SMS cancelled'));
-            } else if (error) {
-              innerReject(error);
-            }
-          });
+      SendSMS.send({
+        body: body,
+        recipients: recipients,
+        successTypes: ['sent', 'completed'] as any,
+        allowAndroidSendWithoutReadPermission: true, // Allow send without READ_SMS
+      }, (completed, cancelled, error) => {
+        console.log('SMS Send Result:', { 
+          completed, 
+          cancelled, 
+          error,
+          recipients: recipients.length 
         });
-        // Add a small delay between sends to prevent device throttling
-        await new Promise(r => setTimeout(r, 500));
-      }
-      console.log('All SMS sent successfully');
-      resolve({ result: 'sent' });
+
+        if (completed) {
+          console.log('✅ SMS sent successfully to all recipients');
+          resolve({ result: 'sent' });
+        } else if (cancelled) {
+          console.log('📱 SMS sending was cancelled by user');
+          resolve({ result: 'cancelled' });
+        } else if (error) {
+          console.error('❌ SMS sending failed:', error);
+          // Try to queue for retry
+          queueSms(recipients, body).catch(e => 
+            console.warn('Failed to queue SMS after send error:', e)
+          );
+          reject(new Error(`SMS send failed: ${error}`));
+        } else {
+          console.log('📱 SMS sending completed with unknown state');
+          resolve({ result: 'unknown' });
+        }
+      });
     } catch (error) {
-      console.error('SMS sending failed:', error);
+      console.error('❌ SMS sending exception:', error);
+      // Try to queue for retry
+      queueSms(recipients, body).catch(e => 
+        console.warn('Failed to queue SMS after exception:', e)
+      );
       reject(error);
     }
   });
+}
+
+// Send SMS to multiple recipients with better error handling
+export async function sendSmsToMultiple(recipients: string[], body: string) {
+  const results = {
+    success: [] as string[],
+    failed: [] as { recipient: string, error: string }[],
+    queued: [] as string[]
+  };
+
+  console.log(`=== SENDING SMS TO ${recipients.length} RECIPIENTS ===`);
+
+  for (const recipient of recipients) {
+    console.log(`Sending SMS to: ${recipient}`);
+    
+    try {
+      const result = await sendSms([recipient], body);
+      
+      if (result.result === 'sent') {
+        results.success.push(recipient);
+      } else if (result.result === 'queued_no_permission') {
+        results.queued.push(recipient);
+      } else {
+        results.failed.push({ recipient, error: `Send result: ${result.result}` });
+      }
+      
+      // Small delay between sends to avoid device throttling
+      if (recipients.indexOf(recipient) < recipients.length - 1) {
+        await new Promise(r => setTimeout(r, 800));
+      }
+    } catch (error) {
+      console.warn(`Failed to send SMS to ${recipient}:`, error);
+      results.failed.push({ recipient, error: error?.toString() || 'Unknown error' });
+      
+      // Try to queue the failed message
+      try {
+        await queueSms([recipient], body);
+        results.queued.push(recipient);
+      } catch (queueError) {
+        console.warn(`Failed to queue SMS for ${recipient}:`, queueError);
+      }
+    }
   }
+
+  console.log('SMS batch send results:', results);
+  return results;
+}
 
 export async function queueSms(recipients: string[], body: string) {
   try {
@@ -189,6 +262,7 @@ export function formatTouristInfo(state: any) {
 
 export default {
   sendSms,
+  sendSmsToMultiple,
   queueSms,
   drainSmsQueue,
   formatTouristInfo,

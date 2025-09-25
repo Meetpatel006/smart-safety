@@ -1,19 +1,22 @@
 {
   "expo": {
     "sdkVersion": "54.0.0",
-    "name": "SIH Smart Safety",
+    "name": "Smart Safety",
     "slug": "smart-safety",
     "version": "1.1.23",
-    "scheme": "sihsmart",
+    "scheme": "smartsafety",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "privacy": "unlisted",
     "splash": {
       "image": "./assets/splash.png",
       "backgroundColor": "#ffffff",
       "resizeMode": "contain"
     },
     "updates": {
-      "enabled": false
+      "enabled": false,
+      "fallbackToCacheTimeout": 0
     },
     "plugins": [
       [
@@ -28,7 +31,16 @@
       [
         "expo-location",
         {
-          "locationAlwaysAndWhenInUsePermission": "This app needs access to location to share your current location in emergency situations."
+          "locationAlwaysAndWhenInUsePermission": "This app needs access to location to share your current location in emergency situations.",
+          "locationWhenInUsePermission": "This app needs access to location to provide safety features and emergency alerts."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#ffffff",
+          "defaultChannel": "emergency-alerts"
         }
       ],
       [
@@ -39,14 +51,33 @@
       ]
     ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.sih.smartsafety",
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs access to location to share your current location in emergency situations.",
+        "NSLocationWhenInUseUsageDescription": "This app needs access to location to provide safety features and emergency alerts."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "com.example.sihsmartsafety"
+      "package": "com.sih.smartsafety",
+      "versionCode": 2,
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "SEND_SMS",
+        "READ_SMS",
+        "READ_PHONE_STATE",
+        "VIBRATE"
+      ],
+      "blockedPermissions": [
+        "WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "bundler": "metro"
