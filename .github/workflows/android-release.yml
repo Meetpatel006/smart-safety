@@ -17,6 +17,7 @@ jobs:
     outputs:
       tag: '${{ steps.version.outputs.tag }}'
       version: '${{ steps.version.outputs.version }}'
+      artifact_suffix: '${{ steps.version.outputs.artifact_suffix }}'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -33,16 +34,22 @@ jobs:
         run: |
           TAG_NAME="${GITHUB_REF##*/}"
           if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            VERSION="${TAG_NAME#v}"
             echo "tag=${TAG_NAME}" >> $GITHUB_OUTPUT
-            echo "version=${TAG_NAME#v}" >> $GITHUB_OUTPUT
+            echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "artifact_suffix=${VERSION}" >> $GITHUB_OUTPUT
           else
             VERSION="$(node -e 'const fs=require("fs"); try{ if(fs.existsSync("app.json")){const j=JSON.parse(fs.readFileSync("app.json")); const v=(j.expo&&j.expo.version)||j.version||""; console.log(v);} else if(fs.existsSync("package.json")){console.log(JSON.parse(fs.readFileSync("package.json")).version||"");} else console.log(""); }catch(e){console.log(""); }')"
-            if [ -z "$VERSION" ]; then
-              VERSION="0.0.0"
+            if [ -z "$VERSION" ] || [ "$VERSION" = "" ]; then
+              VERSION="dev-$(date +%Y%m%d-%H%M%S)"
             fi
             echo "tag=" >> $GITHUB_OUTPUT
             echo "version=${VERSION}" >> $GITHUB_OUTPUT
+            echo "artifact_suffix=${VERSION}" >> $GITHUB_OUTPUT
           fi
+          
+          echo "Final version: ${VERSION}"
+          echo "Final artifact suffix: ${VERSION}"
 
   android-build:
     name: Android Build
@@ -127,22 +134,56 @@ jobs:
         run: |
           ls -R android/app/build/outputs
 
-      - name: Upload build artifacts
+      - name: Verify APK files exist
+        run: |
+          if [ ! -d "android/app/build/outputs/apk/release" ] || [ -z "$(ls -A android/app/build/outputs/apk/release/*.apk 2>/dev/null)" ]; then
+            echo "Error: No APK files found in android/app/build/outputs/apk/release/"
+            exit 1
+          fi
+          echo "APK files found:"
+          ls -la android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload build artifacts (versioned)
         uses: actions/upload-artifact@v4
         with:
-          name: android-artifacts-${{ needs.prepare.outputs.version }}
+          name: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}
           path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Upload build artifacts (unversioned fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts
+          path: android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
 
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: android-build
+    needs: [android-build, prepare]
+    if: needs.prepare.outputs.tag != ''
     steps:
-      - name: Download build artifact
+      - name: Show resolved version and artifact name
+        run: |
+          echo "Version: '${{ needs.prepare.outputs.version }}'"
+          echo "Tag: '${{ needs.prepare.outputs.tag }}'"
+          echo "Artifact suffix: '${{ needs.prepare.outputs.artifact_suffix }}'"
+          echo "Trying to download: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}"
+
+      - name: Download versioned artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-artifacts-${{ needs.prepare.outputs.version }}
+          name: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}
           path: downloaded
+
+      - name: Verify downloaded files
+        run: |
+          echo "Downloaded files:"
+          ls -la downloaded/
+          if [ -z "$(ls -A downloaded/ 2>/dev/null)" ]; then
+            echo "Error: No files downloaded"
+            exit 1
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -160,29 +201,56 @@ jobs:
     runs-on: ubuntu-latest
     needs: [android-build, prepare]
     steps:
+      - name: Show resolved version and artifact name
+        run: |
+          echo "Version: '${{ needs.prepare.outputs.version }}'"
+          echo "Artifact suffix: '${{ needs.prepare.outputs.artifact_suffix }}'"
+          echo "Downloading artifact: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}"
+
       - name: Download build artifact
         uses: actions/download-artifact@v4
         with:
-          name: android-artifacts-${{ needs.prepare.outputs.version }}
+          name: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}
           path: downloaded
 
       - name: Show downloaded files
-        run: ls -la downloaded || true
+        run: |
+          echo "Downloaded files:"
+          ls -la downloaded/
 
       - name: Rename APK(s) to include version
         run: |
           APP_NAME="SmartSafety"
           VERSION="${{ needs.prepare.outputs.version }}"
           mkdir -p renamed
-          shopt -s nullglob || true
+          
+          if [ -z "$(ls -A downloaded/ 2>/dev/null)" ]; then
+            echo "Error: No files to rename"
+            exit 1
+          fi
+          
           for apk in downloaded/*.apk; do
-            base=$(basename "$apk")
-            mv "$apk" "renamed/${APP_NAME}-${VERSION}-${base}"
+            if [ -f "$apk" ]; then
+              base=$(basename "$apk")
+              new_name="${APP_NAME}-${VERSION}-${base}"
+              echo "Renaming: $apk -> renamed/$new_name"
+              mv "$apk" "renamed/$new_name"
+            fi
           done
-          ls -la renamed
+          
+          echo "Renamed files:"
+          ls -la renamed/
 
-      - name: Upload renamed artifacts
+      - name: Upload renamed artifacts (versioned)
         uses: actions/upload-artifact@v4
         with:
-          name: android-artifacts-renamed-${{ needs.prepare.outputs.version }}
+          name: android-artifacts-renamed-${{ needs.prepare.outputs.artifact_suffix }}
           path: renamed/*.apk
+          if-no-files-found: error
+
+      - name: Upload renamed artifacts (unversioned fallback)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-artifacts-renamed
+          path: renamed/*.apk
+          if-no-files-found: error
