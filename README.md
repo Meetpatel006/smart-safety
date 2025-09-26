@@ -2,7 +2,7 @@
 
 ## Project Documentation
 
-**Version:** 1.1.27
+**Version:** 1.2.2
 **Date:** September 26, 2025
 
 ---
