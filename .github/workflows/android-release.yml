@@ -160,7 +160,7 @@ jobs:
   create-release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [android-build, prepare]
+    needs: [rename-and-upload, prepare]
     if: needs.prepare.outputs.tag != ''
     steps:
       - name: Show resolved version and artifact name
@@ -168,17 +168,17 @@ jobs:
           echo "Version: '${{ needs.prepare.outputs.version }}'"
           echo "Tag: '${{ needs.prepare.outputs.tag }}'"
           echo "Artifact suffix: '${{ needs.prepare.outputs.artifact_suffix }}'"
-          echo "Trying to download: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}"
+          echo "Downloading renamed artifacts: android-artifacts-renamed-${{ needs.prepare.outputs.artifact_suffix }}"
 
-      - name: Download versioned artifact
+      - name: Download renamed artifacts
         uses: actions/download-artifact@v4
         with:
-          name: android-artifacts-${{ needs.prepare.outputs.artifact_suffix }}
+          name: android-artifacts-renamed-${{ needs.prepare.outputs.artifact_suffix }}
           path: downloaded
 
       - name: Verify downloaded files
         run: |
-          echo "Downloaded files:"
+          echo "Downloaded renamed files:"
           ls -la downloaded/
           if [ -z "$(ls -A downloaded/ 2>/dev/null)" ]; then
             echo "Error: No files downloaded"
@@ -232,7 +232,14 @@ jobs:
           for apk in downloaded/*.apk; do
             if [ -f "$apk" ]; then
               base=$(basename "$apk")
-              new_name="${APP_NAME}-${VERSION}-${base}"
+              # Extract build type from original filename (e.g., app-release.apk -> release)
+              if [[ "$base" =~ app-([^.]+)\.apk$ ]]; then
+                build_type="${BASH_REMATCH[1]}"
+                new_name="${APP_NAME}-${VERSION}-${build_type}.apk"
+              else
+                # Fallback for unexpected naming patterns
+                new_name="${APP_NAME}-${VERSION}-${base}"
+              fi
               echo "Renaming: $apk -> renamed/$new_name"
               mv "$apk" "renamed/$new_name"
             fi
