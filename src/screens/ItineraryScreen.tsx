@@ -1,14 +1,19 @@
-import { View, ScrollView, StyleSheet } from "react-native"
-import { Appbar, Card, Avatar, Button, Text, useTheme, Divider } from "react-native-paper"
+import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native"
+import { Text, useTheme, FAB } from "react-native-paper"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
-import { useRef } from "react"
+import { useRef, useState } from "react"
+import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { LinearGradient } from "expo-linear-gradient"
+
+export type FilterType = "all" | "upcoming" | "completed"
 
 export default function ItineraryScreen() {
   const { state } = useApp()
   const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
+  const [activeFilter, setActiveFilter] = useState<FilterType>("all")
 
   const handleAddTrip = () => {
     if (itineraryListRef.current) {
@@ -16,42 +21,69 @@ export default function ItineraryScreen() {
     }
   }
 
-  return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header style={{ backgroundColor: theme.colors.primary }}>
-        <Appbar.Content
-          title={t(state.language, "itinerary")}
-          titleStyle={{ color: 'white' }}
-        />
-      </Appbar.Header>
+  const filters: { key: FilterType; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "upcoming", label: "Upcoming" },
+    { key: "completed", label: "Completed" },
+  ]
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Trip Management Section */}
-        <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Trip Planning"
-              titleStyle={styles.sectionTitle}
-              subtitle="Manage your travel itinerary and trip details"
-              subtitleStyle={styles.cardSubtitle}
-              left={(props) => <Avatar.Icon {...props} icon="map-marker-path" size={40} style={{ backgroundColor: theme.colors.primary }} />}
-              right={(props) => (
-                <Button
-                  mode="contained"
-                  onPress={handleAddTrip}
-                  buttonColor={theme.colors.secondary}
-                  style={styles.addButton}
-                >
-                  {t(state.language, "addTrip")}
-                </Button>
-              )}
-            />
-            <Card.Content>
-              <ItineraryList ref={itineraryListRef} />
-            </Card.Content>
-          </Card>
+  return (
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#1E3A8A" />
+
+      {/* Gradient Header */}
+      <LinearGradient
+        colors={["#1E3A8A", "#3B82F6"]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.header}
+      >
+        <View style={styles.headerContent}>
+          <View style={styles.headerLeft}>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+          </View>
+          <Text style={styles.headerTitle}>My Trips</Text>
+          <View style={styles.headerRight}>
+            <MaterialCommunityIcons name="magnify" size={24} color="white" />
+          </View>
         </View>
-      </ScrollView>
+
+        {/* Filter Tabs */}
+        <View style={styles.filterContainer}>
+          {filters.map((filter) => (
+            <TouchableOpacity
+              key={filter.key}
+              onPress={() => setActiveFilter(filter.key)}
+              style={[
+                styles.filterTab,
+                activeFilter === filter.key && styles.filterTabActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.filterText,
+                  activeFilter === filter.key && styles.filterTextActive,
+                ]}
+              >
+                {filter.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </LinearGradient>
+
+      {/* Trip List */}
+      <View style={styles.listContainer}>
+        <ItineraryList ref={itineraryListRef} filter={activeFilter} />
+      </View>
+
+      {/* Floating Action Button */}
+      <FAB
+        icon="plus"
+        style={[styles.fab, { backgroundColor: theme.colors.secondary }]}
+        color="white"
+        onPress={handleAddTrip}
+      />
     </View>
   )
 }
@@ -59,29 +91,64 @@ export default function ItineraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#F3F4F6",
   },
-  scrollContent: {
-    padding: 16,
-    paddingBottom: 32,
+  header: {
+    paddingTop: 48,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  section: {
-    marginBottom: 16,
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
   },
-  card: {
-    elevation: 4,
+  headerLeft: {
+    width: 40,
+  },
+  headerTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "white",
+  },
+  headerRight: {
+    width: 40,
+    alignItems: "flex-end",
+  },
+  filterContainer: {
+    flexDirection: "row",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     borderRadius: 12,
+    padding: 4,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+  filterTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: "center",
+    borderRadius: 10,
   },
-  cardSubtitle: {
+  filterTabActive: {
+    backgroundColor: "white",
+  },
+  filterText: {
+    color: "rgba(255, 255, 255, 0.8)",
     fontSize: 14,
-    color: '#666',
-    marginTop: 2,
+    fontWeight: "600",
   },
-  addButton: {
-    marginRight: 8,
+  filterTextActive: {
+    color: "#1E3A8A",
+  },
+  listContainer: {
+    flex: 1,
+    paddingTop: 16,
+  },
+  fab: {
+    position: "absolute",
+    right: 20,
+    bottom: 24,
+    borderRadius: 16,
   },
 })
