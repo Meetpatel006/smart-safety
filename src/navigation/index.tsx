@@ -11,7 +11,10 @@ import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { useTheme } from "react-native-paper"
 import DashboardLogo from "../components/Icons/DashboardLogo"
+import { View, Text, StyleSheet } from "react-native"
 import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo"
+import SettingsIcon from "../components/Icons/SettingsIcon"
+import ItineraryIcon from "../components/Icons/ItineraryIcon"
 
 export type RootStackParamList = {
   Auth: undefined
@@ -24,41 +27,192 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>()
 const Tab = createBottomTabNavigator()
 
+function TabBarBackground() {
+  return (
+    <View
+      style={{
+        flex: 1,
+        borderRadius: 30,
+        backgroundColor: "#fff",
+        borderWidth: 1,
+        borderColor: "rgba(255, 255, 255, 0.6)",
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.15,
+        shadowRadius: 24,
+        elevation: 15,
+      }}
+    />
+  )
+}
+
 function MainTabs() {
   const theme = useTheme()
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
+        tabBarShowLabel: false,
         tabBarActiveTintColor: theme.colors.primary,
+        tabBarStyle: {
+          position: "absolute",
+          bottom: 25,
+          left: 40,
+          right: 40,
+          elevation: 0,
+          backgroundColor: "transparent",
+          borderRadius: 30,
+          height: 60,
+          borderTopWidth: 0,
+          paddingBottom: 0,
+          paddingHorizontal: 0,
+        },
+        tabBarBackground: () => <TabBarBackground />,
+        tabBarItemStyle: {
+          paddingVertical: 0,
+          paddingHorizontal: 0,
+          margin: 0,
+        },
       }}
     >
       <Tab.Screen
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <DashboardLogo color={color} size={size} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
+              <View
+                style={{
+                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
+                  borderRadius: 12,
+                  padding: 2,
+                }}
+              >
+                <DashboardLogo color={color} size={22} />
+              </View>
+              {focused && (
+                <>
+                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                    Dashboard
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: color,
+                      marginTop: 1,
+                    }}
+                  />
+                </>
+              )}
+            </View>
+          ),
         }}
       />
-       <Tab.Screen
+      <Tab.Screen
         name="Emergency"
         component={EmergencyScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <EmergencyMapLogo color={color} size={size} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
+              <View
+                style={{
+                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
+                  borderRadius: 12,
+                  padding: 2,
+                }}
+              >
+                <EmergencyMapLogo color={color} size={22} />
+              </View>
+              {focused && (
+                <>
+                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                    Emergency
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: color,
+                      marginTop: 1,
+                    }}
+                  />
+                </>
+              )}
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="Itinerary"
         component={ItineraryScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="calendar" color={color} size={size} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
+              <View
+                style={{
+                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
+                  borderRadius: 12,
+                  padding: 2,
+                }}
+              >
+                <ItineraryIcon color={color} size={22} />
+              </View>
+              {focused && (
+                <>
+                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                    Itinerary
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: color,
+                      marginTop: 1,
+                    }}
+                  />
+                </>
+              )}
+            </View>
+          ),
         }}
       />
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarIcon: ({ color, size }) => <MaterialCommunityIcons name="cog" color={color} size={size} />,
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
+              <View
+                style={{
+                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
+                  borderRadius: 12,
+                  padding: 2,
+                }}
+              >
+                <SettingsIcon color={color} size={22} />
+              </View>
+              {focused && (
+                <>
+                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                    Settings
+                  </Text>
+                  <View
+                    style={{
+                      width: 4,
+                      height: 4,
+                      borderRadius: 2,
+                      backgroundColor: color,
+                      marginTop: 1,
+                    }}
+                  />
+                </>
+              )}
+            </View>
+          ),
         }}
       />
       {/* <Tab.Screen

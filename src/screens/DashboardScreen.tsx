@@ -58,6 +58,7 @@ export default function DashboardScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     padding: 12,
+    paddingBottom: 110,
     gap: 12,
     alignItems: 'center',
   },

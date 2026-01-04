@@ -175,8 +175,6 @@ export default function SettingsScreen() {
           </Card>
         </View>
 
-        
-
         {/* Account Actions Section */}
         <View style={styles.section}>
           <Card style={styles.card}>
@@ -221,7 +219,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 32,
+    paddingBottom: 110,
   },
   section: {
     marginBottom: 16,

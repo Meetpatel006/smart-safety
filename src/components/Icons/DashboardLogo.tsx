@@ -1,5 +1,5 @@
 import * as React from 'react'
-import Svg, { Path, Rect } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
 import { View } from 'react-native'
 
 type Props = {
@@ -13,13 +13,20 @@ export default function DashboardLogo({ color = '#000', size = 24 }: Props) {
   return (
     <View style={{ width: s, height: s }}>
       <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-        {/* Outer rounded square */}
-        <Rect x="2" y="2" width="20" height="20" rx="3" stroke={stroke} strokeWidth={1.5} />
-        {/* Home/house icon centered inside the square */}
-        {/* Roof */}
-        <Path d="M12 6.5l6 5V18a1 1 0 0 1-1 1h-3v-4a1 1 0 0 0-1-1h-2a1 1 0 0 0-1 1v4H7a1 1 0 0 1-1-1v-6.5l6-5z" fill={stroke} />
-        {/* Door (cutout) - slightly darker stroke by using white fill to simulate inset if background is white */}
-        <Path d="M10.5 13.5h3v4h-3z" fill="#FFFFFF" opacity={0.0} />
+        <Path
+          d="M17 21H7C4.79086 21 3 19.2091 3 17V10.7076C3 9.30887 3.73061 8.01175 4.92679 7.28679L9.92679 4.25649C11.2011 3.48421 12.7989 3.48421 14.0732 4.25649L19.0732 7.28679C20.2694 8.01175 21 9.30887 21 10.7076V17C21 19.2091 19.2091 21 17 21Z"
+          stroke={stroke}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Path
+          d="M9 17H15"
+          stroke={stroke}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </Svg>
     </View>
   )

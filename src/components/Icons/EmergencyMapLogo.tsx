@@ -1,5 +1,5 @@
 import * as React from 'react'
-import Svg, { Path, Polygon, G, Circle } from 'react-native-svg'
+import Svg, { Path } from 'react-native-svg'
 import { View } from 'react-native'
 
 type Props = {
@@ -13,22 +13,13 @@ export default function EmergencyMapLogo({ color = '#000', size = 24 }: Props) {
   return (
     <View style={{ width: s, height: s }}>
       <Svg width={s} height={s} viewBox="0 0 24 24" fill="none">
-        {/* stylized folded map */}
-        <G stroke={stroke} strokeWidth={1.2} strokeLinecap="round" strokeLinejoin="round">
-          <Path d="M3 6l5-2 4 1 6-1v13l-5 2-4-1-6 1V6z" fill="none" />
-          {/* fold lines */}
-          <Path d="M8 4v15" opacity={0.7} />
-          <Path d="M15 3.5v15" opacity={0.6} />
-        </G>
-
-        {/* location pin */}
-        <G>
-          <Path
-            d="M12 9.5c1.3807 0 2.5 1.1193 2.5 2.5 0 2.5-2.5 5.5-2.5 5.5s-2.5-3-2.5-5.5c0-1.3807 1.1193-2.5 2.5-2.5z"
-            fill={stroke}
-          />
-          <Circle cx="12" cy="12" r="0.8" fill="#fff" />
-        </G>
+        <Path
+          d="M4.03132 8.91684L19.508 4.58337C19.8835 4.47824 20.2294 4.82421 20.1243 5.19967L15.7908 20.6763C15.6642 21.1284 15.0407 21.1726 14.8517 20.7429L11.6034 13.3605C11.5531 13.246 11.4616 13.1546 11.3471 13.1042L3.96477 9.85598C3.53507 9.66692 3.57926 9.04342 4.03132 8.91684Z"
+          stroke={stroke}
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </Svg>
     </View>
   )
