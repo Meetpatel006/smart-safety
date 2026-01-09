@@ -1,31 +1,21 @@
 import { View, ScrollView, StyleSheet } from "react-native"
-import { Appbar, List, Text, Switch, TextInput, Button, Card, Divider, Avatar, useTheme } from "react-native-paper"
+import { Appbar, List, Text, TextInput, Button, Card, Divider, Avatar, useTheme } from "react-native-paper"
 import { useApp } from "../context/AppContext"
 import LanguageToggle from "../components/LanguageToggle"
 import OfflineBadge from "../components/OfflineBadge"
 import ProfileCard from "../components/ProfileCard"
+import SafetyScoreCard from "../components/SafetyScoreCard"
+import QuickAccessSection from "../components/QuickAccessSection"
+import AccountPreferencesSection from "../components/AccountPreferencesSection"
 import { t } from "../context/translations"
 import { useEffect, useState } from "react"
-import { Alert } from 'react-native'
-import { getSOSQueue } from '../utils/offlineQueue'
-import { getAlertState } from "../utils/alertHelpers"
 
 export default function SettingsScreen() {
-  const { state, wipeMockData, logout, acknowledgeHighRisk, setAuthorityPhone } = useApp()
+  const { state, wipeMockData, logout, setAuthorityPhone } = useApp()
   const theme = useTheme()
-  const [muted, setMuted] = useState(false)
-  const [minutes, setMinutes] = useState<string>("15")
   const [authorityPhoneLocal, setAuthorityPhoneLocal] = useState<string>(state.authorityPhone || '')
 
   useEffect(() => {
-    (async () => {
-      const s = await getAlertState()
-      if (s?.suppressionUntil && s.suppressionUntil > Date.now()) {
-        const remaining = Math.ceil((s.suppressionUntil - Date.now()) / 60000)
-        setMinutes(String(Math.max(1, remaining)))
-      }
-      setMuted(!!s?.muted)
-    })()
     // keep local authority phone in sync when screen mounts
     setAuthorityPhoneLocal(state.authorityPhone || '')
   }, [])
@@ -40,173 +30,9 @@ export default function SettingsScreen() {
         {/* Profile Section */}
         <View style={styles.section}>
           <ProfileCard />
-        </View>
-
-        {/* Safety & Alerts Section */}
-        <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Safety & Alerts"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="shield-alert" size={40} style={{ backgroundColor: theme.colors.primary }} />}
-            />
-            <Card.Content>
-              <Text style={styles.cardSubtitle}>Manage your safety notifications and emergency settings</Text>
-
-              <Divider style={styles.divider} />
-              <Button
-                mode="outlined"
-                onPress={async () => {
-                  try {
-                    const q = await getSOSQueue()
-                    console.log('Queued SOS items:', q)
-                    Alert.alert('Queued SOS', `Count: ${q.length}\n\n${JSON.stringify(q, null, 2)}`)
-                  } catch (e) {
-                    console.warn('Failed reading SOS queue', e)
-                    Alert.alert('Queued SOS', 'Failed to read queue. See console for details.')
-                  }
-                }}
-              >
-                View queued SOS
-              </Button>
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>Mute all high-risk alerts</Text>
-                  <Text style={styles.settingDescription}>Temporarily disable all safety notifications</Text>
-                </View>
-                <Switch
-                  value={muted}
-                  onValueChange={async (v) => {
-                    setMuted(v)
-                    const { setGlobalMute } = await import('../utils/alertHelpers')
-                    await setGlobalMute(v)
-                  }}
-                  color={theme.colors.primary}
-                />
-              </View>
-
-              <Divider style={styles.divider} />
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>Suppress alerts for</Text>
-                  <Text style={styles.settingDescription}>Pause notifications for a specific duration</Text>
-                </View>
-              </View>
-
-              <View style={styles.timeInputContainer}>
-                <TextInput
-                  style={styles.timeInput}
-                  mode="outlined"
-                  keyboardType="numeric"
-                  value={minutes}
-                  onChangeText={setMinutes}
-                  label="Minutes"
-                  dense
-                />
-                <Button
-                  mode="contained"
-                  onPress={async () => {
-                    const m = Math.max(1, parseInt(minutes || '0', 10) || 0)
-                    await acknowledgeHighRisk(m)
-                  }}
-                  style={styles.acknowledgeButton}
-                  buttonColor={theme.colors.secondary}
-                >
-                  Acknowledge
-                </Button>
-              </View>
-
-              <Text style={styles.warningText}>
-                If you don't acknowledge, alerts will escalate at 5/15/30+ minutes by default.
-              </Text>
-            </Card.Content>
-          </Card>
-        </View>
-
-        {/* Preferences Section */}
-        <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Preferences"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="cog" size={40} style={{ backgroundColor: theme.colors.secondary }} />}
-            />
-            <Card.Content>
-              <Text style={styles.cardSubtitle}>Customize your app experience</Text>
-
-              <Divider style={styles.divider} />
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>{t(state.language, "multilingual")}</Text>
-                  <Text style={styles.settingDescription}>Choose your preferred language</Text>
-                </View>
-              </View>
-              <LanguageToggle />
-
-              <Divider style={styles.divider} />
-
-              <View style={{ marginTop: 8 }}>
-                <Text style={{ fontWeight: '600', marginBottom: 8 }}>Authority Phone Number</Text>
-                <TextInput
-                  label="Authority Phone"
-                  value={authorityPhoneLocal}
-                  onChangeText={setAuthorityPhoneLocal}
-                  keyboardType="phone-pad"
-                  mode="outlined"
-                />
-                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 8, marginTop: 8 }}>
-                  <Button mode="contained" onPress={() => { setAuthorityPhone(authorityPhoneLocal || null) }}>{t(state.language, "save")}</Button>
-                </View>
-              </View>
-
-              <Divider style={styles.divider} />
-
-              <View style={styles.settingItem}>
-                <View style={styles.settingText}>
-                  <Text style={styles.settingTitle}>{t(state.language, "offlineMode")}</Text>
-                  <Text style={styles.settingDescription}>Manage offline functionality</Text>
-                </View>
-              </View>
-              <OfflineBadge />
-            </Card.Content>
-          </Card>
-        </View>
-
-        {/* Account Actions Section */}
-        <View style={styles.section}>
-          <Card style={styles.card}>
-            <Card.Title
-              title="Account"
-              titleStyle={styles.sectionTitle}
-              left={(props) => <Avatar.Icon {...props} icon="account" size={40} style={{ backgroundColor: '#FF5722' }} />}
-            />
-            <Card.Content>
-              <Text style={styles.cardSubtitle}>Manage your account and data</Text>
-
-              <Divider style={styles.divider} />
-
-              <List.Item
-                title={t(state.language, "wipeData")}
-                description="Clear all mock data from the app"
-                onPress={wipeMockData}
-                left={(props) => <List.Icon {...props} icon="delete" color="#F44336" />}
-                style={styles.listItem}
-              />
-
-              <Divider style={styles.divider} />
-
-              <List.Item
-                title={t(state.language, "logout")}
-                description="Sign out of your account"
-                onPress={logout}
-                left={(props) => <List.Icon {...props} icon="logout" color="#FF5722" />}
-                style={styles.listItem}
-              />
-            </Card.Content>
-          </Card>
+          <SafetyScoreCard />
+          <QuickAccessSection />
+          <AccountPreferencesSection />
         </View>
       </ScrollView>
     </View>
@@ -219,7 +45,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 150,
   },
   section: {
     marginBottom: 16,
@@ -260,25 +86,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginTop: 2,
-  },
-  timeInputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 8,
-  },
-  timeInput: {
-    flex: 1,
-    maxWidth: 100,
-  },
-  acknowledgeButton: {
-    flex: 1,
-  },
-  warningText: {
-    fontSize: 14,
-    color: '#FF9800',
-    marginTop: 12,
-    lineHeight: 20,
   },
   privacyInfo: {
     backgroundColor: '#E8F5E8',

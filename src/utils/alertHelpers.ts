@@ -30,14 +30,56 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   }
 }
 
-// Send a single local notification and optionally vibrate for N ms
-async function notifyOnce(title: string, body: string | undefined, vibrateMs: number = 0) {
+
+export type AlertConfig = {
+  emergency: boolean
+  warnings: boolean
+  sound: boolean
+  vibration: boolean
+}
+
+export const DEFAULT_ALERT_CONFIG: AlertConfig = {
+  emergency: true,
+  warnings: true,
+  sound: true,
+  vibration: true,
+}
+
+export async function getAlertConfig(): Promise<AlertConfig> {
   try {
-    // Haptic cue (light)
-    try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning) } catch (e) { /* ignore */ }
+    const cfg = await readJSON<AlertConfig>(STORAGE_KEYS.ALERT_CONFIG)
+    return { ...DEFAULT_ALERT_CONFIG, ...cfg }
+  } catch (e) {
+    return DEFAULT_ALERT_CONFIG
+  }
+}
+
+export async function saveAlertConfig(cfg: Partial<AlertConfig>) {
+  try {
+    const current = await getAlertConfig()
+    await writeJSON(STORAGE_KEYS.ALERT_CONFIG, { ...current, ...cfg })
+  } catch (e) {
+    console.warn('saveAlertConfig failed', e)
+  }
+}
+
+// Send a single local notification and optionally vibrate for N ms
+async function notifyOnce(title: string, body: string | undefined, vibrateMs: number = 0, isEmergency: boolean = false) {
+  try {
+    const cfg = await getAlertConfig()
+
+    // Filter based on config
+    if (isEmergency && !cfg.emergency) return
+    if (!isEmergency && !cfg.warnings) return
+
+    // Haptic cue (light) if vibration enabled
+    if (cfg.vibration) {
+      try { Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning) } catch (e) { /* ignore */ }
+    }
+
     // Custom vibration length (Android/iOS respects duration array best)
     try {
-      if (vibrateMs > 0 && (Platform.OS === 'android' || Platform.OS === 'ios')) {
+      if (cfg.vibration && vibrateMs > 0 && (Platform.OS === 'android' || Platform.OS === 'ios')) {
         Vibration.vibrate([0, vibrateMs])
       }
     } catch (e) { /* ignore */ }
@@ -45,7 +87,7 @@ async function notifyOnce(title: string, body: string | undefined, vibrateMs: nu
     const ok = await ensureNotificationPermission()
     if (ok) {
       await Notifications.scheduleNotificationAsync({
-        content: { title, body: body || '', sound: true },
+        content: { title, body: body || '', sound: cfg.sound },
         trigger: null,
       })
     }
@@ -56,7 +98,8 @@ async function notifyOnce(title: string, body: string | undefined, vibrateMs: nu
 
 export async function triggerHighRiskAlert(title: string, body?: string) {
   // Backward compatible one-off alert (no continuous escalation)
-  await notifyOnce(title, body, 500)
+  // Treat as "Emergency"
+  await notifyOnce(title, body, 500, true)
 }
 
 export async function startProgressiveAlert(title: string, baseBody?: string) {
@@ -74,7 +117,10 @@ export async function startProgressiveAlert(title: string, baseBody?: string) {
       const suppressed = !!(s.suppressionUntil && now < s.suppressionUntil)
       const cooledDown = !(s.lastNotifiedAt && now - s.lastNotifiedAt < COOLDOWN_MS)
       if (!s.globalMute && !suppressed && cooledDown) {
-        await notifyOnce(title, baseBody || 'High-risk area detected.', 5000)
+        // Evaluate if this entry is emergency or warning. Assuming generic progressive starts as Warning? 
+        // Or if it says "High risk", it's emergency.
+        const isEmergency = title.toLowerCase().includes('high risk')
+        await notifyOnce(title, baseBody || 'High-risk area detected.', 5000, isEmergency)
         const updated: EscalationState = { ...s, lastNotifiedAt: now }
         await writeJSON(STORAGE_KEYS.ALERT_ESCALATION, updated)
         state = updated
@@ -129,10 +175,11 @@ async function evaluateAndNotify(state: EscalationState, title: string, baseBody
     tier === 1
       ? `${baseBody || ''}`.trim() || 'You are in a high-risk area.'
       : tier === 2
-      ? `${baseBody || 'High-risk area persists.'} Escalation: 15 minutes.`
-      : `${baseBody || 'High-risk area persists.'} Escalation: 30+ minutes.`
+        ? `${baseBody || 'High-risk area persists.'} Escalation: 15 minutes.`
+        : `${baseBody || 'High-risk area persists.'} Escalation: 30+ minutes.`
 
-  await notifyOnce(title, body, vibMs)
+  const isEmergency = true // Escalations are usually emergencies
+  await notifyOnce(title, body, vibMs, isEmergency)
   const updated: EscalationState = { ...state, lastTier: tier, lastNotifiedAt: now }
   await writeJSON(STORAGE_KEYS.ALERT_ESCALATION, updated)
 }
@@ -154,6 +201,7 @@ export async function acknowledgeHighRisk(minutes: number) {
   }
 }
 
+// Deprecated in favor of fine-grained config, but keeping for backward compat
 export async function setGlobalMute(mute: boolean) {
   try {
     const now = Date.now()
@@ -179,3 +227,4 @@ export async function getAlertState(): Promise<{ muted: boolean; suppressionUnti
     return null
   }
 }
+

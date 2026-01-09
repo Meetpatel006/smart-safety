@@ -6,6 +6,10 @@ import DashboardScreen from "../screens/DashboardScreen"
 import ItineraryScreen from "../screens/ItineraryScreen"
 import EmergencyScreen from "../screens/EmergencyScreen"
 import SettingsScreen from "../screens/SettingsScreen"
+import HelpCenterScreen from "../screens/HelpCenterScreen"
+import ReportIssueScreen from "../screens/ReportIssueScreen"
+import PersonalInfoScreen from "../screens/PersonalInfoScreen"
+import AppSettingsScreen from "../screens/AppSettingsScreen"
 import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
 import { useApp } from "../context/AppContext"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
@@ -20,6 +24,10 @@ export type RootStackParamList = {
   Auth: undefined
   Main: undefined
   Authority: undefined
+  HelpCenter: undefined
+  ReportIssue: undefined
+  PersonalInfo: undefined
+  AppSettings: undefined
   GeoFenceDebug: undefined
   // Transitions: undefined
 }
@@ -32,15 +40,15 @@ function TabBarBackground() {
     <View
       style={{
         flex: 1,
-        borderRadius: 30,
-        backgroundColor: "#fff",
+        borderRadius: 32,
+        backgroundColor: "#FFFFFF",
         borderWidth: 1,
-        borderColor: "rgba(255, 255, 255, 0.6)",
+        borderColor: "rgba(0, 0, 0, 0.04)",
         shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 24,
-        elevation: 15,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 20,
+        elevation: 8,
       }}
     />
   )
@@ -48,21 +56,26 @@ function TabBarBackground() {
 
 function MainTabs() {
   const theme = useTheme()
+  const activeColor = '#3b82f6'
+  const inactiveColor = '#9ca3af'
+
   return (
     <Tab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarShowLabel: false,
-        tabBarActiveTintColor: theme.colors.primary,
+        tabBarActiveTintColor: activeColor,
+        tabBarInactiveTintColor: inactiveColor,
         tabBarStyle: {
           position: "absolute",
           bottom: 25,
-          left: 40,
-          right: 40,
+          left: 24,
+          right: 24,
           elevation: 0,
           backgroundColor: "transparent",
-          borderRadius: 30,
-          height: 60,
+          borderRadius: 32,
+          overflow: "hidden",
+          height: 70,
           borderTopWidth: 0,
           paddingBottom: 0,
           paddingHorizontal: 0,
@@ -79,29 +92,21 @@ function MainTabs() {
         name="Dashboard"
         component={DashboardScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
-              <View
-                style={{
-                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
-                  borderRadius: 12,
-                  padding: 2,
-                }}
-              >
-                <DashboardLogo color={color} size={22} />
-              </View>
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
+              <DashboardLogo color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
               {focused && (
                 <>
-                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
                     Dashboard
                   </Text>
                   <View
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: color,
-                      marginTop: 1,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: activeColor,
+                      marginTop: 3,
                     }}
                   />
                 </>
@@ -114,29 +119,21 @@ function MainTabs() {
         name="Emergency"
         component={EmergencyScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
-              <View
-                style={{
-                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
-                  borderRadius: 12,
-                  padding: 2,
-                }}
-              >
-                <EmergencyMapLogo color={color} size={22} />
-              </View>
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
+              <EmergencyMapLogo color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
               {focused && (
                 <>
-                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
                     Emergency
                   </Text>
                   <View
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: color,
-                      marginTop: 1,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: activeColor,
+                      marginTop: 3,
                     }}
                   />
                 </>
@@ -149,29 +146,21 @@ function MainTabs() {
         name="Itinerary"
         component={ItineraryScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
-              <View
-                style={{
-                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
-                  borderRadius: 12,
-                  padding: 2,
-                }}
-              >
-                <ItineraryIcon color={color} size={22} />
-              </View>
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
+              <ItineraryIcon color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
               {focused && (
                 <>
-                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
                     Itinerary
                   </Text>
                   <View
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: color,
-                      marginTop: 1,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: activeColor,
+                      marginTop: 3,
                     }}
                   />
                 </>
@@ -184,29 +173,21 @@ function MainTabs() {
         name="Settings"
         component={SettingsScreen}
         options={{
-          tabBarIcon: ({ focused, color, size }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", paddingTop: 4 }}>
-              <View
-                style={{
-                  backgroundColor: focused ? "rgba(33, 150, 243, 0.12)" : "transparent",
-                  borderRadius: 12,
-                  padding: 2,
-                }}
-              >
-                <SettingsIcon color={color} size={22} />
-              </View>
+          tabBarIcon: ({ focused, color }) => (
+            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
+              <SettingsIcon color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
               {focused && (
                 <>
-                  <Text style={{ color: color, fontSize: 9, marginTop: 2, fontWeight: "600" }}>
+                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
                     Settings
                   </Text>
                   <View
                     style={{
-                      width: 4,
-                      height: 4,
-                      borderRadius: 2,
-                      backgroundColor: color,
-                      marginTop: 1,
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: activeColor,
+                      marginTop: 3,
                     }}
                   />
                 </>
@@ -249,6 +230,26 @@ export function RootNavigator() {
             name="Authority"
             component={AuthorityDashboardScreen}
             options={{ title: "Authority Dashboard (Mock)" }}
+          />
+          <Stack.Screen
+            name="HelpCenter"
+            component={HelpCenterScreen}
+            options={{ title: "Help Center", headerShown: true }}
+          />
+          <Stack.Screen
+            name="ReportIssue"
+            component={ReportIssueScreen}
+            options={{ title: "Report an Issue", headerShown: true }}
+          />
+          <Stack.Screen
+            name="PersonalInfo"
+            component={PersonalInfoScreen}
+            options={{ title: "Personal Information", headerShown: true }}
+          />
+          <Stack.Screen
+            name="AppSettings"
+            component={AppSettingsScreen}
+            options={{ title: "App Settings", headerShown: true }}
           />
           {/* <Stack.Screen
             name="GeoFenceDebug"

@@ -5,9 +5,10 @@ import { View } from 'react-native'
 type Props = {
     color?: string
     size?: number
+    filled?: boolean
 }
 
-export default function ItineraryIcon({ color = '#000', size = 24 }: Props) {
+export default function ItineraryIcon({ color = '#000', size = 24, filled = false }: Props) {
     const stroke = color
     const s = size
     return (
@@ -19,6 +20,7 @@ export default function ItineraryIcon({ color = '#000', size = 24 }: Props) {
                     strokeWidth={1.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    fill={filled ? color : 'none'}
                 />
                 <Path
                     d="M3 10V6C3 4.89543 3.89543 4 5 4H7"

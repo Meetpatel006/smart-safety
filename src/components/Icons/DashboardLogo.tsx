@@ -5,9 +5,10 @@ import { View } from 'react-native'
 type Props = {
   color?: string
   size?: number
+  filled?: boolean
 }
 
-export default function DashboardLogo({ color = '#000', size = 24 }: Props) {
+export default function DashboardLogo({ color = '#000', size = 24, filled = false }: Props) {
   const stroke = color
   const s = size
   return (
@@ -19,10 +20,11 @@ export default function DashboardLogo({ color = '#000', size = 24 }: Props) {
           strokeWidth={1.5}
           strokeLinecap="round"
           strokeLinejoin="round"
+          fill={filled ? color : 'none'}
         />
         <Path
           d="M9 17H15"
-          stroke={stroke}
+          stroke={filled ? '#fff' : stroke}
           strokeWidth={1.5}
           strokeLinecap="round"
           strokeLinejoin="round"

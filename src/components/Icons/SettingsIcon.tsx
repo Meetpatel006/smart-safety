@@ -5,9 +5,10 @@ import { View } from 'react-native'
 type Props = {
     color?: string
     size?: number
+    filled?: boolean
 }
 
-export default function SettingsIcon({ color = '#000', size = 24 }: Props) {
+export default function SettingsIcon({ color = '#000', size = 24, filled = false }: Props) {
     const stroke = color
     const s = size
     return (
@@ -19,13 +20,15 @@ export default function SettingsIcon({ color = '#000', size = 24 }: Props) {
                     strokeWidth={1.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    fill={filled ? color : 'none'}
                 />
                 <Path
                     d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                    stroke={stroke}
+                    stroke={filled ? '#fff' : stroke}
                     strokeWidth={1.5}
                     strokeLinecap="round"
                     strokeLinejoin="round"
+                    fill={filled ? '#fff' : 'none'}
                 />
             </Svg>
         </View>
