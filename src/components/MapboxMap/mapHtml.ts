@@ -89,6 +89,22 @@ export const generateMapHTML = (accessToken?: string): string => {
                       .setHTML(popupContent)
                       .addTo(map);
               });
+
+              // Click handler for grid center points
+              map.on('click', 'geofence-points', function (e) {
+                  const feature = e.features[0];
+                  const popupContent = createPopupContent(feature.properties);
+                  new mapboxgl.Popup()
+                      .setLngLat(e.lngLat)
+                      .setHTML(popupContent)
+                      .addTo(map);
+              });
+
+              // Change cursor on hover
+              map.on('mouseenter', 'geofence-fill', function () { map.getCanvas().style.cursor = 'pointer'; });
+              map.on('mouseleave', 'geofence-fill', function () { map.getCanvas().style.cursor = ''; });
+              map.on('mouseenter', 'geofence-points', function () { map.getCanvas().style.cursor = 'pointer'; });
+              map.on('mouseleave', 'geofence-points', function () { map.getCanvas().style.cursor = ''; });
           });
 
           map.on('click', function (e) {
@@ -235,30 +251,170 @@ export const generateMapHTML = (accessToken?: string): string => {
               }
           }
 
+          // --- CLUSTERING LOGIC ---
+          function clusterFeatures(fences, distanceThresholdKm) {
+              const clusters = [];
+              const visited = new Set();
+
+              for (let i = 0; i < fences.length; i++) {
+                  if (visited.has(i)) continue;
+
+                  const cluster = [fences[i]];
+                  visited.add(i);
+
+                  const queue = [fences[i]];
+
+                  while (queue.length > 0) {
+                      const current = queue.pop();
+                      const currentCoords = current.coords || [];
+
+                      for (let j = 0; j < fences.length; j++) {
+                          if (visited.has(j)) continue;
+
+                          const neighbor = fences[j];
+                          const neighborCoords = neighbor.coords || [];
+                          
+                          // Calculate distance using Turf.js
+                          const from = turf.point([currentCoords[1], currentCoords[0]]); // [lng, lat]
+                          const to = turf.point([neighborCoords[1], neighborCoords[0]]);
+                          const distance = turf.distance(from, to, { units: 'kilometers' });
+
+                          if (distance <= distanceThresholdKm) {
+                              visited.add(j);
+                              cluster.push(neighbor);
+                              queue.push(neighbor);
+                          }
+                      }
+                  }
+                  clusters.push(cluster);
+              }
+              return clusters;
+          }
+
+          function getRiskPriority(level) {
+              const l = String(level || '').toLowerCase();
+              if (l.includes('very') && l.includes('high')) return 4;
+              if (l.includes('high')) return 3;
+              if (l.includes('medium')) return 2;
+              return 1;
+          }
+
           function renderGeoFences(fences) {
-              const features = fences.map(fence => {
+              // Only cluster dynamic risk zones (from server)
+              const dynamicFences = fences.filter(f => f.source === 'server' || f.category === 'Dynamic Risk Zone');
+              const staticFences = fences.filter(f => f.source !== 'server' && f.category !== 'Dynamic Risk Zone');
+
+              const features = [];
+
+              // 1. Cluster dynamic fences (threshold = 600m for 500m grids)
+              const clusters = clusterFeatures(dynamicFences, 0.6);
+
+              clusters.forEach(cluster => {
+                  if (cluster.length === 0) return;
+
+                  // Calculate Centroid and Max Risk
+                  let sumLat = 0, sumLng = 0, maxRiskScore = 0, maxRiskLevel = 'Low';
+
+                  cluster.forEach(f => {
+                      const [lat, lng] = f.coords || [0, 0];
+                      sumLat += lat;
+                      sumLng += lng;
+
+                      const score = f.metadata?.riskScore || 0;
+                      if (score > maxRiskScore) {
+                          maxRiskScore = score;
+                          maxRiskLevel = f.riskLevel || 'Low';
+                      } else if (getRiskPriority(f.riskLevel) > getRiskPriority(maxRiskLevel)) {
+                          maxRiskLevel = f.riskLevel;
+                      }
+                  });
+
+                  const centroidLat = sumLat / cluster.length;
+                  const centroidLng = sumLng / cluster.length;
+
+                  // Calculate Radius: Distance to furthest grid center + grid radius (250m for 500m grids)
+                  let requiredRadiusKm = 0.25;
+
+                  if (cluster.length > 1) {
+                      let maxDist = 0;
+                      const centroidPoint = turf.point([centroidLng, centroidLat]);
+                      
+                      cluster.forEach(f => {
+                          const [lat, lng] = f.coords || [0, 0];
+                          const gridPoint = turf.point([lng, lat]);
+                          const dist = turf.distance(centroidPoint, gridPoint, { units: 'kilometers' });
+                          if (dist > maxDist) maxDist = dist;
+                      });
+                      requiredRadiusKm = maxDist + 0.25;
+                  }
+
+                  // Create cluster zone circle
+                  const clusterStyle = getGeofenceStyle({ riskLevel: maxRiskLevel, category: 'cluster' });
+                  const clusterCircle = turf.circle([centroidLng, centroidLat], requiredRadiusKm, { steps: 64, units: 'kilometers' });
+
+                  features.push({
+                      type: 'Feature',
+                      geometry: clusterCircle.geometry,
+                      properties: {
+                          name: maxRiskLevel + ' Risk Cluster',
+                          riskLevel: maxRiskLevel,
+                          category: 'Merged Risk Zone',
+                          clusterSize: cluster.length,
+                          maxRiskScore: maxRiskScore.toFixed(2),
+                          isCluster: true,
+                          color: clusterStyle.color,
+                          fillOpacity: 0.35,
+                          weight: 2
+                      }
+                  });
+
+                  // Add arrow markers for individual grid centers
+                  cluster.forEach(f => {
+                      const [lat, lng] = f.coords || [0, 0];
+                      const gridStyle = getGeofenceStyle(f);
+                      const gridName = f.metadata?.gridName || f.name || 'Unknown Zone';
+
+                      features.push({
+                          type: 'Feature',
+                          geometry: { type: 'Point', coordinates: [lng, lat] },
+                          properties: {
+                              name: gridName,
+                              riskLevel: f.riskLevel,
+                              riskScore: f.metadata?.riskScore?.toFixed(2) || 'N/A',
+                              gridId: f.id,
+                              gridName: gridName,
+                              lastUpdated: f.metadata?.lastUpdated || 'N/A',
+                              isGridCenter: true,
+                              color: gridStyle.color,
+                              fillOpacity: 1,
+                              weight: 0
+                          }
+                      });
+                  });
+              });
+
+              // 2. Render static fences normally (bundled data)
+              staticFences.forEach(fence => {
                   let geometry;
                   if (fence.type === 'circle' && fence.coords && fence.radiusKm) {
                       const center = [fence.coords[1], fence.coords[0]];
-                      const radius = fence.radiusKm;
-                      const options = { steps: 64, units: 'kilometers', properties: fence };
-                      geometry = turf.circle(center, radius, options).geometry;
+                      geometry = turf.circle(center, fence.radiusKm, { steps: 64, units: 'kilometers' }).geometry;
                   } else if (fence.type === 'polygon' && fence.coords) {
                       geometry = { type: 'Polygon', coordinates: [fence.coords.map(c => [c[1], c[0]])] };
                   } else if (fence.type === 'point' && fence.coords) {
                       geometry = { type: 'Point', coordinates: [fence.coords[1], fence.coords[0]] };
                   } else {
-                      return null;
+                      return;
                   }
 
                   const style = getGeofenceStyle(fence);
 
-                  return {
+                  features.push({
                       type: 'Feature',
                       geometry,
                       properties: { ...fence, ...style }
-                  };
-              }).filter(Boolean);
+                  });
+              });
 
               const geojson = {
                   type: 'FeatureCollection',
@@ -316,6 +472,33 @@ export const generateMapHTML = (accessToken?: string): string => {
           }
 
           function createPopupContent(properties) {
+              // Cluster popup
+              if (properties.isCluster) {
+                  return '<div style="text-align:center; min-width: 160px;">' +
+                      '<h3 style="margin:0 0 8px 0; color:' + (properties.color || '#333') + '">' + (properties.riskLevel || 'Unknown') + ' Risk Cluster</h3>' +
+                      '<hr style="margin: 5px 0; border: 0; border-top: 1px solid #ccc;">' +
+                      '<p style="margin:5px 0"><strong>Merged:</strong> ' + (properties.clusterSize || 1) + ' Danger Zones</p>' +
+                      '<p style="margin:5px 0"><strong>Max Risk Score:</strong> ' + (properties.maxRiskScore || 'N/A') + '</p>' +
+                      '</div>';
+              }
+
+              // Individual grid center popup
+              if (properties.isGridCenter) {
+                  const lastUpdated = properties.lastUpdated && properties.lastUpdated !== 'N/A' 
+                      ? new Date(properties.lastUpdated).toLocaleTimeString() 
+                      : 'N/A';
+                  const gridName = properties.gridName || properties.name || 'Unknown Zone';
+                  return '<div style="text-align:center; min-width: 150px;">' +
+                      '<h4 style="margin:0; color:' + (properties.color || '#333') + '">' + (properties.riskLevel || 'Unknown') + ' Risk Zone</h4>' +
+                      '<p style="margin:5px 0; font-weight:bold;">' + gridName + '</p>' +
+                      '<hr style="margin: 5px 0; border: 0; border-top: 1px solid #ccc;">' +
+                      '<p style="margin:5px 0"><strong>Score:</strong> ' + (properties.riskScore || 'N/A') + ' / 1.0</p>' +
+                      '<p style="margin:5px 0"><strong>Grid ID:</strong> ' + (properties.gridId || 'N/A') + '</p>' +
+                      '<p style="margin:5px 0; font-size: 0.85em; color: #666;">Last Updated: ' + lastUpdated + '</p>' +
+                      '</div>';
+              }
+
+              // Default popup for static fences
               let content = '<strong>' + (properties.name || 'Unnamed Geofence') + '</strong>';
               if (properties.category) content += '<br/>Category: ' + properties.category;
               if (properties.riskLevel) content += '<br/>Risk: ' + properties.riskLevel;

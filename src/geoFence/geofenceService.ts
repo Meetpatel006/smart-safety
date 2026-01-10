@@ -1,6 +1,7 @@
 import * as Location from 'expo-location'
 import { GeoFence, pointInCircle, pointInPolygon, haversineKm, normalizePolygon } from '../utils/geofenceLogic'
 import { loadCachedFences, saveFences } from './geoFenceModel'
+import { fetchDynamicGeofences } from '../utils/geofenceApi'
 
 // Simple geofence service: loads geofences from bundled assets/geofences-output.json
 // and watches user location; emits 'enter' and 'exit' events with { fence, location }
@@ -40,23 +41,42 @@ const TRANSITION_COOLDOWN_MS = 10_000
 // Track current primary fence for consumers that need risk context
 let currentPrimary: GeoFence | null = null
 
-export async function loadFences(): Promise<GeoFence[]> {
+export async function loadFences(userLat?: number, userLng?: number): Promise<GeoFence[]> {
   try {
-    // try cached fences first
+    // Try cached fences first for faster startup
     const cached = await loadCachedFences()
     if (cached && cached.length > 0) {
       fences = cached
       states = {}
       fences.forEach(f => { states[f.id] = 'outside' })
+      // Still try to refresh from server in background
+      refreshFromServer(userLat, userLng)
       return fences
     }
 
-    // Load bundled JSON directly via require (Metro supports bundling JSON)
-    // Avoid using Asset.fromModule for JSON — it expects a module id for binary assets.
+    // Try server API first
+    try {
+      console.log('Fetching geofences from server...')
+      const serverFences = await fetchDynamicGeofences(userLat, userLng)
+      if (serverFences && serverFences.length > 0) {
+        fences = serverFences
+        states = {}
+        fences.forEach(f => { states[f.id] = 'outside' })
+        // Cache for offline use
+        try { await saveFences(fences) } catch (e) { /* ignore */ }
+        console.log(`Loaded ${fences.length} geofences from server`)
+        return fences
+      }
+    } catch (serverError) {
+      console.warn('Server geofence fetch failed, falling back to bundled data:', serverError)
+    }
+
+    // Fallback: Load bundled JSON
+    console.log('Loading bundled geofences...')
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const data = require('../../assets/geofences-output.json')
     fences = data
-    // normalize polygon geometries and default radii
+    // Normalize polygon geometries and default radii
     fences = fences.map((f: GeoFence) => {
       if (f.type === 'polygon' && Array.isArray(f.coords)) {
         const norm = normalizePolygon(f.coords as number[][])
@@ -67,18 +87,35 @@ export async function loadFences(): Promise<GeoFence[]> {
       }
       return f
     })
-    // initialize states
+    // Initialize states
     states = {}
     fences.forEach(f => { states[f.id] = 'outside' })
 
-    // persist a cached copy for faster startup
+    // Persist a cached copy for faster startup
     try { await saveFences(fences) } catch (e) { /* ignore */ }
+    console.log(`Loaded ${fences.length} bundled geofences`)
     return fences
   } catch (e) {
-  console.error('failed to load bundled geofences-output.json', e)
-  fences = []
-  states = {}
-  return []
+    console.error('Failed to load geofences:', e)
+    fences = []
+    states = {}
+    return []
+  }
+}
+
+// Background refresh from server (non-blocking)
+async function refreshFromServer(userLat?: number, userLng?: number) {
+  try {
+    const serverFences = await fetchDynamicGeofences(userLat, userLng)
+    if (serverFences && serverFences.length > 0) {
+      fences = serverFences
+      states = {}
+      fences.forEach(f => { states[f.id] = 'outside' })
+      try { await saveFences(fences) } catch (e) { /* ignore */ }
+      console.log(`Background refresh: loaded ${fences.length} geofences from server`)
+    }
+  } catch (e) {
+    // Silent fail for background refresh
   }
 }
 

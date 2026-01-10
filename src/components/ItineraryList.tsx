@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   Dimensions,
   Platform,
+  TextInput as RNTextInput,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import {
@@ -375,19 +376,48 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       <View style={styles.container}>
         {filteredTrips.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <View style={styles.emptyIconContainer}>
-              <MaterialCommunityIcons
-                name="airplane"
-                size={64}
-                color="#CBD5E1"
-              />
+            {/* Premium Illustration Area */}
+            <View style={styles.emptyIllustration}>
+              <LinearGradient
+                colors={["#EEF2FF", "#E0E7FF"]}
+                style={styles.emptyIconOuter}
+              >
+                <View style={styles.emptyIconInner}>
+                  <MaterialCommunityIcons
+                    name="airplane"
+                    size={48}
+                    color="#6366F1"
+                  />
+                </View>
+              </LinearGradient>
+
+              {/* Decorative elements */}
+              <View style={[styles.emptyDot, styles.emptyDot1]} />
+              <View style={[styles.emptyDot, styles.emptyDot2]} />
+              <View style={[styles.emptyDot, styles.emptyDot3]} />
             </View>
+
+            {/* Content */}
             <Text style={styles.emptyTitle}>
               No trips {filter !== "all" ? filter : ""} yet
             </Text>
             <Text style={styles.emptySubtitle}>
-              Start planning your safe travels by adding your first trip
+              Plan your next adventure and stay safe{"\n"}with real-time safety updates
             </Text>
+
+            {/* Features pill */}
+            <View style={styles.emptyFeatures}>
+              <View style={styles.emptyFeaturePill}>
+                <MaterialCommunityIcons name="shield-check" size={14} color="#22C55E" />
+                <Text style={styles.emptyFeatureText}>Safety Alerts</Text>
+              </View>
+              <View style={styles.emptyFeaturePill}>
+                <MaterialCommunityIcons name="calendar-check" size={14} color="#3B82F6" />
+                <Text style={styles.emptyFeatureText}>Trip Tracking</Text>
+              </View>
+            </View>
+
+            {/* CTA Button */}
             <TouchableOpacity
               style={styles.emptyAddButton}
               onPress={() => {
@@ -399,12 +429,12 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
               }}
             >
               <LinearGradient
-                colors={["#FF7A00", "#FF9A40"]}
+                colors={["#F97316", "#FB923C"]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 0 }}
                 style={styles.emptyButtonGradient}
               >
-                <MaterialCommunityIcons name="plus" size={20} color="white" />
+                <MaterialCommunityIcons name="plus" size={22} color="white" />
                 <Text style={styles.emptyButtonText}>Add Your First Trip</Text>
               </LinearGradient>
             </TouchableOpacity>
@@ -543,70 +573,107 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
               </>
             ) : (
               <>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>
-                    {editingId ? "Edit Trip" : "Plan New Trip"}
-                  </Text>
-                  <TouchableOpacity onPress={() => setVisible(false)}>
+                {/* Premium Modal Header */}
+                <View style={styles.modalHeaderPremium}>
+                  <View style={styles.modalHeaderIcon}>
+                    <MaterialCommunityIcons
+                      name="airplane-takeoff"
+                      size={24}
+                      color="#3B82F6"
+                    />
+                  </View>
+                  <View style={styles.modalHeaderText}>
+                    <Text style={styles.modalTitle}>
+                      {editingId ? "Edit Trip" : "Plan New Trip"}
+                    </Text>
+                    <Text style={styles.modalSubtitle}>
+                      Add your travel details to stay safe
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.modalCloseButton}
+                    onPress={() => setVisible(false)}
+                  >
                     <MaterialCommunityIcons
                       name="close"
-                      size={24}
-                      color="#6B7280"
+                      size={20}
+                      color="#64748B"
                     />
                   </TouchableOpacity>
                 </View>
 
-                <TextInput
-                  label="Destination"
-                  value={title}
-                  onChangeText={setTitle}
-                  style={styles.input}
-                  mode="outlined"
-                  outlineColor="#E5E7EB"
-                  activeOutlineColor="#3B82F6"
-                  left={<TextInput.Icon icon="map-marker" />}
-                />
+                {/* Input Fields */}
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Destination</Text>
+                  <View style={styles.customInput}>
+                    <MaterialCommunityIcons
+                      name="map-marker"
+                      size={20}
+                      color="#3B82F6"
+                    />
+                    <RNTextInput
+                      placeholder="Where are you going?"
+                      placeholderTextColor="#94A3B8"
+                      value={title}
+                      onChangeText={setTitle}
+                      style={styles.customInputText}
+                    />
+                  </View>
+                </View>
 
-                <TouchableOpacity onPress={() => openDatePicker("start")}>
-                  <TextInput
-                    label="Start Date"
-                    value={date}
-                    editable={false}
-                    style={styles.input}
-                    mode="outlined"
-                    outlineColor="#E5E7EB"
-                    activeOutlineColor="#3B82F6"
-                    placeholder="YYYY-MM-DD"
-                    left={
-                      <TextInput.Icon
-                        icon="calendar"
-                        onPress={() => openDatePicker("start")}
-                      />
-                    }
-                  />
-                </TouchableOpacity>
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Travel Date</Text>
+                  <TouchableOpacity
+                    style={styles.customInput}
+                    onPress={() => openDatePicker("start")}
+                  >
+                    <MaterialCommunityIcons
+                      name="calendar-month"
+                      size={20}
+                      color="#3B82F6"
+                    />
+                    <Text style={[
+                      styles.customInputText,
+                      !date && styles.customInputPlaceholder
+                    ]}>
+                      {date || "Select start date"}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name="chevron-down"
+                      size={20}
+                      color="#94A3B8"
+                    />
+                  </TouchableOpacity>
+                </View>
 
-                <TextInput
-                  label="Notes (Optional)"
-                  value={notes}
-                  onChangeText={setNotes}
-                  style={styles.input}
-                  mode="outlined"
-                  outlineColor="#E5E7EB"
-                  activeOutlineColor="#3B82F6"
-                  multiline
-                  numberOfLines={3}
-                  left={<TextInput.Icon icon="note-text" />}
-                />
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Notes (Optional)</Text>
+                  <View style={[styles.customInput, styles.customInputMultiline]}>
+                    <MaterialCommunityIcons
+                      name="note-text-outline"
+                      size={20}
+                      color="#3B82F6"
+                      style={{ marginTop: 2 }}
+                    />
+                    <RNTextInput
+                      placeholder="Any special notes for this trip..."
+                      placeholderTextColor="#94A3B8"
+                      value={notes}
+                      onChangeText={setNotes}
+                      style={styles.notesInputText}
+                      multiline
+                      numberOfLines={3}
+                    />
+                  </View>
+                </View>
 
+                {/* Action Buttons */}
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={styles.cancelButton}
                     onPress={() => setVisible(false)}
                   >
-                    <Text style={styles.cancelButtonText}>
-                      {t(state.language, "cancel")}
-                    </Text>
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -620,20 +687,21 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                     <LinearGradient
                       colors={
                         title.trim() && !loading
-                          ? ["#3B82F6", "#1E3A8A"]
+                          ? ["#3B82F6", "#2563EB"]
                           : ["#CBD5E1", "#CBD5E1"]
                       }
                       start={{ x: 0, y: 0 }}
                       end={{ x: 1, y: 0 }}
                       style={styles.saveButtonGradient}
                     >
-                      {loading ? (
-                        <Text style={styles.saveButtonText}>Saving...</Text>
-                      ) : (
-                        <Text style={styles.saveButtonText}>
-                          {t(state.language, "save")}
-                        </Text>
-                      )}
+                      <MaterialCommunityIcons
+                        name={loading ? "loading" : "check"}
+                        size={18}
+                        color="white"
+                      />
+                      <Text style={styles.saveButtonText}>
+                        {loading ? "Saving..." : "Save Trip"}
+                      </Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 </View>
@@ -823,54 +891,140 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 40,
-    paddingTop: 60,
+    paddingHorizontal: 32,
+    paddingBottom: 110,
   },
-  emptyIconContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: "#F1F5F9",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 24,
-  },
-  emptyTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    color: "#1F2937",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    fontSize: 16,
-    color: "#6B7280",
-    textAlign: "center",
-    lineHeight: 24,
+  emptyIllustration: {
+    position: "relative",
     marginBottom: 32,
   },
+  emptyIconOuter: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyIconInner: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#6366F1",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  emptyDot: {
+    position: "absolute",
+    borderRadius: 50,
+    backgroundColor: "#C7D2FE",
+  },
+  emptyDot1: {
+    width: 12,
+    height: 12,
+    top: 10,
+    right: -5,
+  },
+  emptyDot2: {
+    width: 8,
+    height: 8,
+    bottom: 20,
+    left: -10,
+  },
+  emptyDot3: {
+    width: 6,
+    height: 6,
+    top: 40,
+    left: -15,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#1E293B",
+    marginBottom: 12,
+    textAlign: "center",
+    letterSpacing: -0.5,
+  },
+  emptySubtitle: {
+    fontSize: 15,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  emptyFeatures: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 32,
+  },
+  emptyFeaturePill: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F1F5F9",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    gap: 6,
+  },
+  emptyFeatureText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#475569",
+  },
   emptyAddButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: "hidden",
+    shadowColor: "#F97316",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 6,
   },
   emptyButtonGradient: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    gap: 8,
+    paddingHorizontal: 28,
+    paddingVertical: 16,
+    gap: 10,
   },
   emptyButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
   // Modal styles
   modalContainer: {
     backgroundColor: "white",
     margin: 20,
-    borderRadius: 20,
+    borderRadius: 24,
     padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 20 },
+    shadowOpacity: 0.15,
+    shadowRadius: 40,
+    elevation: 20,
+  },
+  modalHeaderPremium: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginBottom: 28,
+  },
+  modalHeaderIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 14,
+  },
+  modalHeaderText: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: "row",
@@ -879,9 +1033,69 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: "bold",
-    color: "#1F2937",
+    color: "#1E293B",
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    color: "#64748B",
+  },
+  modalCloseButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#F1F5F9",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#475569",
+    marginBottom: 8,
+    letterSpacing: 0.3,
+  },
+  customInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8FAFC",
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderWidth: 1.5,
+    borderColor: "#E2E8F0",
+    gap: 12,
+  },
+  customInputMultiline: {
+    alignItems: "flex-start",
+    paddingVertical: 14,
+  },
+  customInputText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1E293B",
+    fontWeight: "500",
+    padding: 0,
+    margin: 0,
+  },
+  notesInputText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1E293B",
+    fontWeight: "500",
+    height: 70,
+    textAlignVertical: "top",
+    padding: 0,
+    margin: 0,
+  },
+  customInputPlaceholder: {
+    color: "#94A3B8",
+    fontWeight: "400",
   },
   input: {
     marginBottom: 16,
@@ -890,31 +1104,35 @@ const styles = StyleSheet.create({
   modalActions: {
     flexDirection: "row",
     gap: 12,
-    marginTop: 8,
+    marginTop: 12,
   },
   cancelButton: {
     flex: 1,
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    borderRadius: 14,
+    backgroundColor: "#F1F5F9",
   },
   cancelButtonText: {
-    color: "#6B7280",
-    fontSize: 16,
+    color: "#64748B",
+    fontSize: 15,
     fontWeight: "600",
   },
   saveButton: {
-    flex: 1,
-    borderRadius: 12,
+    flex: 1.2,
+    borderRadius: 14,
     overflow: "hidden",
   },
   saveButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
   saveButtonGradient: {
-    paddingVertical: 14,
+    flexDirection: "row",
+    paddingVertical: 16,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   saveButtonText: {
     color: "white",
@@ -922,7 +1140,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   // Extend Modal specific styles
-  inputLabel: {
+  extendInputLabel: {
     fontSize: 12,
     fontWeight: "600",
     color: "#6B7280",

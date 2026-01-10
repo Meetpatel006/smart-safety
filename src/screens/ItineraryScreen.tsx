@@ -1,11 +1,11 @@
-import { View, StyleSheet, TouchableOpacity, StatusBar } from "react-native"
+import { View, StyleSheet, TouchableOpacity, StatusBar, ScrollView } from "react-native"
 import { Text, useTheme, FAB } from "react-native-paper"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
 import { useRef, useState } from "react"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { LinearGradient } from "expo-linear-gradient"
+import { BlurView } from "expo-blur"
 
 export type FilterType = "all" | "upcoming" | "completed"
 
@@ -21,44 +21,45 @@ export default function ItineraryScreen() {
     }
   }
 
-  const filters: { key: FilterType; label: string }[] = [
-    { key: "all", label: "All" },
-    { key: "upcoming", label: "Upcoming" },
-    { key: "completed", label: "Completed" },
+  const filters: { key: FilterType; label: string; icon: string }[] = [
+    { key: "all", label: "All", icon: "view-grid" },
+    { key: "upcoming", label: "Upcoming", icon: "clock-outline" },
+    { key: "completed", label: "Completed", icon: "check-circle-outline" },
   ]
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E3A8A" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
 
-      {/* Gradient Header */}
-      <LinearGradient
-        colors={["#1E3A8A", "#3B82F6"]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <View style={styles.headerLeft}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="white" />
+      {/* Header Section */}
+      <View style={styles.headerSection}>
+        {/* Title Row */}
+        <View style={styles.titleRow}>
+          <View>
+            <Text style={styles.greeting}>Your Adventures</Text>
+            <Text style={styles.pageTitle}>My Trips</Text>
           </View>
-          <Text style={styles.headerTitle}>My Trips</Text>
-          <View style={styles.headerRight}>
-            <MaterialCommunityIcons name="magnify" size={24} color="white" />
-          </View>
+          <TouchableOpacity style={styles.searchButton}>
+            <MaterialCommunityIcons name="magnify" size={22} color="#64748B" />
+          </TouchableOpacity>
         </View>
 
-        {/* Filter Tabs */}
+        {/* Filter Pills */}
         <View style={styles.filterContainer}>
           {filters.map((filter) => (
             <TouchableOpacity
               key={filter.key}
               onPress={() => setActiveFilter(filter.key)}
               style={[
-                styles.filterTab,
-                activeFilter === filter.key && styles.filterTabActive,
+                styles.filterPill,
+                activeFilter === filter.key && styles.filterPillActive,
               ]}
             >
+              <MaterialCommunityIcons
+                name={filter.icon as any}
+                size={16}
+                color={activeFilter === filter.key ? "#FFFFFF" : "#64748B"}
+              />
               <Text
                 style={[
                   styles.filterText,
@@ -70,7 +71,7 @@ export default function ItineraryScreen() {
             </TouchableOpacity>
           ))}
         </View>
-      </LinearGradient>
+      </View>
 
       {/* Trip List */}
       <View style={styles.listContainer}>
@@ -78,12 +79,9 @@ export default function ItineraryScreen() {
       </View>
 
       {/* Floating Action Button */}
-      <FAB
-        icon="plus"
-        style={[styles.fab, { backgroundColor: theme.colors.secondary }]}
-        color="white"
-        onPress={handleAddTrip}
-      />
+      <TouchableOpacity style={styles.fab} onPress={handleAddTrip}>
+        <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+      </TouchableOpacity>
     </View>
   )
 }
@@ -91,64 +89,100 @@ export default function ItineraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F3F4F6",
+    backgroundColor: "#F8FAFC",
   },
-  header: {
-    paddingTop: 48,
-    paddingBottom: 20,
+  headerSection: {
+    paddingTop: 56,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 16,
+    backgroundColor: "#F8FAFC",
   },
-  headerContent: {
+  titleRow: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 20,
   },
-  headerLeft: {
-    width: 40,
+  greeting: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#94A3B8",
+    marginBottom: 4,
+    letterSpacing: 0.5,
   },
-  headerTitle: {
-    fontSize: 22,
+  pageTitle: {
+    fontSize: 28,
     fontWeight: "bold",
-    color: "white",
+    color: "#1E293B",
+    letterSpacing: -0.5,
   },
-  headerRight: {
-    width: 40,
-    alignItems: "flex-end",
+  searchButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   filterContainer: {
     flexDirection: "row",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 12,
-    padding: 4,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 6,
+    shadowColor: "#64748B",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
-  filterTab: {
+  filterPill: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: "row",
     alignItems: "center",
-    borderRadius: 10,
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    gap: 6,
   },
-  filterTabActive: {
-    backgroundColor: "white",
+  filterPillActive: {
+    backgroundColor: "#3B82F6",
+    shadowColor: "#3B82F6",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   filterText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "600",
+    color: "#64748B",
   },
   filterTextActive: {
-    color: "#1E3A8A",
+    color: "#FFFFFF",
   },
   listContainer: {
     flex: 1,
-    paddingTop: 16,
   },
   fab: {
     position: "absolute",
     right: 20,
     bottom: 110,
-    borderRadius: 16,
+    width: 60,
+    height: 60,
+    borderRadius: 20,
+    backgroundColor: "#F97316",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#F97316",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
 })

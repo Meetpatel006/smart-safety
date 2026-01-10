@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from 'react'
+import IncidentReportModal from '../components/IncidentReportModal'
 import { View, StyleSheet, Dimensions, Alert, StatusBar } from 'react-native'
 import * as Location from 'expo-location'
 import { WebView } from 'react-native-webview'
 import { GeoFence, haversineKm } from '../utils/geofenceLogic'
 import { useApp } from '../context/AppContext'
 import { reverseGeocode } from '../components/MapboxMap/geoUtils'
+import { loadFences } from '../geoFence/geofenceService'
 
 // Import map components
 import MapContainer from '../components/MapboxMap/MapContainer'
@@ -29,10 +31,12 @@ export default function EmergencyScreen() {
   const [webViewKey, setWebViewKey] = useState(0)
   const [selectedStyle, setSelectedStyle] = useState('streets')
   const [loadingLocation, setLoadingLocation] = useState(false)
+  const [loadingGeofences, setLoadingGeofences] = useState(false)
 
   // UI state
   const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false)
   const [showWarningBanner, setShowWarningBanner] = useState(true)
+  const [showIncidentModal, setShowIncidentModal] = useState(false)
   const [showStyleSelector, setShowStyleSelector] = useState(false)
 
   // Geofences
@@ -40,19 +44,22 @@ export default function EmergencyScreen() {
 
   const webViewRef = React.useRef<WebView>(null)
 
-  // Load geofences on mount
+  // Load geofences on mount using service (tries server first, then bundled)
   useEffect(() => {
-    const loadGeoFences = async () => {
+    const loadGeoFencesFromService = async () => {
+      setLoadingGeofences(true)
       try {
-        const bundled = require('../../assets/geofences-output.json')
-        setGeoFences(bundled)
-        console.log('Loaded geofences:', bundled.length)
+        const fences = await loadFences()
+        setGeoFences(fences)
+        console.log('Loaded geofences:', fences.length)
       } catch (err) {
         console.warn('Failed to load geofences:', err)
         setGeoFences([])
+      } finally {
+        setLoadingGeofences(false)
       }
     }
-    loadGeoFences()
+    loadGeoFencesFromService()
   }, [])
 
   // Request location permissions
@@ -163,18 +170,7 @@ export default function EmergencyScreen() {
   }
 
   const handleSOS = () => {
-    Alert.alert(
-      'SOS Emergency',
-      'This will alert your emergency contacts and nearby authorities.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Send SOS', style: 'destructive', onPress: () => {
-            Alert.alert('SOS Sent', 'Emergency contacts have been notified.')
-          }
-        }
-      ]
-    )
+    setShowIncidentModal(true)
   }
 
   return (
@@ -222,6 +218,14 @@ export default function EmergencyScreen() {
         onToggle={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
         onShareLive={handleShareLocation}
         onSOS={handleSOS}
+      />
+
+      {/* Incident Report Modal */}
+      <IncidentReportModal
+        visible={showIncidentModal}
+        onClose={() => setShowIncidentModal(false)}
+        latitude={state.currentLocation?.coords?.latitude ?? 0}
+        longitude={state.currentLocation?.coords?.longitude ?? 0}
       />
     </View>
   )
