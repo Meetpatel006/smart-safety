@@ -3,9 +3,9 @@ import { useState, useEffect } from "react"
 import { View, StyleSheet } from "react-native"
 import { Text } from "react-native-paper"
 import { computeSafetyScore, SafetyScoreResult } from "../utils/safetyLogic"
-import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
 import * as Location from 'expo-location'
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SafetyScore() {
   const { state, setCurrentLocation, setComputedSafetyScore } = useApp()
@@ -14,28 +14,19 @@ export default function SafetyScore() {
   const [combinedError, setCombinedError] = useState<string | null>(null)
   const [locationLoading, setLocationLoading] = useState(false)
 
-  // Function to get current location
   const getCurrentLocation = async () => {
     try {
       setLocationLoading(true)
-      console.log('Requesting location permissions...')
-
-      // Request location permissions
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') {
         throw new Error('Location permission denied')
       }
-
-      console.log('Getting current position...')
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       })
-
-      console.log('Location obtained:', location.coords.latitude, location.coords.longitude)
       setCurrentLocation(location)
       return location
     } catch (error: any) {
-      console.error('Failed to get location:', error)
       setCombinedError(`Location error: ${error.message}`)
       return null
     } finally {
@@ -43,25 +34,16 @@ export default function SafetyScore() {
     }
   }
 
-  // Fetch combined safety score using real API predictions
   useEffect(() => {
     let mounted = true
     const loc = state.currentLocation
 
-    console.log('SafetyScore useEffect triggered, location:', loc)
-
     const fetchSafetyScore = async () => {
       if (!loc || !loc.coords) {
-        console.log('No location available, attempting to get current location...')
-        // Try to get current location
         const newLocation = await getCurrentLocation()
         if (!newLocation || !mounted) return
-
-        // Use the newly obtained location
-        console.log('Using newly obtained location:', newLocation.coords.latitude, newLocation.coords.longitude)
         await performSafetyScoreFetch(newLocation, mounted)
       } else {
-        console.log('Location available, fetching safety score:', loc.coords.latitude, loc.coords.longitude)
         await performSafetyScoreFetch(loc, mounted)
       }
     }
@@ -70,26 +52,17 @@ export default function SafetyScore() {
       setCombinedLoading(true)
       setCombinedError(null)
       try {
-        console.log('Calling computeSafetyScore with:', {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude
-        })
         const result = await computeSafetyScore({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude
         })
-        console.log('Safety score result:', result)
         if (isMounted) {
           setCombinedResult(result)
-          try {
-            // Update global computed safety score so other components (e.g. SMS) can use it
-            if (typeof result?.score === 'number' && result.score !== state.computedSafetyScore) {
-              setComputedSafetyScore(result.score)
-            }
-          } catch (e) { /* ignore */ }
+          if (typeof result?.score === 'number' && result.score !== state.computedSafetyScore) {
+            setComputedSafetyScore(result.score)
+          }
         }
       } catch (error: any) {
-        console.warn('Failed to compute safety score:', error)
         if (isMounted) setCombinedError(error?.message || 'Failed to fetch safety score')
       } finally {
         if (isMounted) setCombinedLoading(false)
@@ -100,101 +73,161 @@ export default function SafetyScore() {
     return () => { mounted = false }
   }, [state.currentLocation])
 
-  const displayScore = combinedResult?.score
-  const displayLabel = combinedResult?.status
+  const displayScore = combinedResult?.score ?? 0
   const isLoading = locationLoading || combinedLoading
+
+  // Badge and color based on score
+  const getScoreInfo = (score: number) => {
+    if (score >= 80) return { label: 'EXCELLENT', color: '#4CAF7A', bgColor: '#D1F0E4' }
+    if (score >= 60) return { label: 'GOOD', color: '#5B8BD4', bgColor: '#D4EBFC' }
+    if (score >= 40) return { label: 'MODERATE', color: '#E0A54B', bgColor: '#FCECD4' }
+    return { label: 'LOW', color: '#D66A6A', bgColor: '#FADED9' }
+  }
+
+  const scoreInfo = getScoreInfo(displayScore)
+
+  const getDescription = (score: number) => {
+    if (score >= 80) return 'Very Safe Area • Low crime rate reported recently.'
+    if (score >= 60) return 'Generally Safe • Some caution advised.'
+    if (score >= 40) return 'Moderate Risk • Stay alert and aware.'
+    return 'High Risk Area • Exercise extreme caution.'
+  }
 
   return (
     <View style={styles.container}>
       <View style={styles.card}>
-        <Text style={styles.cardSubtitle}>
-          Your safety score
-          {locationLoading && " (Getting location...)"}
-          {combinedLoading && !locationLoading && " (Calculating...)"}
-        </Text>
+        {/* Header Row */}
+        <View style={styles.headerRow}>
+          <View style={styles.titleRow}>
+            <View style={styles.iconContainer}>
+              <MaterialCommunityIcons name="shield-check" size={24} color="#3B82F6" />
+            </View>
+            <Text style={styles.title}>Safety Score</Text>
+          </View>
+          <View style={[styles.badge, { backgroundColor: scoreInfo.bgColor }]}>
+            <Text style={[styles.badgeText, { color: scoreInfo.color }]}>{scoreInfo.label}</Text>
+          </View>
+        </View>
 
-        <View style={styles.scoreRow}>
+        {/* Score Display */}
+        <View style={styles.scoreContainer}>
           <Text style={styles.scoreNumber}>
-            {isLoading ? "--" : (displayScore ?? "--")}
+            {isLoading ? "--" : displayScore}
           </Text>
           <Text style={styles.scoreMax}>/100</Text>
         </View>
-        <Text style={styles.scoreStatus}>
-          {isLoading ? "Loading..." : (displayLabel ?? "")}
+
+        {/* Description */}
+        <Text style={styles.description}>
+          {isLoading ? "Calculating safety score..." : getDescription(displayScore)}
         </Text>
+
+        {/* Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressTrack}>
+            <View
+              style={[
+                styles.progressFill,
+                {
+                  width: isLoading ? '0%' : `${displayScore}%`,
+                  backgroundColor: scoreInfo.color
+                }
+              ]}
+            />
+          </View>
+        </View>
+
+        {combinedError && (
+          <Text style={styles.errorText}>{combinedError}</Text>
+        )}
       </View>
-
-      {combinedError && (
-        <Text style={styles.errorText}>{combinedError}</Text>
-      )}
-
-      {/* Old detailed score/progress UI removed — visual card above now represents the score */}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 6,
-    elevation: 1,
-    zIndex: 1,
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
+    width: '100%',
   },
   card: {
-    backgroundColor: '#33cc88',
-    borderRadius: 14,
-    padding: 18,
-    width: 300,
-    minHeight: 140,
-    alignSelf: 'flex-start',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 22,
   },
-  cardSubtitle: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 13,
-    marginBottom: 6,
-  },
-  scoreRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-  },
-  scoreNumber: {
-    fontSize: 64,
-    fontWeight: '900',
-    color: 'white',
-    lineHeight: 64,
-  },
-  scoreMax: {
-    color: 'rgba(255,255,255,0.9)',
-    marginLeft: 6,
-    marginBottom: 8,
-  },
-  scoreStatus: {
-    color: 'rgba(255,255,255,0.95)',
-    marginTop: 6,
-    fontSize: 14,
-  },
-  cardFooter: {
-    marginTop: 12,
+  headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 16,
   },
-  footerLink: {
-    color: 'rgba(255,255,255,0.95)',
-    fontWeight: '600',
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    backgroundColor: '#EBF5FF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  badge: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  scoreContainer: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    marginBottom: 8,
+  },
+  scoreNumber: {
+    fontSize: 48,
+    fontWeight: '800',
+    color: '#1F2937',
+    lineHeight: 52,
+  },
+  scoreMax: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: '#9CA3AF',
+    marginLeft: 4,
+  },
+  description: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginBottom: 18,
+    lineHeight: 22,
+  },
+  progressContainer: {
+    width: '100%',
+  },
+  progressTrack: {
+    height: 12,
+    backgroundColor: '#E5E7EB',
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 6,
   },
   errorText: {
-    color: 'red',
+    color: '#EF4444',
     fontSize: 12,
-    textAlign: 'center',
     marginTop: 8,
   },
 })

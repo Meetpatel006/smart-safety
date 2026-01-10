@@ -1,53 +1,70 @@
-import { ScrollView, View, StyleSheet, Image } from "react-native"
-import { Appbar, Button, Text, IconButton } from "react-native-paper"
+import { ScrollView, View, StyleSheet } from "react-native"
+import { Text, IconButton } from "react-native-paper"
 import { useApp } from "../context/AppContext"
-import { t } from "../context/translations"
 import SafetyScore from "../components/SafetyScore"
-import EmergencyContacts from "../components/EmergencyContacts"
 import SafetyRecommendations from "../components/SafetyRecommendations"
 import PanicActions from "../components/PanicActions"
 import Weather from "../components/Weather"
-import { useState } from "react"
+import EmergencyServicesCard from "../components/EmergencyServicesCard"
 
 export default function DashboardScreen({ navigation }: any) {
-  const { state, acknowledgeHighRisk } = useApp()
-  const [isFullScreen, setIsFullScreen] = useState(false)
-  const [showWeather, setShowWeather] = useState(false)
+  const { state } = useApp()
 
-  const toggleFullScreen = () => {
-    setIsFullScreen(!isFullScreen)
+  // Extract city/region from address or use default
+  const getLocationDisplay = () => {
+    if (state.currentAddress) {
+      const parts = state.currentAddress.split(',')
+      if (parts.length >= 2) {
+        return parts.slice(-2).map(s => s.trim()).join(', ')
+      }
+      return state.currentAddress
+    }
+    return "Getting location..."
   }
 
   return (
-    <View style={{ flex: 1 }}>
-      <Appbar.Header>
-        <Appbar.Content title={t(state.language, "dashboard")} />
-        <Appbar.Action icon="cog" onPress={() => navigation.navigate('Settings')} />
-      </Appbar.Header>
+    <View style={styles.screenContainer}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Greeting Header */}
+        <View style={styles.header}>
+          <View style={styles.headerLeft}>
+            <Text style={styles.greeting}>Welcome back, Explorer!</Text>
+            <Text style={styles.location}>{getLocationDisplay()}</Text>
+          </View>
+          <IconButton
+            icon="bell-outline"
+            iconColor="#1F2937"
+            size={24}
+            onPress={() => navigation.navigate('Settings')}
+            style={styles.notificationBtn}
+          />
+        </View>
 
-      <ScrollView contentContainerStyle={styles.container}>
-        {/* Panic actions at the top (large SOS button area) */}
-        <View style={styles.centerZone}>
+        {/* SOS Button Section */}
+        <View style={styles.sosSection}>
           <PanicActions />
         </View>
 
-        {/* Emergency contacts rendered in compact/rounded style */}
-        <View style={styles.contactsZone}>
-          <EmergencyContacts compact />
-        </View>
-
-        {/* Safety score centered */}
-        <View style={styles.safetyScoreContainer}>
+        {/* Safety Score Card */}
+        <View style={styles.section}>
           <SafetyScore />
         </View>
 
-        {/* Weather shown after safety score */}
-        <View style={styles.weatherContainer}>
+        {/* Emergency Services */}
+        <View style={styles.section}>
+          <EmergencyServicesCard />
+        </View>
+
+        {/* Weather Info */}
+        <View style={styles.section}>
           <Weather />
         </View>
 
-        {/* Recommendations at the end */}
-        <View style={{ width: '100%' }}>
+        {/* Safety Recommendations */}
+        <View style={styles.section}>
           <SafetyRecommendations />
         </View>
       </ScrollView>
@@ -56,38 +73,49 @@ export default function DashboardScreen({ navigation }: any) {
 }
 
 const styles = StyleSheet.create({
+  screenContainer: {
+    flex: 1,
+    backgroundColor: '#FAF8F5',
+  },
   container: {
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingTop: 50,
     paddingBottom: 110,
-    gap: 12,
-    alignItems: 'center',
+    gap: 20,
   },
-  topRow: {
-    width: '100%',
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 8,
   },
-  weatherContainer: {
-    width: '100%',
-    alignItems: 'center',
+  headerLeft: {
+    flex: 1,
   },
-  safetyScoreContainer: {
-    marginTop: 16,
-    width: '100%',
-    alignItems: 'center',
+  greeting: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
   },
-  avatarWrap: {
-    width: 72,
-    height: 72,
+  location: {
+    fontSize: 14,
+    color: '#6B7280',
+    fontWeight: '500',
+  },
+  notificationBtn: {
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 12,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
-  avatar: { width: 64, height: 64, borderRadius: 8 },
-  centerZone: { width: '100%', alignItems: 'center', gap: 8 },
-  scoreWrap: { marginTop: 12 },
-  actionsRow: { flexDirection: 'row', width: '60%', justifyContent: 'space-between', marginTop: 8 },
-  iconAction: { alignItems: 'center' },
-  contactsZone: { width: '100%' }
+  sosSection: {
+    alignItems: 'center',
+  },
+  section: {
+    width: '100%',
+  },
 })

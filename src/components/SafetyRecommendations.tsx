@@ -1,211 +1,137 @@
-import { Card, Text, ActivityIndicator } from "react-native-paper"
-import { useApp } from "../context/AppContext"
-import { MOCK_INCIDENTS } from "../utils/mockData"
-import { View } from "react-native"
-import { t } from "../context/translations"
-import { useEffect, useState } from "react"
-import geminiService, { GeminiRecommendation } from "../services/gemini"
-import { getGeoPrediction, fetchOpenMeteoCurrentHour, getWeatherPrediction } from "../utils/api"
-import * as Location from 'expo-location'
-import { GEMINI_API_URL, GEMINI_API_KEY } from '../config'
+import { Text } from "react-native-paper"
+import { View, StyleSheet } from "react-native"
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+
+// 5 Generalized safety tips with categories
+const SAFETY_TIPS = [
+  {
+    icon: 'weather-partly-cloudy',
+    iconColor: '#5B9BD5',
+    iconBg: '#D4EBFC',
+    title: 'Weather Advisory',
+    description: 'Check local weather conditions before heading out. Carry appropriate gear for sudden changes.',
+    category: 'Weather',
+  },
+  {
+    icon: 'bus',
+    iconColor: '#3D9A6A',
+    iconBg: '#D1F0E4',
+    title: 'Transport Safety',
+    description: 'Use verified transport services. Share your ride details with trusted contacts.',
+    category: 'Transportation',
+  },
+  {
+    icon: 'weather-night',
+    iconColor: '#7A5BA5',
+    iconBg: '#E8DDF5',
+    title: 'Night Safety',
+    description: 'Stay on well-lit main paths after sunset. Avoid isolated areas during late hours.',
+    category: 'Night Travel',
+  },
+  {
+    icon: 'wallet',
+    iconColor: '#C98E3A',
+    iconBg: '#FCECD4',
+    title: 'Protect Valuables',
+    description: 'Keep your belongings secure in crowded areas. Use anti-theft bags when possible.',
+    category: 'Belongings',
+  },
+  {
+    icon: 'phone-alert',
+    iconColor: '#D66A6A',
+    iconBg: '#FADED9',
+    title: 'Emergency Ready',
+    description: 'Save local emergency numbers. Keep your phone charged and location services on.',
+    category: 'Emergency',
+  },
+];
 
 export default function SafetyRecommendations() {
-  const { state, setCurrentLocation } = useApp()
-  const [loading, setLoading] = useState(false)
-  const [recs, setRecs] = useState<GeminiRecommendation[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const [locationLoading, setLocationLoading] = useState(false)
-
-  // Function to get current location
-  const getCurrentLocation = async () => {
-    try {
-      setLocationLoading(true)
-      console.log('SafetyRecommendations: Requesting location permissions...')
-
-      // Request location permissions
-      const { status } = await Location.requestForegroundPermissionsAsync()
-      if (status !== 'granted') {
-        throw new Error('Location permission denied')
-      }
-
-      console.log('SafetyRecommendations: Getting current position...')
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      })
-
-      console.log('SafetyRecommendations: Location obtained:', location.coords.latitude, location.coords.longitude)
-      setCurrentLocation(location)
-      return location
-    } catch (error: any) {
-      console.error('SafetyRecommendations: Failed to get location:', error)
-      setError(`Location error: ${error.message}`)
-      return null
-    } finally {
-      setLocationLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    let mounted = true
-    const loc = state.currentLocation
-
-    console.log('SafetyRecommendations useEffect triggered, location:', loc)
-
-    const fetchRecommendations = async () => {
-      if (!loc || !loc.coords) {
-        console.log('SafetyRecommendations: No location available, attempting to get current location...')
-        // Try to get current location
-        const newLocation = await getCurrentLocation()
-        if (!newLocation || !mounted) return
-
-        // Use the newly obtained location
-        console.log('SafetyRecommendations: Using newly obtained location:', newLocation.coords.latitude, newLocation.coords.longitude)
-        await performRecommendationFetch(newLocation, mounted)
-      } else {
-        console.log('SafetyRecommendations: Location available, fetching recommendations:', loc.coords.latitude, loc.coords.longitude)
-        await performRecommendationFetch(loc, mounted)
-      }
-    }
-
-    const performRecommendationFetch = async (location: Location.LocationObject, isMounted: boolean) => {
-      setLoading(true)
-      setError(null)
-      try {
-        // Gather model-based scores when we have a location
-        let geoScore: number | null = null
-        let weatherScore: number | null = null
-        let areaRisk = 0.3
-        let weatherCode: "clear" | "rain" | "storm" | "heat" = "clear"
-        let weatherCompact: any = null
-        let weatherModelFeatures: any = null
-        let weatherModelCategory: string | null = null
-
-        let geoResponse: any = null
-        let weatherModelResponse: any = null
-
-        console.log('SafetyRecommendations: Fetching geo prediction...')
-        try {
-          const g = await getGeoPrediction(location.coords.latitude, location.coords.longitude)
-          geoResponse = g
-          // Expecting safety_score_100 or predicted_safety_score
-          geoScore = g.safety_score_100 ?? g.predicted_safety_score ?? null
-          console.log('SafetyRecommendations: Geo prediction result:', geoScore)
-        } catch (e) {
-          console.warn('SafetyRecommendations: Failed to fetch geo prediction:', e)
-          // ignore geo model error
-        }
-
-        console.log('SafetyRecommendations: Fetching weather data...')
-        try {
-          const { compact, modelFeatures } = await fetchOpenMeteoCurrentHour(location.coords.latitude, location.coords.longitude)
-          weatherCompact = compact
-          weatherModelFeatures = modelFeatures
-          if (modelFeatures && modelFeatures.temperature != null) {
-            console.log('SafetyRecommendations: Fetching weather prediction...')
-            const wm = await getWeatherPrediction(modelFeatures as any)
-            weatherModelResponse = wm
-            weatherScore = wm.safety_score_100 ?? wm.safety_score ?? null
-            weatherModelCategory = wm.safety_category ?? null
-            console.log('SafetyRecommendations: Weather prediction result:', weatherScore, weatherModelCategory)
-
-            if (wm.safety_category && typeof wm.safety_category === 'string') {
-              // map categories to simplified weatherCode when possible
-              const c = String(wm.safety_category).toLowerCase()
-              if (c.includes('storm') || c.includes('rain')) weatherCode = 'rain'
-              else if (c.includes('heat')) weatherCode = 'heat'
-              else weatherCode = 'clear'
-            }
-          }
-        } catch (e) {
-          console.warn('SafetyRecommendations: Failed to fetch weather prediction:', e)
-          // ignore weather model error
-        }
-
-        const address = state.currentAddress ?? 'Unknown address'
-        const coords = `${location.coords.latitude},${location.coords.longitude}`
-
-        const timestamp = new Date().toISOString()
-        const dataVerified = Boolean(geoResponse || weatherModelResponse)
-
-        console.log('SafetyRecommendations: Building Gemini prompt...')
-        const systemPrompt = `System: You are a concise safety assistant that provides JSON responses only.
-DATA_METADATA: {"timestamp":"${timestamp}", "dataVerified": ${dataVerified} }
-User location: ${address} (coords: ${coords}).
-Nearby incidents: ${JSON.stringify(MOCK_INCIDENTS)}
-Raw geo model response: ${JSON.stringify(geoResponse ?? {})}
-Local weather (compact): ${JSON.stringify(weatherCompact ?? {})}
-Weather model features: ${JSON.stringify(weatherModelFeatures ?? {})}
-Raw weather model response: ${JSON.stringify(weatherModelResponse ?? {})}
-Weather model category: ${String(weatherModelCategory ?? '')}
-
-IMPORTANT: Return ONLY a valid JSON array of objects with 'text' and optional 'confidence' fields. Do not include any markdown formatting, code blocks, or additional text. Example: [{"text": "Stay aware of surroundings"}, {"text": "Keep valuables secure"}]`
-
-        console.log('SafetyRecommendations: Calling Gemini API...')
-        console.log('SafetyRecommendations: Gemini API URL configured:', !!GEMINI_API_URL)
-        console.log('SafetyRecommendations: Gemini API Key configured:', !!GEMINI_API_KEY)
-        const r = await geminiService.fetchGeminiRecommendations(systemPrompt, 5)
-        console.log('SafetyRecommendations: Gemini response:', r)
-
-        if (isMounted) setRecs(r)
-      } catch (err: any) {
-        console.warn('SafetyRecommendations: Failed to fetch recommendations', err)
-        if (isMounted) setError(String(err?.message ?? err))
-      } finally {
-        if (isMounted) setLoading(false)
-      }
-    }
-
-    fetchRecommendations()
-    return () => {
-      mounted = false
-    }
-  }, [state.language, state.currentLocation])
-
-  const fallback = [
-    { text: "Avoid carrying valuables openly in crowded areas." },
-    { text: "Stay with your group after dark." },
-    { text: "Keep emergency contacts pinned." },
-  ]
-
-  const shown = recs.length > 0 ? recs : fallback
-  const isLoading = locationLoading || loading
-
   return (
-    <Card>
-      <Card.Title title={t(state.language, "safetyRecommendations")} />
-      <Card.Content>
-        <View style={{ gap: 6 }}>
-          {MOCK_INCIDENTS.map((inc) => (
-            <Text key={inc.id}>
-               {inc.area}: {inc.type} risk {Math.round(inc.risk * 100)}%
-            </Text>
-          ))}
+    <View style={styles.container}>
+      {/* Header */}
+      <Text style={styles.title}>Tips for Your Safety</Text>
+      <Text style={styles.subtitle}>Stay informed and travel safely</Text>
 
-          {isLoading ? (
-            <View style={{ paddingVertical: 8, alignItems: 'center' }}>
-              <ActivityIndicator animating size={20} />
-              <Text style={{ marginTop: 8, fontSize: 12, color: 'gray' }}>
-                {locationLoading ? "Getting location..." : "Generating personalized recommendations..."}
-              </Text>
+      {/* Tips List */}
+      <View style={styles.tipsList}>
+        {SAFETY_TIPS.map((tip, index) => (
+          <View key={`tip${index}`} style={styles.tipItem}>
+            <View style={[styles.iconContainer, { backgroundColor: tip.iconBg }]}>
+              <MaterialCommunityIcons
+                name={tip.icon as any}
+                size={24}
+                color={tip.iconColor}
+              />
             </View>
-          ) : (
-            <View>
-              {recs.length === 0 && !error && (
-                <Text style={{ fontSize: 12, color: 'orange', marginBottom: 8 }}>
-                  Using general safety guidelines (AI recommendations unavailable)
-                </Text>
-              )}
-              {shown.map((r, i) => (
-                <Text key={`r${i}`} style={{ marginBottom: 4 }}>
-                   • {r.text}
-                </Text>
-              ))}
+            <View style={styles.tipContent}>
+              <Text style={styles.tipTitle}>{tip.title}</Text>
+              <Text style={styles.tipDescription}>{tip.description}</Text>
+              <Text style={styles.tipCategory}>{tip.category}</Text>
             </View>
-          )}
-
-          {error ? <Text style={{ color: 'red', fontSize: 12 }}>Error: {error}</Text> : null}
-        </View>
-      </Card.Content>
-    </Card>
+          </View>
+        ))}
+      </View>
+    </View>
   )
 }
+
+const styles = StyleSheet.create({
+  container: {
+    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    padding: 22,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#6B7280',
+    marginBottom: 24,
+    fontWeight: '500',
+  },
+  tipsList: {
+    gap: 18,
+  },
+  tipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  iconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 14,
+  },
+  tipContent: {
+    flex: 1,
+    paddingTop: 2,
+  },
+  tipTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  tipDescription: {
+    fontSize: 14,
+    color: '#4B5563',
+    lineHeight: 20,
+    marginBottom: 6,
+    fontWeight: '500',
+  },
+  tipCategory: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+})

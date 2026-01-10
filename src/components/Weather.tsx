@@ -1,28 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Location from 'expo-location';
 import { fetchOpenMeteoCurrentHour } from '../utils/api';
-import { Text, ActivityIndicator, Avatar, IconButton, Card, Surface, useTheme } from 'react-native-paper';
-
-type HourlyWeather = {
-  time: string[];
-  temperature_2m: number[];
-  relativehumidity_2m: number[];
-  windspeed_10m: number[];
-  winddirection_10m: number[];
-  pressure_msl: number[];
-  precipitation: number[];
-  visibility: number[];
-  apparent_temperature: number[];
-};
+import { Text, ActivityIndicator } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 const Weather = () => {
   const [currentData, setCurrentData] = useState<any | null>(null)
   const [loading, setLoading] = useState<boolean>(true)
   const [error, setError] = useState<string | null>(null)
-  const theme = useTheme();
-
-  const fmt = (v: number | null, suffix = '') => (v == null ? '—' : `${v}${suffix}`)
 
   const fetchWeatherFor = async (lat: number, lon: number) => {
     try {
@@ -30,7 +16,6 @@ const Weather = () => {
       const { compact } = await fetchOpenMeteoCurrentHour(lat, lon)
       setCurrentData(compact)
     } catch (e: any) {
-      console.error('fetchWeatherFor error', e?.message || e)
       setError(e?.message || 'Failed to fetch weather')
       setCurrentData(null)
     } finally {
@@ -43,14 +28,13 @@ const Weather = () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync()
       if (status !== 'granted') {
-        setError('Location permission denied — showing default location')
+        setError('Location permission denied')
         await fetchWeatherFor(28.6139, 77.2090)
         return
       }
       const loc = await Location.getCurrentPositionAsync({})
       await fetchWeatherFor(loc.coords.latitude, loc.coords.longitude)
     } catch (e: any) {
-      console.error('refresh error', e?.message || e)
       setError(e?.message || 'Failed to refresh weather')
       setLoading(false)
     }
@@ -58,85 +42,63 @@ const Weather = () => {
 
   useEffect(() => { refresh() }, [])
 
-  // Determine a simple icon based on cloud cover / precipitation if available
-  const weatherIcon = () => {
-    const cc = currentData?.cloud_cover
-    if (cc == null) return 'weather-partly-cloudy'
-    if (cc < 20) return 'weather-sunny'
-    if (cc < 60) return 'weather-partly-cloudy'
-    return 'weather-cloudy'
-  }
-
-  const weatherDetails = [
-    { label: 'Humidity', value: currentData?.humidity != null ? `${currentData.humidity}%` : '—', icon: 'water-percent' },
-    { label: 'Wind Speed', value: currentData?.wind_speed != null ? `${currentData.wind_speed} m/s` : '—', icon: 'weather-windy' },
-    { label: 'Visibility', value: currentData?.visibility != null ? `${currentData.visibility} m` : '—', icon: 'eye' },
-    { label: 'Pressure', value: currentData?.pressure != null ? `${currentData.pressure} hPa` : '—', icon: 'gauge' },
+  const weatherItems = [
+    {
+      icon: 'water-percent',
+      value: currentData?.humidity != null ? `${currentData.humidity}%` : '—',
+      label: 'Humidity',
+      color: '#4A90C7',
+    },
+    {
+      icon: 'weather-windy',
+      value: currentData?.wind_speed != null ? `${Math.round(currentData.wind_speed * 3.6)} km/h` : '—',
+      label: 'Wind',
+      color: '#3D9A6A',
+    },
+    {
+      icon: 'eye-outline',
+      value: currentData?.visibility != null ? `${Math.round(currentData.visibility / 1000)} km` : '—',
+      label: 'Visibility',
+      color: '#7A5BA5',
+    },
+    {
+      icon: 'gauge',
+      value: currentData?.pressure != null ? `${currentData.pressure}` : '—',
+      label: 'Pressure (hPa)',
+      color: '#C98E3A',
+    },
   ];
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Weather</Text>
-        <View style={styles.refreshContainer}>
-          <IconButton
-            icon="refresh"
-            onPress={refresh}
-            disabled={loading}
-            iconColor="#6B7280"
-            size={20}
-          />
-          {loading && <ActivityIndicator size={16} color="#6B7280" />}
-        </View>
-      </View>
+      {/* Header */}
+      <Text style={styles.title}>Weather Information</Text>
 
-      <View style={styles.weatherDisplay}>
-        <View style={styles.weatherIconContainer}>
-          <Avatar.Icon
-            size={80}
-            icon={weatherIcon() as any}
-            style={styles.weatherIcon}
-            color="#0077CC"
-          />
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#6B7280" />
         </View>
-
-        <View style={styles.temperatureSection}>
-          <Text style={styles.temperature}>
-            {currentData?.temperature == null ? '—' : `${currentData.temperature}°`}
-          </Text>
-          <Text style={styles.temperatureUnit}>C</Text>
-          <Text style={styles.feelsLike}>
-            {currentData?.apparent_temperature == null ? '' : `Feels like ${currentData.apparent_temperature}°`}
-          </Text>
-        </View>
-      </View>
-
-      {error && (
-        <View style={styles.errorIndicator}>
-          <Text style={styles.errorText}>{error}</Text>
+      ) : (
+        <View style={styles.row}>
+          {weatherItems.map((item, index) => (
+            <View key={index} style={styles.item}>
+              <MaterialCommunityIcons
+                name={item.icon as any}
+                size={24}
+                color={item.color}
+              />
+              <Text style={styles.value}>{item.value}</Text>
+              <Text style={styles.label}>{item.label}</Text>
+            </View>
+          ))}
         </View>
       )}
 
-      <View style={styles.detailsGrid}>
-        {weatherDetails.map((detail, index) => (
-          <View key={index} style={styles.detailItem}>
-            <View style={styles.detailIconContainer}>
-              <Avatar.Icon
-                size={36}
-                icon={detail.icon as any}
-                style={styles.detailIcon}
-                color="#6B7280"
-              />
-            </View>
-            <View style={styles.detailTextContainer}>
-              <Text style={styles.detailLabel}>{detail.label}</Text>
-              <Text style={styles.detailValue}>{detail.value}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+      {error && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
     </View>
-  )
+  );
 }
 
 export default Weather
@@ -144,104 +106,49 @@ export default Weather
 const styles = StyleSheet.create({
   container: {
     width: '100%',
-    alignItems: 'center',
-    padding: 24,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-    width: '100%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 28,
+    paddingVertical: 18,
+    paddingHorizontal: 12,
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#1F2937',
+    marginBottom: 16,
+    textAlign: 'center',
   },
-  refreshContainer: {
+  loadingContainer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  row: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  item: {
+    flex: 1,
     alignItems: 'center',
+    paddingHorizontal: 4,
   },
-  weatherDisplay: {
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  weatherIconContainer: {
-    marginBottom: 16,
-  },
-  weatherIcon: {
-    backgroundColor: '#F0F9FF',
-  },
-  temperatureSection: {
-    alignItems: 'center',
-  },
-  temperature: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#0077CC',
-    marginBottom: 4,
-  },
-  temperatureUnit: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#6B7280',
-    position: 'absolute',
-    top: 8,
-    right: -20,
-  },
-  feelsLike: {
+  value: {
     fontSize: 14,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontWeight: '700',
+    color: '#1F2937',
+    marginTop: 8,
+    marginBottom: 4,
+    textAlign: 'center',
   },
-  errorIndicator: {
-    backgroundColor: '#FEF2F2',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    marginBottom: 16,
+  label: {
+    fontSize: 13,
+    color: '#6B7280',
+    fontWeight: '600',
+    textAlign: 'center',
   },
   errorText: {
     fontSize: 12,
-    color: '#DC2626',
+    color: '#EF4444',
     textAlign: 'center',
-    fontWeight: '500',
-  },
-  detailsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    width: '100%',
-  },
-  detailItem: {
-    width: '48%',
-    backgroundColor: '#F9FAFB',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 8,
-    alignItems: 'center',
-  },
-  detailIconContainer: {
-    marginBottom: 8,
-  },
-  detailIcon: {
-    backgroundColor: '#F3F4F6',
-  },
-  detailTextContainer: {
-    alignItems: 'center',
-  },
-  detailLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontWeight: '500',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  detailValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-    textAlign: 'center',
+    marginTop: 8,
   },
 });
