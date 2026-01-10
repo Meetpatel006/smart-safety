@@ -2,10 +2,10 @@
 import { MAPBOX_ACCESS_TOKEN } from '../../config';
 
 export const generateMapHTML = (accessToken?: string): string => {
-  // Use provided token or fallback to config
-  const token = accessToken || MAPBOX_ACCESS_TOKEN;
+    // Use provided token or fallback to config
+    const token = accessToken || MAPBOX_ACCESS_TOKEN;
 
-  return `
+    return `
   <!DOCTYPE html>
   <html>
   <head>
@@ -208,8 +208,8 @@ export const generateMapHTML = (accessToken?: string): string => {
                                   type: 'fill',
                                   source: srcId,
                                   paint: {
-                                      'fill-color': '#ff5252',
-                                      'fill-opacity': 0.12
+                                      'fill-color': '#22C55E',
+                                      'fill-opacity': 0.15
                                   }
                               });
                               // outline
@@ -218,9 +218,9 @@ export const generateMapHTML = (accessToken?: string): string => {
                                   type: 'line',
                                   source: srcId,
                                   paint: {
-                                      'line-color': '#ff1744',
+                                      'line-color': '#16A34A',
                                       'line-width': 2,
-                                      'line-opacity': 0.9
+                                      'line-opacity': 0.8
                                   }
                               });
                           }
@@ -285,16 +285,34 @@ export const generateMapHTML = (accessToken?: string): string => {
               let color = '#9e9e9e'; // default: standard gray
               let fillOpacity = 0.25;
               let weight = 2;
+              let markerType = 'zone'; // zone, police, hospital, danger
 
-              if (fence.riskLevel) {
+              // Category-based styling for help locations
+              const category = (fence.category || '').toLowerCase();
+              if (category.includes('police') || category.includes('security')) {
+                  color = '#6366F1'; // Indigo for police
+                  markerType = 'police';
+                  fillOpacity = 0.3;
+              } else if (category.includes('hospital') || category.includes('medical')) {
+                  color = '#EF4444'; // Red for hospitals
+                  markerType = 'hospital';
+                  fillOpacity = 0.3;
+              } else if (fence.riskLevel) {
+                  // Risk-based styling
                   const rl = String(fence.riskLevel).toLowerCase();
-                  if (rl.includes('very') && rl.includes('high')) color = '#d32f2f';
-                  else if (rl.includes('high')) color = '#ff9800';
+                  if (rl.includes('very') && rl.includes('high')) {
+                      color = '#d32f2f';
+                      markerType = 'danger';
+                  }
+                  else if (rl.includes('high')) {
+                      color = '#ff9800';
+                      markerType = 'danger';
+                  }
                   else if (rl.includes('medium')) color = '#ffeb3b';
-                  else if (rl.includes('standard') || rl.includes('low')) color = '#9e9e9e';
+                  else if (rl.includes('standard') || rl.includes('low')) color = '#22C55E'; // Green for safe
               }
 
-              return { color, fillOpacity, weight };
+              return { color, fillOpacity, weight, markerType };
           }
 
           function createPopupContent(properties) {

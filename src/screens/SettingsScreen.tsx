@@ -22,10 +22,6 @@ export default function SettingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <Appbar.Header style={{ backgroundColor: theme.colors.primary }}>
-        <Appbar.Content title={t(state.language, "settings")} titleStyle={{ color: 'white' }} />
-      </Appbar.Header>
-
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* Profile Section */}
         <View style={styles.section}>
@@ -45,6 +41,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
+    paddingTop: 50,
     paddingBottom: 150,
   },
   section: {

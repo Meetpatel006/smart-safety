@@ -11,6 +11,14 @@ import LocationInfo from './MapboxMap/LocationInfo';
 import MapActionButtons from './MapboxMap/MapActionButtons';
 import StyleSelector from './MapboxMap/StyleSelector';
 
+// Import new UI overlay components
+import {
+  TopLocationCard,
+  WarningBanner,
+  RightActionButtons,
+  MapBottomSheet
+} from './MapboxMap/ui';
+
 // Import types, constants and utilities
 import { WebViewMessage } from './MapboxMap/types';
 import { reverseGeocode } from './MapboxMap/geoUtils';
@@ -51,6 +59,11 @@ export default function MapboxMap({
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [loadedGeoFences, setLoadedGeoFences] = useState<GeoFence[]>([]);
+
+  // New state for overlay UI
+  const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
+  const [showWarningBanner, setShowWarningBanner] = useState(true);
+  const [showStyleSelector, setShowStyleSelector] = useState(false);
 
   const webViewRef = useRef<WebView>(null);
 
@@ -252,14 +265,49 @@ export default function MapboxMap({
   return (
     <View style={[styles.container, isFullScreen ? styles.containerFullScreen : undefined, style]}>
       {isFullScreen ? (
-        // Full-screen: render only the map container so there is no card/header UI
-        <MapContainer
-          webViewKey={webViewKey}
-          height={isFullScreen ? Dimensions.get('window').height - 56 : mapHeight}
-          onWebViewMessage={handleWebViewMessage}
-          webViewRef={webViewRef}
-          isFullScreen={isFullScreen}
-        />
+        // Full-screen: render map with overlay UI components
+        <View style={styles.fullScreenContainer}>
+          <MapContainer
+            webViewKey={webViewKey}
+            height={Dimensions.get('window').height}
+            onWebViewMessage={handleWebViewMessage}
+            webViewRef={webViewRef}
+            isFullScreen={isFullScreen}
+          />
+
+          {/* Overlay UI Components */}
+          <TopLocationCard />
+
+          {showWarningBanner && (
+            <WarningBanner onDismiss={() => setShowWarningBanner(false)} />
+          )}
+
+          <RightActionButtons
+            onCompassPress={getCurrentLocation}
+            onDangerFlagPress={() => Alert.alert('Report', 'Report a danger location')}
+            onLayersPress={() => setShowStyleSelector(!showStyleSelector)}
+            onSOSPress={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+          />
+
+          {showStyleSelector && (
+            <View style={styles.styleSelectorOverlay}>
+              <StyleSelector
+                selectedStyle={selectedStyle}
+                onSelectStyle={(style) => {
+                  handleSelectStyle(style);
+                  setShowStyleSelector(false);
+                }}
+              />
+            </View>
+          )}
+
+          <MapBottomSheet
+            isExpanded={isBottomSheetExpanded}
+            onToggle={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+            onShareLive={shareLocation}
+            onSOS={() => Alert.alert('SOS', 'Emergency SOS activated!')}
+          />
+        </View>
       ) : (
         // Normal embedded view
         <>
@@ -312,6 +360,24 @@ const styles = StyleSheet.create({
   containerFullScreen: {
     margin: 0,
     flex: 1,
+  },
+  fullScreenContainer: {
+    flex: 1,
+    position: 'relative',
+  },
+  styleSelectorOverlay: {
+    position: 'absolute',
+    right: 70,
+    top: '35%',
+    zIndex: 95,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
   cardFullScreen: {
     margin: 0,
