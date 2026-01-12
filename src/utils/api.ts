@@ -246,12 +246,12 @@ export const fetchOpenMeteoCurrentHour = async (latitude: number, longitude: num
 export const getAlerts = async (token) => {
   try {
 
-    // if (!token) {
-    //   throw new Error('No authentication token provided');
-    // }
+    if (!token) {
+      throw new Error('No authentication token provided');
+    }
 
     const headers = {
-      // 'Authorization': `Bearer ${token}`,
+      'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json'
     };
 

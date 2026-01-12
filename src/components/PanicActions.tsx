@@ -9,7 +9,11 @@ import { queueSOS } from "../utils/offlineQueue";
 import { sendSMS } from "../utils/sms";
 import { queueSMS } from "../utils/smsQueue";
 
-export default function PanicActions() {
+interface PanicActionsProps {
+  onSOSTriggered?: () => void;
+}
+
+export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {}) {
   const { state } = useApp()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
@@ -83,6 +87,13 @@ export default function PanicActions() {
 
   const trigger = async (label: string) => {
     let queuedThisPress = false
+    const currentToken = state.token
+
+    if (!currentToken) {
+      setSnack({ visible: true, msg: "You must be logged in to trigger an alert." });
+      return;
+    }
+
     if (state.offline) {
       const sosData = {
         location: {
@@ -93,7 +104,7 @@ export default function PanicActions() {
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'queued-offline' }
       };
       try {
-        await queueSOS({ token: state.token, sosData })
+        await queueSOS({ token: currentToken, sosData })
         setSnack({ visible: true, msg: "Offline: queued alert " + label })
         queuedThisPress = true
       } catch (e) {
@@ -103,10 +114,6 @@ export default function PanicActions() {
         const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
         if (recipients.length) await queueSMS({ payload: { recipients, message: buildSmsMessage(label) } })
       } catch (e) { }
-      return;
-    }
-    if (!state.token) {
-      setSnack({ visible: true, msg: "You must be logged in to trigger an alert." });
       return;
     }
     if (!state.currentLocation) {
@@ -124,7 +131,7 @@ export default function PanicActions() {
         safetyScore: state.user?.safetyScore || 100,
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'N/A' }
       };
-      await triggerSOS(state.token, sosData);
+      await triggerSOS(currentToken, sosData);
       try {
         const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
         if (recipients.length) {
@@ -133,10 +140,15 @@ export default function PanicActions() {
         }
       } catch (e) { }
       setSnack({ visible: true, msg: "Sent alert: " + label })
+      
+      // Trigger callback if provided
+      if (onSOSTriggered) {
+        onSOSTriggered();
+      }
     } catch (error: any) {
       try {
         if (!queuedThisPress) {
-          await queueSOS({ token: state.token, sosData: { location: { coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0], locationName: state.currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
+          await queueSOS({ token: currentToken, sosData: { location: { coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0], locationName: state.currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
         }
         setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
       } catch (qe) {

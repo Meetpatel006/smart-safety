@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import IncidentReportModal from '../components/IncidentReportModal'
-import { View, StyleSheet, Dimensions, Alert, StatusBar } from 'react-native'
+import { View, StyleSheet, Dimensions, Alert, StatusBar, Text, Platform } from 'react-native'
 import * as Location from 'expo-location'
 import { WebView } from 'react-native-webview'
 import { GeoFence, haversineKm } from '../utils/geofenceLogic'
 import { useApp } from '../context/AppContext'
 import { reverseGeocode } from '../components/MapboxMap/geoUtils'
 import { loadFences } from '../geoFence/geofenceService'
+import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 // Import map components
 import MapContainer from '../components/MapboxMap/MapContainer'
@@ -23,6 +24,9 @@ import {
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
 
+// Configuration for auto-refresh
+const REFRESH_INTERVAL_MS = 60000 // 60 seconds
+
 export default function EmergencyScreen() {
   const { state, setCurrentLocation, setCurrentAddress } = useApp()
 
@@ -38,6 +42,7 @@ export default function EmergencyScreen() {
   const [showWarningBanner, setShowWarningBanner] = useState(true)
   const [showIncidentModal, setShowIncidentModal] = useState(false)
   const [showStyleSelector, setShowStyleSelector] = useState(false)
+  const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
 
   // Geofences
   const [geoFences, setGeoFences] = useState<GeoFence[]>([])
@@ -93,6 +98,39 @@ export default function EmergencyScreen() {
       console.warn('Failed to send geofences to WebView', e)
     }
   }, [mapReady, geoFences])
+
+  // Refresh geofences function
+  const refreshGeofences = async () => {
+    try {
+      setIsBackgroundRefreshing(true)
+      const userLat = state.currentLocation?.coords.latitude
+      const userLng = state.currentLocation?.coords.longitude
+      
+      const fences = await loadFences(userLat, userLng)
+      setGeoFences(fences)
+      
+      console.log(`[Auto-Refresh] Refreshed ${fences.length} geofences`)
+    } catch (err) {
+      console.warn('Failed to refresh geofences:', err)
+      // Don't show error to user - fail silently for background refresh
+    } finally {
+      setIsBackgroundRefreshing(false)
+    }
+  }
+
+  // Set up auto-refresh polling
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      console.log('[Auto-Refresh] Timer triggered')
+      refreshGeofences()
+    }, REFRESH_INTERVAL_MS)
+
+    // Cleanup interval on unmount
+    return () => {
+      console.log('[Auto-Refresh] Stopping polling')
+      clearInterval(intervalId)
+    }
+  }, [state.currentLocation]) // Re-create interval if location changes
 
   const getCurrentLocation = async () => {
     setLoadingLocation(true)
@@ -173,6 +211,11 @@ export default function EmergencyScreen() {
     setShowIncidentModal(true)
   }
 
+  const handleIncidentSubmitted = () => {
+    console.log('[Incident] Submitted, refreshing map immediately')
+    refreshGeofences()
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -192,6 +235,16 @@ export default function EmergencyScreen() {
       {/* Warning Banner (if applicable) */}
       {showWarningBanner && (
         <WarningBanner onDismiss={() => setShowWarningBanner(false)} />
+      )}
+
+      {/* Background Refresh Indicator */}
+      {isBackgroundRefreshing && (
+        <View style={styles.refreshIndicator}>
+          <View style={styles.refreshContent}>
+            <MaterialCommunityIcons name="reload" size={16} color="#3B82F6" />
+            <Text style={styles.refreshText}>Updating map...</Text>
+          </View>
+        </View>
       )}
 
       {/* Right Side Action Buttons */}
@@ -224,6 +277,7 @@ export default function EmergencyScreen() {
       <IncidentReportModal
         visible={showIncidentModal}
         onClose={() => setShowIncidentModal(false)}
+        onIncidentSubmitted={handleIncidentSubmitted}
         latitude={state.currentLocation?.coords?.latitude ?? 0}
         longitude={state.currentLocation?.coords?.longitude ?? 0}
       />
@@ -249,5 +303,30 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 6,
+  },
+  refreshIndicator: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 50 : 40,
+    alignSelf: 'center',
+    zIndex: 100,
+  },
+  refreshContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  refreshText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#3B82F6',
   },
 })

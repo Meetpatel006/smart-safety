@@ -21,6 +21,7 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 interface IncidentReportModalProps {
     visible: boolean;
     onClose: () => void;
+    onIncidentSubmitted?: () => void;
     latitude: number;
     longitude: number;
 }
@@ -37,6 +38,7 @@ const INCIDENT_TYPES: { value: IncidentType; label: string; icon: string; color:
 export default function IncidentReportModal({
     visible,
     onClose,
+    onIncidentSubmitted,
     latitude,
     longitude,
 }: IncidentReportModalProps) {
@@ -58,10 +60,14 @@ export default function IncidentReportModal({
             return;
         }
 
+        if (!state.token) {
+            Alert.alert('Authentication Error', 'You must be logged in to report an incident.');
+            return;
+        }
+
         setIsSubmitting(true);
         try {
-            const token = state.token || '';
-            const response = await reportIncident(token, {
+            const response = await reportIncident(state.token, {
                 title: title.trim() || undefined,
                 type: selectedType,
                 latitude,
@@ -70,7 +76,14 @@ export default function IncidentReportModal({
             });
 
             Alert.alert('Incident Reported', response.message || 'Your report has been submitted successfully.', [
-                { text: 'OK', onPress: () => { resetForm(); onClose(); } }
+                { text: 'OK', onPress: () => { 
+                    resetForm(); 
+                    onClose();
+                    // Trigger immediate refresh in parent
+                    if (onIncidentSubmitted) {
+                        onIncidentSubmitted();
+                    }
+                } }
             ]);
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to submit report. Please try again.');

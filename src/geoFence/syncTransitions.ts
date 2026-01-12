@@ -1,15 +1,19 @@
 import transitionStore from './transitionStore'
 import { SERVER_URL } from '../config'
 
-export async function syncTransitions() {
+export async function syncTransitions(token?: string) {
   try {
     const items = await transitionStore.getTransitions()
     if (!items || items.length === 0) return { ok: true, uploaded: 0 }
 
     const url = `${SERVER_URL.replace(/\/$/, '')}/api/transitions`
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`
+    }
     const res = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ transitions: items }),
     })
 

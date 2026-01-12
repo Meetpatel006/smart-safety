@@ -55,6 +55,7 @@ type AppState = {
 type AppContextValue = {
   state: AppState
   netInfoAvailable?: boolean | null
+  getToken: () => string | null
   login: (email: string, password: string) => Promise<{ ok: boolean; message: string }>
   register: (params: {
     name: string
@@ -286,7 +287,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       // keep a safety net sync for transitions every 15 minutes (batch uploads handle samples)
       // Use stateRef.current to avoid this effect depending on changing `state`.
-      syncInterval = setInterval(async () => { try { if (!stateRef.current.offline) await syncTransitions() } catch (e) {} }, 15 * 60 * 1000)
+      syncInterval = setInterval(async () => { try { if (!stateRef.current.offline) await syncTransitions(stateRef.current.token) } catch (e) {} }, 15 * 60 * 1000)
     } catch (e) { /* ignore */ }
 
     // Persist current state once on start (use stateRef to avoid depending on `state`)
@@ -316,6 +317,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     () => ({
       state,
       netInfoAvailable: netInfoAvailable,
+      getToken: () => tokenRef.current,
       async login(email, password) {
         try {
           const data = await apiLogin(email, password)
