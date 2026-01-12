@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { StyleSheet, Platform, Alert, Dimensions, View } from "react-native";
 import { WebView } from 'react-native-webview';
 import * as Location from "expo-location";
@@ -14,12 +14,16 @@ import MapActionButtons from './OsmMap/MapActionButtons';
 import { OsmMapProps, LocationData } from './OsmMap/types';
 import { reverseGeocode } from './OsmMap/geoUtils';
 import { useApp } from '../context/AppContext';
+import { GeoFence, filterFencesByDistance, haversineKm } from '../utils/geofenceLogic';
 
 // Default tile configuration
 const DEFAULT_TILE_CONFIG = {
   url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
   attribution: '© OpenStreetMap contributors'
 };
+
+const NEARBY_FENCE_RADIUS_KM = 15;
+const LOCATION_REFILTER_THRESHOLD_KM = 5;
 
 /*
   Enhanced OsmMap: OpenStreetMap integration with Leaflet
@@ -54,7 +58,86 @@ export default function OsmMap({
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [webViewKey, setWebViewKey] = useState(0);
+  const [geoFencesToSend, setGeoFencesToSend] = useState<GeoFence[]>([]);
+  const [lastLocationForFilter, setLastLocationForFilter] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
+
   const webViewRef = useRef<WebView>(null);
+
+  // Load geo-fences based on location permission
+  useEffect(() => {
+    (async () => {
+      if (showCurrentLocation) {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        const granted = status === 'granted';
+        setLocationPermissionGranted(granted);
+
+        if (!granted) {
+          setErrorMsg('Location permission denied. Showing all safety zones.');
+          loadAllFencesWithoutFiltering();
+          return;
+        }
+
+        try {
+          const locationResult = await Location.getCurrentPositionAsync({});
+          const { latitude, longitude } = locationResult.coords;
+          setLastLocationForFilter({ lat: latitude, lng: longitude });
+          await loadAndFilterFences(latitude, longitude);
+        } catch (err) {
+          console.warn('Failed to get location for filtering:', err);
+          loadAllFencesWithoutFiltering();
+        }
+      } else {
+        loadAllFencesWithoutFiltering();
+      }
+    })();
+  }, [showCurrentLocation]);
+
+  const loadAllFencesWithoutFiltering = async () => {
+    try {
+      const data = require('../../assets/geofences-output.json');
+      const fencesWithDistance = data.map((f: GeoFence) => ({
+        ...f,
+        distanceToUser: undefined
+      }));
+      setGeoFencesToSend(fencesWithDistance);
+      console.log('Loaded all geo-fences (no location permission):', fencesWithDistance.length);
+    } catch (err) {
+      console.warn('Failed to load geo-fences:', err);
+      setGeoFencesToSend([]);
+    }
+  };
+
+  const loadAndFilterFences = async (userLat: number, userLng: number) => {
+    try {
+      const data = require('../../assets/geofences-output.json');
+      const nearby = filterFencesByDistance(data, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
+      setGeoFencesToSend(nearby);
+      console.log(`Loaded ${data.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);
+    } catch (err) {
+      console.warn('Failed to load/filter geo-fences:', err);
+      setGeoFencesToSend([]);
+    }
+  };
+
+  // Re-filter fences when location changes significantly
+  const refilterFencesIfNeeded = useCallback((newLat: number, newLng: number) => {
+    if (lastLocationForFilter) {
+      const distance = haversineKm(
+        [newLat, newLng],
+        [lastLocationForFilter.lat, lastLocationForFilter.lng]
+      );
+
+      if (distance >= LOCATION_REFILTER_THRESHOLD_KM) {
+        console.log(`User moved ${distance.toFixed(2)}km, re-filtering fences...`);
+        setLastLocationForFilter({ lat: newLat, lng: newLng });
+        loadAndFilterFences(newLat, newLng);
+      }
+    } else {
+      setLastLocationForFilter({ lat: newLat, lng: newLng });
+      loadAndFilterFences(newLat, newLng);
+    }
+  }, [lastLocationForFilter]);
 
   useEffect(() => {
     if (showCurrentLocation) {
@@ -68,19 +151,21 @@ export default function OsmMap({
     }
   }, [location, mapReady]);
 
-  // Send geo-fences to the WebView when map is ready or when geoFences prop changes
+// Send geo-fences to the WebView when map is ready or when geoFences prop changes
   useEffect(() => {
     if (!webViewRef.current || !mapReady) return;
-    if (!Array.isArray(geoFences)) return;
+
+    const fences = geoFences || geoFencesToSend;
+    if (!Array.isArray(fences)) return;
 
     try {
-      console.log(`Sending ${geoFences.length} geofences to WebView, including custom fences:`, 
-        geoFences.filter(f => f.id && f.id.startsWith('custom')).map(f => f.name));
-      webViewRef.current.postMessage(JSON.stringify({ type: 'setGeoFences', fences: geoFences }));
+      console.log(`Sending ${fences.length} geofences to WebView, including custom fences:`, 
+        fences.filter(f => f.id && f.id.startsWith('custom')).map(f => f.name));
+      webViewRef.current.postMessage(JSON.stringify({ type: 'setGeoFences', fences }));
     } catch (e) {
       console.warn('failed to post geoFences to webview', e);
     }
-  }, [mapReady, geoFences]);
+  }, [mapReady, geoFences, geoFencesToSend]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -109,9 +194,14 @@ export default function OsmMap({
         distanceInterval: 1,
       };
 
-      const currentLocation = await Location.getCurrentPositionAsync(locationOptions);
+const currentLocation = await Location.getCurrentPositionAsync(locationOptions);
       setLocation(currentLocation);
       setCurrentLocation(currentLocation); // Store in context
+
+      // Re-filter fences if user moved significantly
+      if (locationPermissionGranted) {
+        refilterFencesIfNeeded(currentLocation.coords.latitude, currentLocation.coords.longitude);
+      }
 
       const locationData: LocationData = {
         latitude: currentLocation.coords.latitude,

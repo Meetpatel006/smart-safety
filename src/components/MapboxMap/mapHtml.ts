@@ -502,6 +502,9 @@ export const generateMapHTML = (accessToken?: string): string => {
               let content = '<strong>' + (properties.name || 'Unnamed Geofence') + '</strong>';
               if (properties.category) content += '<br/>Category: ' + properties.category;
               if (properties.riskLevel) content += '<br/>Risk: ' + properties.riskLevel;
+              if (properties.distanceToUser !== undefined && properties.distanceToUser !== null) {
+                  content += '<br/><span style="color: #666;">Distance: ' + properties.distanceToUser + ' km</span>';
+              }
               if (properties.radiusKm) content += '<br/>Radius: ' + properties.radiusKm + ' km';
               return content;
           }

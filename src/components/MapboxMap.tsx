@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, Platform, Alert, Dimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
@@ -22,7 +22,10 @@ import {
 // Import types, constants and utilities
 import { WebViewMessage } from './MapboxMap/types';
 import { reverseGeocode } from './MapboxMap/geoUtils';
-import { GeoFence } from '../utils/geofenceLogic';
+import { GeoFence, filterFencesByDistance, haversineKm } from '../utils/geofenceLogic';
+
+const NEARBY_FENCE_RADIUS_KM = 15;
+const LOCATION_REFILTER_THRESHOLD_KM = 5;
 
 interface MapboxMapProps {
   showCurrentLocation?: boolean;
@@ -59,6 +62,9 @@ export default function MapboxMap({
   const [loadingAddress, setLoadingAddress] = useState(false);
   const [mapReady, setMapReady] = useState(false);
   const [loadedGeoFences, setLoadedGeoFences] = useState<GeoFence[]>([]);
+  const [allGeoFences, setAllGeoFences] = useState<GeoFence[]>([]);
+  const [lastLocationForFilter, setLastLocationForFilter] = useState<{ lat: number; lng: number } | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState<boolean>(false);
 
   // New state for overlay UI
   const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
@@ -67,35 +73,84 @@ export default function MapboxMap({
 
   const webViewRef = useRef<WebView>(null);
 
-  // Request location permissions on mount
+// Request location permissions on mount and load geofences
   useEffect(() => {
     (async () => {
       if (showCurrentLocation) {
         const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setError('Location permission denied');
+        const granted = status === 'granted';
+        setLocationPermissionGranted(granted);
+        
+        if (!granted) {
+          setError('Location permission denied. Showing all safety zones.');
+          loadAllFencesWithoutFiltering();
           return;
         }
+
+        try {
+          const locationResult = await Location.getCurrentPositionAsync({});
+          const { latitude, longitude } = locationResult.coords;
+          setLastLocationForFilter({ lat: latitude, lng: longitude });
+          await loadAndFilterFences(latitude, longitude);
+        } catch (err) {
+          console.warn('Failed to get location for filtering:', err);
+          loadAllFencesWithoutFiltering();
+        }
+      } else {
+        loadAllFencesWithoutFiltering();
       }
     })();
   }, [showCurrentLocation]);
 
-  // Load geo-fences on mount
-  useEffect(() => {
-    const loadGeoFences = async () => {
-      try {
-        // Load bundled JSON directly via require (Metro supports bundling JSON)
-        const data = require('../../assets/geofences-output.json');
-        setLoadedGeoFences(data);
-        console.log('Loaded geo-fences for Mapbox:', data.length);
-      } catch (err) {
-        console.warn('Failed to load geo-fences for Mapbox:', err);
-        setLoadedGeoFences([]);
-      }
-    };
+  const loadAllFencesWithoutFiltering = async () => {
+    try {
+      const data = require('../../assets/geofences-output.json');
+      const fencesWithDistance = data.map((f: GeoFence) => ({
+        ...f,
+        distanceToUser: undefined
+      }));
+      setAllGeoFences(fencesWithDistance);
+      setLoadedGeoFences(fencesWithDistance);
+      console.log('Loaded all geo-fences (no location permission):', fencesWithDistance.length);
+    } catch (err) {
+      console.warn('Failed to load geo-fences:', err);
+      setAllGeoFences([]);
+      setLoadedGeoFences([]);
+    }
+  };
 
-    loadGeoFences();
-  }, []);
+  const loadAndFilterFences = async (userLat: number, userLng: number) => {
+    try {
+      const data = require('../../assets/geofences-output.json');
+      setAllGeoFences(data);
+      const nearby = filterFencesByDistance(data, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
+      setLoadedGeoFences(nearby);
+      console.log(`Loaded ${data.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);
+    } catch (err) {
+      console.warn('Failed to load/filter geo-fences:', err);
+      setAllGeoFences([]);
+      setLoadedGeoFences([]);
+    }
+  };
+
+  // Re-filter fences when location changes significantly
+  const refilterFencesIfNeeded = useCallback((newLat: number, newLng: number) => {
+    if (lastLocationForFilter) {
+      const distance = haversineKm(
+        [newLat, newLng],
+        [lastLocationForFilter.lat, lastLocationForFilter.lng]
+      );
+      
+      if (distance >= LOCATION_REFILTER_THRESHOLD_KM) {
+        console.log(`User moved ${distance.toFixed(2)}km, re-filtering fences...`);
+        setLastLocationForFilter({ lat: newLat, lng: newLng });
+        loadAndFilterFences(newLat, newLng);
+      }
+    } else {
+      setLastLocationForFilter({ lat: newLat, lng: newLng });
+      loadAndFilterFences(newLat, newLng);
+    }
+  }, [lastLocationForFilter]);
 
   // Send geo-fences to the WebView when map is ready or when geoFences prop changes
   useEffect(() => {
@@ -151,7 +206,7 @@ export default function MapboxMap({
     return;
   }, [mapReady, showCurrentLocation]);
 
-  // Get current location
+// Get current location
   const getCurrentLocation = async () => {
     if (!showCurrentLocation) return;
 
@@ -165,6 +220,11 @@ export default function MapboxMap({
 
       setLocation(locationResult);
       setLocationAvailable(true);
+
+      // Re-filter fences if user moved significantly
+      if (locationPermissionGranted) {
+        refilterFencesIfNeeded(locationResult.coords.latitude, locationResult.coords.longitude);
+      }
 
       // Reverse geocode to get address
       setLoadingAddress(true);

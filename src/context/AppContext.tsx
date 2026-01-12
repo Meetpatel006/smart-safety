@@ -223,8 +223,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 try { console.log('Hydration fetched itinerary:', { count: itinerary.length }) } catch (e) { }
               }
             }
-          } catch (e) {
-            console.warn('Hydration: failed to refresh /me', e)
+          } catch (e: any) {
+            const errorMsg = e?.message || String(e)
+            const is401Unauthorized = errorMsg.toLowerCase().includes('unauthorized') || 
+                                      errorMsg.includes('401') ||
+                                      errorMsg.toLowerCase().includes('jwt expired') ||
+                                      errorMsg.toLowerCase().includes('jwt malformed')
+            console.warn('Hydration: failed to refresh /me', { error: errorMsg, is401: is401Unauthorized })
+            if (is401Unauthorized && mounted) {
+              console.log('Hydration: token invalid or expired, clearing auth state and redirecting to login')
+              await remove(STORAGE_KEY)
+              setState(defaultState)
+              setTimeout(() => {
+                try { showToast('Session expired. Please login again.') } catch (ee) { }
+              }, 500)
+            }
           }
         }
       } catch (error) {

@@ -257,4 +257,22 @@ export function getFences() {
   return fences
 }
 
-export default { loadFences, startMonitoring, stopMonitoring, on, off, getFences }
+export function filterFencesByDistance(userLat: number, userLng: number, radiusKm: number = 15) {
+  const { filterFencesByDistance: filterFn } = require('../utils/geofenceLogic')
+  const filtered = filterFn(fences, userLat, userLng, radiusKm)
+  console.log(`Filtered to ${filtered.length} fences within ${radiusKm}km of user location`)
+  return filtered
+}
+
+export function getAllFencesFiltered(
+  userLat?: number,
+  userLng?: number,
+  radiusKm: number = 15
+): GeoFence[] {
+  if (userLat === undefined || userLng === undefined) {
+    return fences
+  }
+  return filterFencesByDistance(userLat, userLng, radiusKm)
+}
+
+export default { loadFences, startMonitoring, stopMonitoring, on, off, getFences, filterFencesByDistance, getAllFencesFiltered }

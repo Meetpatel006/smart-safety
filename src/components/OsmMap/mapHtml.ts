@@ -468,7 +468,7 @@ export const generateMapHTML = (tileConfig: TileServerConfig): string => {
               };
           }
 
-          /**
+/**
            * Create enhanced popup content for geofences
            */
           function createPopupContent(fence) {
@@ -487,8 +487,12 @@ export const generateMapHTML = (tileConfig: TileServerConfig): string => {
               }
               
               if (riskLevel) {
-                  const riskClass = 'risk-' + riskLevel.toLowerCase().replace(/\\s+/g, '-');
+                  const riskClass = 'risk-' + riskLevel.toLowerCase().replace(/\s+/g, '-');
                   content += '<div class="risk-level ' + riskClass + '">Risk: ' + riskLevel + '</div>';
+              }
+              
+              if (fence.distanceToUser !== undefined && fence.distanceToUser !== null) {
+                  content += '<div class="category" style="color: #666;">Distance: ' + fence.distanceToUser + ' km</div>';
               }
               
               if (fence.radiusKm) {

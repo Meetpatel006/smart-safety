@@ -134,3 +134,102 @@ export function mapWildlifeRowToGeoFence(row: Record<string, string>, idx: numbe
     metadata: row
   }
 }
+
+export function getDistanceToFence(fence: GeoFence, userLat: number, userLng: number): number {
+  const userPoint: [number, number] = [userLat, userLng]
+
+  if (fence.type === 'point' && Array.isArray(fence.coords)) {
+    const center = normalizeLatLon(fence.coords as number[])
+    return haversineKm(userPoint, center)
+  }
+
+  if (fence.type === 'circle' && Array.isArray(fence.coords)) {
+    const center = normalizeLatLon(fence.coords as number[])
+    return haversineKm(userPoint, center)
+  }
+
+  if (fence.type === 'polygon' && Array.isArray(fence.coords)) {
+    const polygon = normalizePolygon(fence.coords as number[][])
+    if (polygon.length < 3) {
+      const center = polygon[0] || [0, 0]
+      return haversineKm(userPoint, center)
+    }
+    if (pointInPolygon(userPoint, polygon)) {
+      return 0
+    }
+    let minDist = Infinity
+    for (let i = 0; i < polygon.length - 1; i++) {
+      const dist = pointToSegmentDistance(
+        userPoint,
+        polygon[i] as [number, number],
+        polygon[i + 1] as [number, number]
+      )
+      if (dist < minDist) minDist = dist
+    }
+    return minDist
+  }
+
+  return Infinity
+}
+
+function pointToSegmentDistance(
+  point: [number, number],
+  segStart: [number, number],
+  segEnd: [number, number]
+): number {
+  const [px, py] = point
+  const [x1, y1] = segStart
+  const [x2, y2] = segEnd
+
+  const dx = x2 - x1
+  const dy = y2 - y1
+  const lengthSq = dx * dx + dy * dy
+
+  if (lengthSq === 0) {
+    return haversineKm(point, segStart)
+  }
+
+  let t = ((px - x1) * dx + (py - y1) * dy) / lengthSq
+  t = Math.max(0, Math.min(1, t))
+
+  const nearestX = x1 + t * dx
+  const nearestY = y1 + t * dy
+
+  return haversineKm(point, [nearestX, nearestY])
+}
+
+export function filterFencesByDistance(
+  fences: GeoFence[],
+  userLat: number,
+  userLng: number,
+  radiusKm: number = 15
+): GeoFence[] {
+  return fences
+    .map(fence => {
+      const distance = getDistanceToFence(fence, userLat, userLng)
+      let isWithinRange = false
+
+      if (fence.type === 'circle' && fence.radiusKm) {
+        isWithinRange = distance <= radiusKm + fence.radiusKm
+      } else if (fence.type === 'point') {
+        isWithinRange = distance <= radiusKm
+      } else if (fence.type === 'polygon') {
+        isWithinRange = distance <= radiusKm
+      } else {
+        isWithinRange = distance <= radiusKm
+      }
+
+      return {
+        ...fence,
+        distanceToUser: Math.round(distance * 100) / 100
+      }
+    })
+    .filter(fence => {
+      if (fence.type === 'circle' && fence.radiusKm) {
+        const distance = fence.distanceToUser ?? Infinity
+        return distance <= radiusKm + fence.radiusKm
+      }
+      const distance = fence.distanceToUser ?? Infinity
+      return distance <= radiusKm
+    })
+}
