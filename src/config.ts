@@ -22,17 +22,16 @@ if (!MAPBOX_ACCESS_TOKEN) {
 // For strict 15-minute batching, keep this false.
 export const ROLLING_LOG_ENABLED = false
 
-// Gemini/LLM configuration - provide a simple HTTP endpoint and API key via expo.extra or env
-export const GEMINI_API_URL = Constants.expoConfig?.extra?.GEMINI_API_URL || process.env.GEMINI_API_URL || ''
-export const GEMINI_API_KEY = Constants.expoConfig?.extra?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || ''
-// Optional model name to send to the LLM endpoint. Default follows the example.
-export const GEMINI_MODEL = Constants.expoConfig?.extra?.GEMINI_MODEL || process.env.GEMINI_MODEL || 'gemini-2.0-flash'
+// Groq/LLM configuration - provide API key via expo.extra or env
+export const GROQ_API_KEY = Constants.expoConfig?.extra?.GROQ_API_KEY || process.env.GROQ_API_KEY || ''
+// Optional model name for Groq. Default follows Groq's recommended models.
+export const GROQ_MODEL = Constants.expoConfig?.extra?.GROQ_MODEL || process.env.GROQ_MODEL || 'llama-3.3-70b-versatile'
 
 // Fallback authority phone number (can be overridden via expo.extra in app config)
 export const AUTHORITY_PHONE = Constants.expoConfig?.extra?.AUTHORITY_PHONE || process.env.AUTHORITY_PHONE || ''
 
-if (!GEMINI_API_URL || !GEMINI_API_KEY) {
-  console.info('Gemini LLM not fully configured. GEMINI_API_URL or GEMINI_API_KEY missing. Using local fallback recommendations.');
+if (!GROQ_API_KEY) {
+  console.info('Groq LLM not fully configured. GROQ_API_KEY missing. Using local fallback recommendations.');
 }
 
 export default { SERVER_URL, GEO_MODEL_URL, WEATHER_MODEL_URL, MAPBOX_ACCESS_TOKEN, ROLLING_LOG_ENABLED }

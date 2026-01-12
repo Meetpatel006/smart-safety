@@ -19,12 +19,13 @@ module.exports = ({ config }) => {
   if (process.env.MAPBOX_DOWNLOADS_TOKEN) {
     config.extra.MAPBOX_DOWNLOADS_TOKEN = process.env.MAPBOX_DOWNLOADS_TOKEN;
   }
-    // Gemini LLM config - allow injecting endpoint and key from environment/.env
-  if (process.env.GEMINI_API_URL) {
-    config.extra.GEMINI_API_URL = process.env.GEMINI_API_URL;
+  
+  // Groq LLM config - allow injecting API key and model from environment/.env
+  if (process.env.GROQ_API_KEY) {
+    config.extra.GROQ_API_KEY = process.env.GROQ_API_KEY;
   }
-  if (process.env.GEMINI_API_KEY) {
-    config.extra.GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+  if (process.env.GROQ_MODEL) {
+    config.extra.GROQ_MODEL = process.env.GROQ_MODEL;
   }
 
   return config;

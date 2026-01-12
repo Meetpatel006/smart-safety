@@ -1,9 +1,10 @@
-import { Text } from "react-native-paper"
+import { Text, ActivityIndicator } from "react-native-paper"
 import { View, StyleSheet } from "react-native"
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useEffect, useState } from "react";
+import { fetchAllSafetyRecommendations, SafetyRecommendation } from "../services/safetyRecommendations";
 
-// 5 Generalized safety tips with categories
-const SAFETY_TIPS = [
+const FALLBACK_TIPS: SafetyRecommendation[] = [
   {
     icon: 'weather-partly-cloudy',
     iconColor: '#5B9BD5',
@@ -47,31 +48,63 @@ const SAFETY_TIPS = [
 ];
 
 export default function SafetyRecommendations() {
+  const [recommendations, setRecommendations] = useState<SafetyRecommendation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+
+  useEffect(() => {
+    const loadRecommendations = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchAllSafetyRecommendations();
+        setRecommendations(data);
+        setError(false);
+      } catch (err) {
+        console.error('Failed to load safety recommendations:', err);
+        setRecommendations(FALLBACK_TIPS);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadRecommendations();
+  }, []);
+
+  const displayTips = recommendations.length > 0 ? recommendations : FALLBACK_TIPS;
+
   return (
     <View style={styles.container}>
-      {/* Header */}
       <Text style={styles.title}>Tips for Your Safety</Text>
       <Text style={styles.subtitle}>Stay informed and travel safely</Text>
 
-      {/* Tips List */}
-      <View style={styles.tipsList}>
-        {SAFETY_TIPS.map((tip, index) => (
-          <View key={`tip${index}`} style={styles.tipItem}>
-            <View style={[styles.iconContainer, { backgroundColor: tip.iconBg }]}>
-              <MaterialCommunityIcons
-                name={tip.icon as any}
-                size={24}
-                color={tip.iconColor}
-              />
+      {loading && (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="small" color="#5B9BD5" />
+          <Text style={styles.loadingText}>Loading recommendations...</Text>
+        </View>
+      )}
+
+      {!loading && (
+        <View style={styles.tipsList}>
+          {displayTips.map((tip, index) => (
+            <View key={`tip${index}`} style={styles.tipItem}>
+              <View style={[styles.iconContainer, { backgroundColor: tip.iconBg }]}>
+                <MaterialCommunityIcons
+                  name={tip.icon as any}
+                  size={24}
+                  color={tip.iconColor}
+                />
+              </View>
+              <View style={styles.tipContent}>
+                <Text style={styles.tipTitle}>{tip.title}</Text>
+                <Text style={styles.tipDescription}>{tip.description}</Text>
+                <Text style={styles.tipCategory}>{tip.category}</Text>
+              </View>
             </View>
-            <View style={styles.tipContent}>
-              <Text style={styles.tipTitle}>{tip.title}</Text>
-              <Text style={styles.tipDescription}>{tip.description}</Text>
-              <Text style={styles.tipCategory}>{tip.category}</Text>
-            </View>
-          </View>
-        ))}
-      </View>
+          ))}
+        </View>
+      )}
     </View>
   )
 }
@@ -94,6 +127,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 24,
     fontWeight: '500',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   tipsList: {
     gap: 18,
