@@ -8,6 +8,7 @@ android
 .gemini
 .github/
 .bmad-core
+.agent
 
 # Environment variables
 .env

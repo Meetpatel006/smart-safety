@@ -80,7 +80,9 @@ export default function ReportIssueScreen() {
                     anchor={
                         <TouchableOpacity
                             style={styles.dropdown}
-                            onPress={() => setMenuVisible(true)}
+                            onPress={() => {
+                                if (!menuVisible) setMenuVisible(true)
+                            }}
                             activeOpacity={0.7}
                         >
                             <Text style={styles.dropdownText}>{issueType}</Text>

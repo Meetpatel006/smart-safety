@@ -11,7 +11,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons'
 
 // Import map components
 import MapContainer from '../components/MapboxMap/MapContainer'
-import StyleSelector from '../components/MapboxMap/StyleSelector'
 import { WebViewMessage } from '../components/MapboxMap/types'
 
 // Import overlay UI components
@@ -19,7 +18,8 @@ import {
   TopLocationCard,
   WarningBanner,
   RightActionButtons,
-  MapBottomSheet
+  MapBottomSheet,
+  StyleBottomSheet
 } from '../components/MapboxMap/ui'
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
@@ -41,7 +41,7 @@ export default function EmergencyScreen() {
   const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false)
   const [showWarningBanner, setShowWarningBanner] = useState(true)
   const [showIncidentModal, setShowIncidentModal] = useState(false)
-  const [showStyleSelector, setShowStyleSelector] = useState(false)
+  const [isStyleSheetExpanded, setIsStyleSheetExpanded] = useState(false)
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
 
   // Geofences
@@ -186,7 +186,7 @@ export default function EmergencyScreen() {
 
   const handleStyleChange = (style: string) => {
     setSelectedStyle(style)
-    setShowStyleSelector(false)
+    setIsStyleSheetExpanded(false)
 
     if (webViewRef.current) {
       webViewRef.current.postMessage(JSON.stringify({
@@ -251,24 +251,27 @@ export default function EmergencyScreen() {
       <RightActionButtons
         onCompassPress={getCurrentLocation}
         onDangerFlagPress={() => Alert.alert('Report', 'Report a dangerous location')}
-        onLayersPress={() => setShowStyleSelector(!showStyleSelector)}
-        onSOSPress={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+        onLayersPress={() => {
+          setIsStyleSheetExpanded(prev => !prev)
+          setIsBottomSheetExpanded(false)
+        }}
+        onSOSPress={() => {
+          setIsStyleSheetExpanded(false)
+          setIsBottomSheetExpanded(prev => !prev)
+        }}
       />
 
-      {/* Style Selector Popup */}
-      {showStyleSelector && (
-        <View style={styles.styleSelectorOverlay}>
-          <StyleSelector
-            selectedStyle={selectedStyle}
-            onSelectStyle={handleStyleChange}
-          />
-        </View>
-      )}
+      <StyleBottomSheet
+        isExpanded={isStyleSheetExpanded}
+        onToggle={() => setIsStyleSheetExpanded(prev => !prev)}
+        selectedStyle={selectedStyle}
+        onSelectStyle={handleStyleChange}
+      />
 
       {/* Bottom Sheet */}
       <MapBottomSheet
         isExpanded={isBottomSheetExpanded}
-        onToggle={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+        onToggle={() => setIsBottomSheetExpanded(prev => !prev)}
         onShareLive={handleShareLocation}
         onSOS={handleSOS}
       />
@@ -289,20 +292,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
-  },
-  styleSelectorOverlay: {
-    position: 'absolute',
-    right: 70,
-    top: '35%',
-    zIndex: 95,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
   },
   refreshIndicator: {
     position: 'absolute',

@@ -18,6 +18,10 @@ module.exports = ({ config }) => {
   }
   if (process.env.MAPBOX_DOWNLOADS_TOKEN) {
     config.extra.MAPBOX_DOWNLOADS_TOKEN = process.env.MAPBOX_DOWNLOADS_TOKEN;
+    // Mirror to the new env name used by @rnmapbox/maps to avoid deprecation warnings
+    if (!process.env.RNMAPBOX_MAPS_DOWNLOAD_TOKEN) {
+      process.env.RNMAPBOX_MAPS_DOWNLOAD_TOKEN = process.env.MAPBOX_DOWNLOADS_TOKEN;
+    }
   }
   
   // Groq LLM config - allow injecting API key and model from environment/.env

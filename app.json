@@ -31,12 +31,7 @@
           "locationAlwaysAndWhenInUsePermission": "This app needs access to location to share your current location in emergency situations."
         }
       ],
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsDownloadToken": "extra.MAPBOX_DOWNLOADS_TOKEN"
-        }
-      ]
+      "@rnmapbox/maps"
     ],
     "ios": {
       "supportsTablet": true

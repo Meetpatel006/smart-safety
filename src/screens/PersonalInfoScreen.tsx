@@ -139,7 +139,9 @@ export default function PersonalInfoScreen() {
                                     anchor={
                                         <TouchableOpacity
                                             style={styles.emergencyDropdown}
-                                            onPress={() => setBloodMenuVisible(true)}
+                                            onPress={() => {
+                                                if (!bloodMenuVisible) setBloodMenuVisible(true)
+                                            }}
                                             activeOpacity={0.7}
                                         >
                                             <Ionicons name="water" size={18} color="#ef4444" />

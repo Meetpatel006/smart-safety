@@ -1,4 +1,4 @@
-import { View, StyleSheet, TouchableOpacity, Linking, Alert } from "react-native"
+import { View, StyleSheet, TouchableOpacity, Linking, Alert, InteractionManager } from "react-native"
 import { useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../navigation"
@@ -49,6 +49,11 @@ export default function AccountPreferencesSection() {
     const toggleMuteAll = async (v: boolean) => {
         setMuteAllAlerts(v)
         await setGlobalMute(v)
+    }
+
+    const openLanguageMenu = () => {
+        if (languageMenuVisible) return
+        InteractionManager.runAfterInteractions(() => setLanguageMenuVisible(true))
     }
 
     // Get current language display name
@@ -123,18 +128,20 @@ export default function AccountPreferencesSection() {
             <View style={styles.card}>
                 {/* Mute All High-Risk Alerts */}
                 <View style={[styles.listItem, { paddingVertical: 5 }]}>
-                    <View style={styles.listItemLeft}>
+                    <View style={[styles.listItemLeft, styles.listItemLeftGrow]}>
                         <MaterialCommunityIcons name="bell-off-outline" size={22} color="#ef4444" />
                         <View style={{ flex: 1 }}>
                             <Text style={styles.listItemText}>Mute All High-Risk Alerts</Text>
                             <Text style={styles.listItemSubtext}>Temporarily silence all safety notifications</Text>
                         </View>
                     </View>
-                    <Switch
-                        value={muteAllAlerts}
-                        onValueChange={toggleMuteAll}
-                        color="#ef4444"
-                    />
+                    <View style={styles.switchContainer}>
+                        <Switch
+                            value={muteAllAlerts}
+                            onValueChange={toggleMuteAll}
+                            color="#ef4444"
+                        />
+                    </View>
                 </View>
 
                 <View style={styles.divider} />
@@ -218,20 +225,22 @@ export default function AccountPreferencesSection() {
                     visible={languageMenuVisible}
                     onDismiss={() => setLanguageMenuVisible(false)}
                     anchor={
-                        <TouchableOpacity
-                            style={styles.listItem}
-                            activeOpacity={0.7}
-                            onPress={() => setLanguageMenuVisible(true)}
-                        >
-                            <View style={styles.listItemLeft}>
-                                <MaterialIcons name="language" size={22} color="#1e40af" />
-                                <Text style={styles.listItemText}>Language</Text>
-                            </View>
-                            <View style={styles.valueContainer}>
-                                <Text style={styles.valueText}>{getLanguageDisplay()}</Text>
-                                <Ionicons name="chevron-down" size={20} color="#9ca3af" />
-                            </View>
-                        </TouchableOpacity>
+                        <View collapsable={false}>
+                            <TouchableOpacity
+                                style={styles.listItem}
+                                activeOpacity={0.7}
+                                onPress={openLanguageMenu}
+                            >
+                                <View style={styles.listItemLeft}>
+                                    <MaterialIcons name="language" size={22} color="#1e40af" />
+                                    <Text style={styles.listItemText}>Language</Text>
+                                </View>
+                                <View style={styles.valueContainer}>
+                                    <Text style={styles.valueText}>{getLanguageDisplay()}</Text>
+                                    <Ionicons name="chevron-down" size={20} color="#9ca3af" />
+                                </View>
+                            </TouchableOpacity>
+                        </View>
                     }
                 >
                     <Menu.Item
@@ -318,6 +327,9 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         gap: 14,
     },
+    listItemLeftGrow: {
+        flex: 1,
+    },
     listItemText: {
         fontSize: 15,
         fontWeight: '500',
@@ -342,6 +354,12 @@ const styles = StyleSheet.create({
     valueText: {
         fontSize: 14,
         color: '#6b7280',
+    },
+
+    switchContainer: {
+        paddingLeft: 12,
+        paddingRight: 6,
+        justifyContent: 'center',
     },
 
     dividerFull: {
