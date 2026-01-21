@@ -311,14 +311,22 @@ export function RootNavigator() {
   // Members must have a groupId.
   const memberHasGroup = !!user?.groupId && user?.groupId !== "joined"; // "joined" is a temp state in some contexts, but let's stick to truthy
 
-  // Determine initial route for authenticated users
-  let initialRoute = "Main";
-  if (state.justRegistered) {
+  // Determine initial route based on authentication and onboarding state
+  let initialRoute: keyof RootStackParamList;
+
+  if (!state.user) {
+    // Unauthenticated users should always start at the Auth stack
+    initialRoute = "Auth";
+  } else {
+    // Authenticated users default to Main, with onboarding flows for just-registered users
+    initialRoute = "Main";
+    if (state.justRegistered) {
       if (isGroupMember && !memberHasGroup) {
-          initialRoute = "JoinGroup";
+        initialRoute = "JoinGroup";
       } else if (isTourAdmin && !adminHasGroup) {
-          initialRoute = "CreateTrip";
+        initialRoute = "CreateTrip";
       }
+    }
   }
 
   return (
