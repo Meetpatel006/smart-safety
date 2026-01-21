@@ -3,17 +3,57 @@ import { Text, useTheme, FAB } from "react-native-paper"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { BlurView } from "expo-blur"
 
 export type FilterType = "all" | "upcoming" | "completed"
+
+import GroupItineraryList from "../components/GroupItineraryList"
+
+// ... existing imports
 
 export default function ItineraryScreen() {
   const { state } = useApp()
   const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterType>("all")
+  
+  // Group Logic
+  const isGroupUser = state.user?.role === 'group-member' || state.user?.role === 'tour-admin';
+  const [groupItinerary, setGroupItinerary] = useState<any[]>([]);
+  const [groupInfo, setGroupInfo] = useState<any>(null); // Store full group details
+  const [loadingGroup, setLoadingGroup] = useState(false);
+
+  useEffect(() => {
+    if (isGroupUser && state.token) {
+      setLoadingGroup(true);
+      import("../utils/api")
+        .then(({ getGroupDashboard }) => {
+          if (typeof getGroupDashboard !== "function") {
+            throw new Error("getGroupDashboard is not a function");
+          }
+          return getGroupDashboard(state.token!);
+        })
+        .then((data) => {
+          const grp = data?.data || (data?.success ? data.group : null);
+          if (grp) {
+            if (grp.itinerary) setGroupItinerary(grp.itinerary);
+            setGroupInfo({
+              groupName: grp.groupName,
+              accessCode: grp.accessCode,
+              members: grp.members || [],
+            });
+          }
+        })
+        .catch((err) => {
+          console.log("Error fetching group itinerary", err);
+        })
+        .finally(() => {
+          setLoadingGroup(false);
+        });
+    }
+  }, [isGroupUser, state.token]);
 
   const handleAddTrip = () => {
     if (itineraryListRef.current) {
@@ -27,6 +67,31 @@ export default function ItineraryScreen() {
     { key: "completed", label: "Completed", icon: "check-circle-outline" },
   ]
 
+  // Render Group View
+  if (isGroupUser) {
+     return (
+        <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+            <View style={styles.headerSection}>
+                <View style={styles.titleRow}>
+                    <View>
+                        <Text style={styles.greeting}>Together We Travel</Text>
+                        <Text style={styles.pageTitle}>Group Itinerary</Text>
+                    </View>
+                </View>
+            </View>
+            {loadingGroup ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text>Loading itinerary...</Text>
+                </View>
+            ) : (
+                <GroupItineraryList days={groupItinerary} groupInfo={groupInfo} />
+            )}
+        </View>
+     );
+  }
+
+  // Render Solo View (Existing)
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />

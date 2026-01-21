@@ -1,39 +1,44 @@
-import { createNativeStackNavigator } from "@react-navigation/native-stack"
-import { createBottomTabNavigator } from "@react-navigation/bottom-tabs"
-import LoginScreen from "../screens/auth/LoginScreen"
-import RegisterScreen from "../screens/auth/RegisterScreen"
-import DashboardScreen from "../screens/DashboardScreen"
-import ItineraryScreen from "../screens/ItineraryScreen"
-import EmergencyScreen from "../screens/EmergencyScreen"
-import SettingsScreen from "../screens/SettingsScreen"
-import HelpCenterScreen from "../screens/HelpCenterScreen"
-import ReportIssueScreen from "../screens/ReportIssueScreen"
-import PersonalInfoScreen from "../screens/PersonalInfoScreen"
-import AppSettingsScreen from "../screens/AppSettingsScreen"
-import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen"
-import { useApp } from "../context/AppContext"
-import { MaterialCommunityIcons } from "@expo/vector-icons"
-import { useTheme } from "react-native-paper"
-import DashboardLogo from "../components/Icons/DashboardLogo"
-import { View, Text, StyleSheet } from "react-native"
-import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo"
-import SettingsIcon from "../components/Icons/SettingsIcon"
-import ItineraryIcon from "../components/Icons/ItineraryIcon"
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import LoginScreen from "../screens/auth/LoginScreen";
+import RegisterScreen from "../screens/auth/RegisterScreen";
+import DashboardScreen from "../screens/DashboardScreen";
+import ItineraryScreen from "../screens/ItineraryScreen";
+import EmergencyScreen from "../screens/EmergencyScreen";
+import SettingsScreen from "../screens/SettingsScreen";
+import HelpCenterScreen from "../screens/HelpCenterScreen";
+import ReportIssueScreen from "../screens/ReportIssueScreen";
+import PersonalInfoScreen from "../screens/PersonalInfoScreen";
+import AppSettingsScreen from "../screens/AppSettingsScreen";
+import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen";
+import { useApp } from "../context/AppContext";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { useTheme } from "react-native-paper";
+import DashboardLogo from "../components/Icons/DashboardLogo";
+import { View, Text, StyleSheet } from "react-native";
+import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo";
+import SettingsIcon from "../components/Icons/SettingsIcon";
+import ItineraryIcon from "../components/Icons/ItineraryIcon";
+
+import CreateTripScreen from "../screens/CreateTripScreen";
+import JoinGroupScreen from "../screens/JoinGroupScreen";
 
 export type RootStackParamList = {
-  Auth: undefined
-  Main: undefined
-  Authority: undefined
-  HelpCenter: undefined
-  ReportIssue: undefined
-  PersonalInfo: undefined
-  AppSettings: undefined
-  GeoFenceDebug: undefined
+  Auth: undefined;
+  Main: undefined;
+  CreateTrip: undefined;
+  JoinGroup: undefined;
+  Authority: undefined;
+  HelpCenter: undefined;
+  ReportIssue: undefined;
+  PersonalInfo: undefined;
+  AppSettings: undefined;
+  GeoFenceDebug: undefined;
   // Transitions: undefined
-}
+};
 
-const Stack = createNativeStackNavigator<RootStackParamList>()
-const Tab = createBottomTabNavigator()
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
 
 function TabBarBackground() {
   return (
@@ -51,13 +56,13 @@ function TabBarBackground() {
         elevation: 8,
       }}
     />
-  )
+  );
 }
 
 function MainTabs() {
-  const theme = useTheme()
-  const activeColor = '#3b82f6'
-  const inactiveColor = '#9ca3af'
+  const theme = useTheme();
+  const activeColor = "#3b82f6";
+  const inactiveColor = "#9ca3af";
 
   return (
     <Tab.Navigator
@@ -93,11 +98,28 @@ function MainTabs() {
         component={DashboardScreen}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
-              <DashboardLogo color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: 60,
+              }}
+            >
+              <DashboardLogo
+                color={focused ? activeColor : inactiveColor}
+                size={26}
+                filled={focused}
+              />
               {focused && (
                 <>
-                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: activeColor,
+                      fontSize: 10,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                  >
                     Dashboard
                   </Text>
                   <View
@@ -120,11 +142,28 @@ function MainTabs() {
         component={EmergencyScreen}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
-              <EmergencyMapLogo color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: 60,
+              }}
+            >
+              <EmergencyMapLogo
+                color={focused ? activeColor : inactiveColor}
+                size={26}
+                filled={focused}
+              />
               {focused && (
                 <>
-                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: activeColor,
+                      fontSize: 10,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                  >
                     Emergency
                   </Text>
                   <View
@@ -147,11 +186,28 @@ function MainTabs() {
         component={ItineraryScreen}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
-              <ItineraryIcon color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: 60,
+              }}
+            >
+              <ItineraryIcon
+                color={focused ? activeColor : inactiveColor}
+                size={26}
+                filled={focused}
+              />
               {focused && (
                 <>
-                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: activeColor,
+                      fontSize: 10,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                  >
                     Itinerary
                   </Text>
                   <View
@@ -174,11 +230,28 @@ function MainTabs() {
         component={SettingsScreen}
         options={{
           tabBarIcon: ({ focused, color }) => (
-            <View style={{ alignItems: "center", justifyContent: "center", height: 60 }}>
-              <SettingsIcon color={focused ? activeColor : inactiveColor} size={26} filled={focused} />
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: 60,
+              }}
+            >
+              <SettingsIcon
+                color={focused ? activeColor : inactiveColor}
+                size={26}
+                filled={focused}
+              />
               {focused && (
                 <>
-                  <Text style={{ color: activeColor, fontSize: 10, marginTop: 2, fontWeight: "600" }}>
+                  <Text
+                    style={{
+                      color: activeColor,
+                      fontSize: 10,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                  >
                     Settings
                   </Text>
                   <View
@@ -204,28 +277,84 @@ function MainTabs() {
         }}
       /> */}
     </Tab.Navigator>
-  )
+  );
 }
 
 function AuthStack() {
-  const StackAuth = createNativeStackNavigator()
+  const StackAuth = createNativeStackNavigator();
   return (
     <StackAuth.Navigator>
-      <StackAuth.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
-      <StackAuth.Screen name="Register" component={RegisterScreen} options={{ title: "Register" }} />
+      <StackAuth.Screen
+        name="Login"
+        component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <StackAuth.Screen
+        name="Register"
+        component={RegisterScreen}
+        options={{ title: "Register" }}
+      />
     </StackAuth.Navigator>
-  )
+  );
 }
 
 export function RootNavigator() {
-  const { state } = useApp()
+  const { state } = useApp();
+  const user = state.user as any;
+  
+  const isTourAdmin = user?.role === "tour-admin";
+  const isGroupMember = user?.role === "group-member";
+  
+  // Strict checks for specific roles
+  // Admins must have an ownedGroupId. If they have a groupId but no ownedGroupId, they still need to create a trip.
+  const adminHasGroup = !!user?.ownedGroupId;
+  // Members must have a groupId.
+  const memberHasGroup = !!user?.groupId && user?.groupId !== "joined"; // "joined" is a temp state in some contexts, but let's stick to truthy
+
+  // Determine initial route based on authentication and onboarding state
+  let initialRoute: keyof RootStackParamList;
+
+  if (!state.user) {
+    // Unauthenticated users should always start at the Auth stack
+    initialRoute = "Auth";
+  } else {
+    // Authenticated users default to Main, with onboarding flows for just-registered users
+    initialRoute = "Main";
+    if (state.justRegistered) {
+      if (isGroupMember && !memberHasGroup) {
+        initialRoute = "JoinGroup";
+      } else if (isTourAdmin && !adminHasGroup) {
+        initialRoute = "CreateTrip";
+      }
+    }
+  }
+
   return (
-    <Stack.Navigator>
+    // Unique key forces remount on login/logout so initialRouteName is re-evaluated
+    <Stack.Navigator key={state.user ? "authenticated" : "guest"} initialRouteName={initialRoute}>
       {!state.user ? (
-        <Stack.Screen name="Auth" component={AuthStack} options={{ headerShown: false }} />
+        <Stack.Screen
+          name="Auth"
+          component={AuthStack}
+          options={{ headerShown: false }}
+        />
       ) : (
         <>
-          <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Main"
+            component={MainTabs}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="CreateTrip"
+            component={CreateTripScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="JoinGroup"
+            component={JoinGroupScreen}
+            options={{ headerShown: false }}
+          />
           <Stack.Screen
             name="Authority"
             component={AuthorityDashboardScreen}
@@ -264,5 +393,5 @@ export function RootNavigator() {
         </>
       )}
     </Stack.Navigator>
-  )
+  );
 }
