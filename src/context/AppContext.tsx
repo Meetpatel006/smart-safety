@@ -750,7 +750,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   : null, // Assuming User type will allow this flexible expansion or we ignore TS error for now
                 // Also rebuild trips
                 trips: itineraryToTrips(groupData.itinerary || []),
-              }) as any,
+              }) as typeof defaultState,
           );
 
           return {
