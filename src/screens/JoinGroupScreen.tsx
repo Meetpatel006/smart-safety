@@ -13,13 +13,11 @@ import {
   Button,
   Card,
   HelperText,
-  useTheme,
 } from "react-native-paper";
 import { useApp } from "../context/AppContext";
 
 export default function JoinGroupScreen({ navigation }: any) {
   const { joinGroup, logout } = useApp();
-  const theme = useTheme();
 
   const [accessCode, setAccessCode] = useState("");
   const [loading, setLoading] = useState(false);
