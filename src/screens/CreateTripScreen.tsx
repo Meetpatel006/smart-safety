@@ -357,7 +357,7 @@ export default function CreateTripScreen({ navigation }: any) {
                         mode="outlined"
                         style={{ flex: 1, marginRight: 8, backgroundColor: 'white' }}
                         outlineStyle={{ borderRadius: 8 }}
-                        placeholder="lat, lng" // Simplified placeholder
+                        placeholder="Latitude, Longitude (e.g. 28.6139, 77.2090)" // Explicit format: lat, lng
                         value={node.coords}
                         onChangeText={(text) =>
                           updateNode(dayIndex, nodeIndex, "coords", text)
