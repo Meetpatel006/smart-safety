@@ -620,19 +620,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
           if (!userData) throw new Error("Failed to fetch user data");
         
-          // PATCH: If role is missing from backend response (common issue), extract from token
+          // Frontend-only fallback: if role is missing from the backend response, try to derive it from the
+          // JWT token returned by apiLogin. This assumes the backend has already validated and signed the token
+          // and that the claims can be trusted for read-only UI purposes. If the backend does not include `role`
+          // in its tourist data, this is a known limitation and should ideally be fixed on the backend instead
+          // of relying on this client-side workaround.
           if (!userData.role && data.token) {
              const decoded = parseJwt(data.token);
              if (decoded && decoded.role) {
                 userData.role = decoded.role;
-                console.log("Patched user role from token:", userData.role);
+                console.log("Patched user role from token (frontend fallback):", userData.role);
              }
           }
           
-          // PATCH: Ensure ownedGroupId is preserved or set if admin
+          // Frontend note: `ownedGroupId` is expected to come from the backend. For new admins it may legitimately
+          // be missing until a group is created. If this becomes a problem, prefer fixing the backend contract
+          // rather than inferring it from JWT or other client-side data.
           if (userData.role === 'tour-admin' && !userData.ownedGroupId) {
-              // It's possibly acceptable to have no ownedGroupId yet (new admin)
-              // But if the token has it (unlikely), we could grab it.
+              // It's possibly acceptable to have no ownedGroupId yet (new admin).
+              // Intentionally not inferring ownedGroupId from the token here to avoid relying on unvalidated claims.
           }
 
 
