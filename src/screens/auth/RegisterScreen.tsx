@@ -69,7 +69,7 @@ export default function RegisterScreen({ navigation }: any) {
         emergencyContact:
           role === "solo"
             ? { name: emergencyContactName, phone: emergencyContactPhone }
-            : { name: "Not Applicable", phone: "0000000000" }, // Backend requires this field
+            : { name, phone },
         language: lang,
         tripEndDate: role === "solo" ? tripEndDate : undefined,
       });
