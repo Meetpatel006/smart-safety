@@ -331,7 +331,7 @@ export function RootNavigator() {
 
   return (
     // Unique key forces remount on login/logout so initialRouteName is re-evaluated
-    <Stack.Navigator key={state.user ? "auth" : "guest"} initialRouteName={initialRoute}>
+    <Stack.Navigator key={state.user ? "authenticated" : "guest"} initialRouteName={initialRoute}>
       {!state.user ? (
         <Stack.Screen
           name="Auth"
