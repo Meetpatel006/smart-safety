@@ -34,22 +34,16 @@ import {
   createGroup as apiCreateGroup,
 } from "../utils/api";
 import * as Location from "expo-location";
+import { Buffer } from "buffer";
 
-// Ensure Buffer is available
-if (typeof Buffer === 'undefined') {
-  global.Buffer = require('buffer').Buffer;
-}
-
-// Polyfill atob if needed (simple version for JWT payload decoding)
-if (typeof global.atob === 'undefined') {
-  global.atob = function (str) {
-    return Buffer.from(str, 'base64').toString('binary');
-  };
-}
+const decodeBase64 = (str: string): string => {
+  return Buffer.from(str, "base64").toString("binary");
+};
 
 const parseJwt = (token: string) => {
   try {
-    return JSON.parse(atob(token.split('.')[1]));
+    const payload = token.split(".")[1];
+    return JSON.parse(decodeBase64(payload));
   } catch (e) {
     return null;
   }
