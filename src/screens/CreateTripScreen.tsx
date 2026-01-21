@@ -135,14 +135,29 @@ export default function CreateTripScreen({ navigation }: any) {
         dayNumber: day.dayNumber,
         date: day.date,
         nodes: day.nodes.map((node) => {
-          let coordinates = [0, 0];
+          let coordinates: [number, number] = [0, 0];
           if (node.coords) {
             const parts = node.coords
               .split(",")
               .map((s) => parseFloat(s.trim()));
             if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
-              // Assuming user enters "lat, lng", sending [lng, lat]
-              coordinates = [parts[1], parts[0]];
+              const first = parts[0];
+              const second = parts[1];
+              const isValidLat = (v: number) => v >= -90 && v <= 90;
+              const isValidLng = (v: number) => v >= -180 && v <= 180;
+
+              // Prefer interpreting as "lat, lng" (backwards compatible),
+              // but also handle "lng, lat". GeoJSON expects [lng, lat].
+              if (isValidLat(first) && isValidLng(second)) {
+                // "lat, lng" -> [lng, lat]
+                coordinates = [second, first];
+              } else if (isValidLat(second) && isValidLng(first)) {
+                // "lng, lat" -> [lng, lat]
+                coordinates = [first, second];
+              } else {
+                // Fallback to original assumption to avoid breaking existing data
+                coordinates = [second, first];
+              }
             }
           }
           return {
