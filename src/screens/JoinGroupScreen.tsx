@@ -38,9 +38,7 @@ export default function JoinGroupScreen({ navigation }: any) {
       const res = await joinGroup(accessCode);
       if (res.ok) {
         setMsg({ type: "success", text: "Joined successfully!" });
-        Alert.alert("Success", "You have joined the group.", [
-          { text: "Go to Dashboard", onPress: () => {} }, // Navigation will automagically switch due to state change
-        ]);
+        Alert.alert("Success", "You have joined the group.");
       } else {
         setMsg({ type: "error", text: res.message || "Failed to join group." });
       }
