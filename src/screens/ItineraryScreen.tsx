@@ -27,23 +27,30 @@ export default function ItineraryScreen() {
 
   useEffect(() => {
     if (isGroupUser && state.token) {
-        setLoadingGroup(true);
-        import('../utils/api').then(({ getGroupDashboard }) => {
-            getGroupDashboard(state.token!).then(data => {
-                const grp = data?.data || (data?.success ? data.group : null);
-                if (grp) {
-                    if (grp.itinerary) setGroupItinerary(grp.itinerary);
-                    setGroupInfo({
-                        groupName: grp.groupName,
-                        accessCode: grp.accessCode,
-                        members: grp.members || []
-                    });
-                }
-            }).catch(err => {
-                console.log("Error fetching group itinerary", err);
-            }).finally(() => {
-                setLoadingGroup(false);
+      setLoadingGroup(true);
+      import("../utils/api")
+        .then(({ getGroupDashboard }) => {
+          if (typeof getGroupDashboard !== "function") {
+            throw new Error("getGroupDashboard is not a function");
+          }
+          return getGroupDashboard(state.token!);
+        })
+        .then((data) => {
+          const grp = data?.data || (data?.success ? data.group : null);
+          if (grp) {
+            if (grp.itinerary) setGroupItinerary(grp.itinerary);
+            setGroupInfo({
+              groupName: grp.groupName,
+              accessCode: grp.accessCode,
+              members: grp.members || [],
             });
+          }
+        })
+        .catch((err) => {
+          console.log("Error fetching group itinerary", err);
+        })
+        .finally(() => {
+          setLoadingGroup(false);
         });
     }
   }, [isGroupUser, state.token]);
