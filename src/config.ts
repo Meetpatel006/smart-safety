@@ -4,7 +4,7 @@ import Constants from "expo-constants";
 export const SERVER_URL =
   Constants.expoConfig?.extra?.SERVER_URL ||
   process.env.SERVER_URL ||
-  "https://de6a696bf0db.ngrok-free.app";
+  "https://tourist-safety-api.taskhub.me";
 
 // AI model URLs for getting safety score predictions
 export const GEO_MODEL_URL =

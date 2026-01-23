@@ -127,6 +127,7 @@ type AppContextValue = {
   createGroup: (
     groupData: any,
   ) => Promise<{ ok: boolean; message: string; groupId?: string }>;
+  updateGroupItinerary: (itinerary: any[]) => Promise<{ ok: boolean; message: string }>;
   logout: () => Promise<void>;
   updateProfile: (patch: Partial<NonNullable<User>>) => Promise<void>;
   addContact: (c: Omit<Contact, "id">) => void;
@@ -135,6 +136,7 @@ type AppContextValue = {
   addTrip: (t: Omit<Trip, "id">) => Promise<void>;
   updateTrip: (id: string, patch: Partial<Trip>) => Promise<void>;
   removeTrip: (id: string) => Promise<void>;
+  updateTripsFromBackend: () => Promise<void>;
   toggleShareLocation: () => void;
   setOffline: (v: boolean) => void;
   setLanguage: (lang: Lang) => void;
@@ -740,15 +742,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (!token) throw new Error("Not authenticated");
           const data = await apiCreateGroup(token, groupData);
 
-          // Update local user state to reflect ownedGroupId
+          // Update local user state to reflect ownedGroupId and role change
           setState(
             (prev) =>
               ({
                 ...prev,
                 user: prev.user
-                  ? { ...prev.user, ownedGroupId: data.data?.groupId }
-                  : null, // Assuming User type will allow this flexible expansion or we ignore TS error for now
-                // Also rebuild trips
+                  ? { 
+                      ...prev.user, 
+                      ownedGroupId: data.data?.groupId,
+                      role: "tour-admin" as const,
+                      groupId: data.data?.groupId
+                    }
+                  : null,
+                // Also rebuild trips from the itinerary
                 trips: itineraryToTrips(groupData.itinerary || []),
               }) as typeof defaultState,
           );
@@ -762,6 +769,38 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           return {
             ok: false,
             message: error.message || "Failed to create group",
+          };
+        }
+      },
+      async updateGroupItinerary(itinerary) {
+        try {
+          const token = tokenRef.current;
+          if (!token) throw new Error("Not authenticated");
+          
+          const { updateGroupItinerary: apiUpdateGroupItinerary } = await import("../utils/api");
+          const data = await apiUpdateGroupItinerary(token, itinerary);
+
+          if (data?.success) {
+            // Update local trips from the updated itinerary
+            setState(
+              (prev) =>
+                ({
+                  ...prev,
+                  trips: itineraryToTrips(itinerary || []),
+                }) as typeof defaultState,
+            );
+
+            return {
+              ok: true,
+              message: "Group itinerary updated successfully",
+            };
+          } else {
+            throw new Error(data?.message || "Failed to update itinerary");
+          }
+        } catch (error: any) {
+          return {
+            ok: false,
+            message: error.message || "Failed to update group itinerary",
           };
         }
       },
@@ -799,46 +838,53 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addTrip: async (t) => {
         const newTrip = { ...t, id: `t${Date.now()}` };
         const updatedTrips = [...state.trips, newTrip];
-        const itinerary = tripsToItinerary(updatedTrips);
-        try {
-          if (state.token) {
-            await getTouristData(state.token, "PATCH", { itinerary });
-          }
-          setState((s) => ({ ...s, trips: updatedTrips }));
-        } catch (error) {
-          console.error("Failed to sync trip addition with API:", error);
-          // Still update local state for offline functionality
-          setState((s) => ({ ...s, trips: updatedTrips }));
-        }
+        // Note: Backend doesn't support PATCH /api/tourist/me for updating trips
+        // Trips are stored locally only. Use createGroup API for group itineraries.
+        setState((s) => ({ ...s, trips: updatedTrips }));
       },
       updateTrip: async (id, patch) => {
         const updatedTrips = state.trips.map((tr) =>
           tr.id === id ? { ...tr, ...patch } : tr,
         );
-        const itinerary = tripsToItinerary(updatedTrips);
-        try {
-          if (state.token) {
-            await getTouristData(state.token, "PATCH", { itinerary });
-          }
-          setState((s) => ({ ...s, trips: updatedTrips }));
-        } catch (error) {
-          console.error("Failed to sync trip update with API:", error);
-          // Still update local state for offline functionality
-          setState((s) => ({ ...s, trips: updatedTrips }));
-        }
+        // Note: Backend doesn't support PATCH /api/tourist/me for updating trips
+        // Trips are stored locally only. Use createGroup API for group itineraries.
+        setState((s) => ({ ...s, trips: updatedTrips }));
       },
       removeTrip: async (id) => {
         const updatedTrips = state.trips.filter((tr) => tr.id !== id);
-        const itinerary = tripsToItinerary(updatedTrips);
+        // Note: Backend doesn't support PATCH /api/tourist/me for updating trips
+        // Trips are stored locally only. Use createGroup API for group itineraries.
+        setState((s) => ({ ...s, trips: updatedTrips }));
+      },
+      updateTripsFromBackend: async () => {
         try {
-          if (state.token) {
-            await getTouristData(state.token, "PATCH", { itinerary });
+          if (!state.token) {
+            throw new Error("Not authenticated");
           }
-          setState((s) => ({ ...s, trips: updatedTrips }));
+          console.log('AppContext: Fetching user data from getGroupDashboard...');
+          
+          const { getGroupDashboard } = await import("../utils/api");
+          const data = await getGroupDashboard(state.token);
+          
+          console.log('AppContext: Raw data from API:', JSON.stringify(data, null, 2));
+          
+          // Handle response structure: data.data is the actual group/user data
+          const userData = data?.data || data;
+          console.log('AppContext: Extracted user data:', userData);
+          
+          if (userData && userData.itinerary) {
+            console.log('AppContext: Found itinerary:', userData.itinerary);
+            const trips = itineraryToTrips(userData.itinerary);
+            console.log('AppContext: Converted trips:', trips);
+            setState((s) => ({ ...s, trips }));
+            console.log("Trips updated from backend:", trips.length);
+          } else {
+            console.log('AppContext: No itinerary found in response');
+            setState((s) => ({ ...s, trips: [] }));
+          }
         } catch (error) {
-          console.error("Failed to sync trip removal with API:", error);
-          // Still update local state for offline functionality
-          setState((s) => ({ ...s, trips: updatedTrips }));
+          console.error("Failed to fetch trips from backend:", error);
+          throw error;
         }
       },
       toggleShareLocation() {

@@ -347,6 +347,34 @@ export const itineraryToTrips = (
   itinerary: any[],
 ): { id: string; title: string; date: string; notes?: string }[] => {
   const baseTs = Date.now();
+  
+  // If itinerary is empty, return empty array
+  if (!Array.isArray(itinerary) || itinerary.length === 0) {
+    return [];
+  }
+  
+  // Check if this is the day-wise structure from API (has dayNumber and nodes)
+  if (itinerary[0] && typeof itinerary[0] === 'object' && itinerary[0].nodes) {
+    // Convert day-wise structure to trips
+    return itinerary.flatMap((day: any, dayIndex: number) => {
+      if (!day.nodes || !Array.isArray(day.nodes)) return [];
+      
+      return day.nodes.map((node: any, nodeIndex: number) => {
+        const title = node.name || node.locationName || 'Unknown Location';
+        const date = day.date || '';
+        const notes = `Day ${day.dayNumber || dayIndex + 1} - ${node.type} at ${node.scheduledTime || 'TBD'}`;
+        
+        return {
+          id: `t${baseTs}_d${dayIndex}_n${nodeIndex}`,
+          title,
+          date,
+          notes,
+        };
+      });
+    });
+  }
+  
+  // Handle simple string/object array format
   return itinerary.map((item: any, index: number) => {
     if (typeof item === "string") {
       // Parse string format: "Title (Date) - Notes" or "Title (Date)" or "Title"
@@ -393,6 +421,10 @@ export const joinGroup = async (token, accessCode) => {
 
 export const createGroup = async (token, groupData) => {
   try {
+    console.log("API: Making POST request to /api/group/create");
+    console.log("Token:", token ? "Present" : "Missing");
+    console.log("Request body:", JSON.stringify(groupData, null, 2));
+    
     const response = await fetch(`${SERVER_URL}/api/group/create`, {
       method: "POST",
       headers: {
@@ -401,10 +433,44 @@ export const createGroup = async (token, groupData) => {
       },
       body: JSON.stringify(groupData),
     });
+    
+    console.log("Response status:", response.status);
+    
     const res = await handleResponse(response);
+    
+    console.log("API: createGroup response:", res);
+    
     return res;
   } catch (e) {
     console.error("API: createGroup error", { error: e?.message || e });
+    throw e;
+  }
+};
+
+export const updateGroupItinerary = async (token, itinerary) => {
+  try {
+    console.log("API: Making PUT request to /api/group/update");
+    console.log("Token:", token ? "Present" : "Missing");
+    console.log("Request body:", JSON.stringify({ itinerary }, null, 2));
+    
+    const response = await fetch(`${SERVER_URL}/api/group/update`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ itinerary }),
+    });
+    
+    console.log("Response status:", response.status);
+    
+    const res = await handleResponse(response);
+    
+    console.log("API: updateGroupItinerary response:", res);
+    
+    return res;
+  } catch (e) {
+    console.error("API: updateGroupItinerary error", { error: e?.message || e });
     throw e;
   }
 };
