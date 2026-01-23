@@ -6,9 +6,35 @@ import SafetyRecommendations from "../components/SafetyRecommendations"
 import PanicActions from "../components/PanicActions"
 import Weather from "../components/Weather"
 import EmergencyServicesCard from "../components/EmergencyServicesCard"
+import { useEffect, useState } from "react"
+import { getGroupDashboard } from "../utils/api"
+import GroupStatusCard from "../components/GroupStatusCard"
 
 export default function DashboardScreen({ navigation }: any) {
   const { state } = useApp()
+  const [groupData, setGroupData] = useState<any>(null)
+
+  useEffect(() => {
+    const fetchGroupData = async () => {
+      if (state.user && state.user.role !== 'solo' && state.token) {
+        try {
+          const data = await getGroupDashboard(state.token)
+          // The API might return { group: {...}, itinerary: ... } or just the group object
+          // Let's assume the response structure matches what we need
+          if (data && data.group) {
+              setGroupData(data.group);
+          } else if (data && data.groupName) {
+              // Direct group object
+              setGroupData(data);
+          }
+        } catch (e) {
+          console.log("Failed to fetch group dashboard", e)
+        }
+      }
+    }
+    
+    fetchGroupData()
+  }, [state.user, state.token])
 
   // Extract city/region from address or use default
   const getLocationDisplay = () => {
@@ -47,6 +73,17 @@ export default function DashboardScreen({ navigation }: any) {
         <View style={styles.sosSection}>
           <PanicActions />
         </View>
+
+        {/* Group Status Card (Only if groupData exists) */}
+        {groupData && (
+          <View style={styles.section}>
+            <GroupStatusCard 
+              groupName={groupData.groupName || groupData.name || "My Group"} 
+              accessCode={groupData.accessCode || "Unknown"}
+              memberCount={groupData.members ? groupData.members.length : 1}
+            />
+          </View>
+        )}
 
         {/* Safety Score Card */}
         <View style={styles.section}>

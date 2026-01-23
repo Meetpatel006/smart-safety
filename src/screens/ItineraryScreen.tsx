@@ -3,22 +3,51 @@ import { Text, useTheme, FAB } from "react-native-paper"
 import ItineraryList from "../components/ItineraryList"
 import { t } from "../context/translations"
 import { useApp } from "../context/AppContext"
-import { useRef, useState } from "react"
+import { useRef, useState, useEffect } from "react"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { BlurView } from "expo-blur"
 
 export type FilterType = "all" | "upcoming" | "completed"
 
+import CreateGroupItineraryModal from "../components/CreateGroupItineraryModal"
+import EditGroupItineraryModal from "../components/EditGroupItineraryModal"
+
 export default function ItineraryScreen() {
-  const { state } = useApp()
+  const { state, updateTripsFromBackend } = useApp()
   const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
   const [activeFilter, setActiveFilter] = useState<FilterType>("all")
+  const [loadingTrips, setLoadingTrips] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
 
-  const handleAddTrip = () => {
-    if (itineraryListRef.current) {
-      itineraryListRef.current.openNew()
+  // Fetch trips for solo users
+  useEffect(() => {
+    console.log('ItineraryScreen: Fetching trips...', 'token=', !!state.token, 'existing trips=', state.trips?.length);
+    if (state.token) {
+      console.log('ItineraryScreen: Fetching trips for user...');
+      setLoadingTrips(true);
+      updateTripsFromBackend()
+        .then(() => {
+          console.log('ItineraryScreen: Trips fetched successfully, current count=', state.trips?.length);
+        })
+        .catch((err) => {
+          console.log("Error fetching user trips", err);
+        })
+        .finally(() => {
+          setLoadingTrips(false);
+        });
     }
+  }, [state.token]);
+
+  const handleCreateGroupItinerary = () => {
+    console.log("➕ Opening Create Group Itinerary modal");
+    setShowCreateModal(true);
+  }
+
+  const handleGroupCreated = () => {
+    console.log("✅ Group created successfully!");
+    setShowCreateModal(false);
   }
 
   const filters: { key: FilterType; label: string; icon: string }[] = [
@@ -27,6 +56,7 @@ export default function ItineraryScreen() {
     { key: "completed", label: "Completed", icon: "check-circle-outline" },
   ]
 
+  // Always render Solo/Itinerary View
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
@@ -36,12 +66,8 @@ export default function ItineraryScreen() {
         {/* Title Row */}
         <View style={styles.titleRow}>
           <View>
-            <Text style={styles.greeting}>Your Adventures</Text>
             <Text style={styles.pageTitle}>My Trips</Text>
           </View>
-          <TouchableOpacity style={styles.searchButton}>
-            <MaterialCommunityIcons name="magnify" size={22} color="#64748B" />
-          </TouchableOpacity>
         </View>
 
         {/* Filter Pills */}
@@ -75,13 +101,58 @@ export default function ItineraryScreen() {
 
       {/* Trip List */}
       <View style={styles.listContainer}>
-        <ItineraryList ref={itineraryListRef} filter={activeFilter} />
+        <ItineraryList ref={itineraryListRef} filter={activeFilter} loading={loadingTrips} />
       </View>
 
-      {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={handleAddTrip}>
+      {/* Floating Action Button - Create Group Itinerary */}
+      <TouchableOpacity style={styles.fab} onPress={handleCreateGroupItinerary}>
         <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Edit Itinerary Button */}
+      {state.user?.role === 'tour-admin' && state.trips.length > 0 && (
+        <TouchableOpacity 
+          style={styles.fabEdit} 
+          onPress={() => setShowEditModal(true)}
+        >
+          <MaterialCommunityIcons name="pencil" size={24} color="#FFFFFF" />
+        </TouchableOpacity>
+      )}
+
+      {/* Create Group Itinerary Modal */}
+      <CreateGroupItineraryModal
+        visible={showCreateModal}
+        onDismiss={() => setShowCreateModal(false)}
+        onSuccess={handleGroupCreated}
+      />
+
+      {/* Edit Group Itinerary Modal */}
+      <EditGroupItineraryModal
+        visible={showEditModal}
+        onDismiss={() => setShowEditModal(false)}
+        onSuccess={() => {
+          setShowEditModal(false);
+          // Refresh trips after updating
+          if (state.token) {
+            updateTripsFromBackend();
+          }
+        }}
+        initialItinerary={state.trips.map((trip) => ({
+          dayNumber: 1,
+          date: trip.date,
+          nodes: [
+            {
+              type: "visit" as const,
+              name: trip.title,
+              scheduledTime: "10:00",
+              location: {
+                type: "Point" as const,
+                coordinates: [0, 0] as [number, number],
+              },
+            },
+          ],
+        }))}
+      />
     </View>
   )
 }
@@ -115,19 +186,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1E293B",
     letterSpacing: -0.5,
-  },
-  searchButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#64748B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
   filterContainer: {
     flexDirection: "row",
@@ -184,5 +242,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 16,
     elevation: 10,
+  },
+  fabEdit: {
+    position: "absolute",
+    right: 20,
+    bottom: 180,
+    width: 56,
+    height: 56,
+    borderRadius: 18,
+    backgroundColor: "#8B5CF6",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#8B5CF6",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 8,
   },
 })

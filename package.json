@@ -23,6 +23,7 @@
     "@rnmapbox/maps": "^10.1.43",
     "expo": "~54.0.10",
     "expo-blur": "~15.0.8",
+    "expo-clipboard": "^8.0.8",
     "expo-constants": "~18.0.8",
     "expo-font": "~14.0.8",
     "expo-haptics": "~15.0.7",

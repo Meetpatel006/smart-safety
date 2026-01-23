@@ -25,6 +25,7 @@ import { t } from "../context/translations";
 import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { FilterType } from "../screens/ItineraryScreen";
+import ItinerarySkeleton from "./ItinerarySkeleton";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width - 40;
@@ -58,10 +59,11 @@ const getImageForDestination = (title: string): string => {
 
 interface ItineraryListProps {
   filter?: FilterType;
+  loading?: boolean;
 }
 
 const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
-  ({ filter = "all" }, ref) => {
+  ({ filter = "all", loading = false }, ref) => {
     const { state, addTrip, updateTrip, removeTrip } = useApp();
     const theme = useTheme();
     const [visible, setVisible] = useState(false);
@@ -74,10 +76,10 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
     const [notifyAuthorities, setNotifyAuthorities] = useState(false);
     const [showDatePicker, setShowDatePicker] = useState(false);
     const [pickerMode, setPickerMode] = useState<"start" | "end">("start");
-    const [loading, setLoading] = useState(false);
+    const [saving, setSaving] = useState(false);
     const [showHistory, setShowHistory] = useState(true);
 
-    useImperativeHandle(ref, () => ({
+      useImperativeHandle(ref, () => ({
       openNew: () => {
         setEditingId(null);
         setIsExtending(false);
@@ -90,7 +92,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       },
     }));
 
-    const openEdit = (id: string, ttitle: string, d: string, n?: string) => {
+      const openEdit = (id: string, ttitle: string, d: string, n?: string) => {
       setEditingId(id);
       setIsExtending(false);
       setTitle(ttitle);
@@ -101,7 +103,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       setVisible(true);
     };
 
-    const openExtend = (id: string, ttitle: string, d: string, n?: string) => {
+      const openExtend = (id: string, ttitle: string, d: string, n?: string) => {
       setEditingId(id);
       setIsExtending(true);
       setTitle(ttitle);
@@ -112,7 +114,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       setVisible(true);
     };
 
-    const handleDateChange = (event: any, selectedDate?: Date) => {
+      const handleDateChange = (event: any, selectedDate?: Date) => {
       setShowDatePicker(false);
       if (selectedDate) {
         if (pickerMode === "start") {
@@ -134,7 +136,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
     };
 
     const save = async () => {
-      setLoading(true);
+      setSaving(true);
       try {
         if (isExtending) {
           if (editingId) {
@@ -154,7 +156,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       } catch (error) {
         console.error("Failed to save trip:", error);
       } finally {
-        setLoading(false);
+        setSaving(false);
       }
     };
 
@@ -208,6 +210,9 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       if (filter === "completed") return isPast(trip.date);
       return true;
     });
+
+    // Log for debugging
+    console.log('ItineraryList: Total trips=', state.trips?.length || 0, 'Filtered=', filteredTrips.length, 'Filter=', filter, 'Loading=', loading);
 
     const renderTripCard = (trip: {
       id: string;
@@ -374,7 +379,9 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
 
     return (
       <View style={styles.container}>
-        {filteredTrips.length === 0 ? (
+        {loading ? (
+          <ItinerarySkeleton />
+        ) : filteredTrips.length === 0 ? (
           <View style={styles.emptyContainer}>
             {/* Premium Illustration Area */}
             <View style={styles.emptyIllustration}>
