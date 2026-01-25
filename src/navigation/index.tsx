@@ -1,16 +1,16 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
-import LoginScreen from "../screens/auth/LoginScreen";
-import RegisterScreen from "../screens/auth/RegisterScreen";
-import DashboardScreen from "../screens/DashboardScreen";
-import ItineraryScreen from "../screens/ItineraryScreen";
-import EmergencyScreen from "../screens/EmergencyScreen";
-import SettingsScreen from "../screens/SettingsScreen";
-import HelpCenterScreen from "../screens/HelpCenterScreen";
-import ReportIssueScreen from "../screens/ReportIssueScreen";
-import PersonalInfoScreen from "../screens/PersonalInfoScreen";
-import AppSettingsScreen from "../screens/AppSettingsScreen";
-import AuthorityDashboardScreen from "../screens/AuthorityDashboardScreen";
+import LoginScreen from "../features/auth/screens/LoginScreen";
+import RegisterScreen from "../features/auth/screens/RegisterScreen";
+import DashboardScreen from "../features/dashboard/screens/DashboardScreen";
+import ItineraryScreen from "../features/trip/screens/ItineraryScreen";
+import EmergencyScreen from "../features/emergency/screens/EmergencyScreen";
+import SettingsScreen from "../features/settings/screens/SettingsScreen";
+import HelpCenterScreen from "../features/settings/screens/HelpCenterScreen";
+import ReportIssueScreen from "../features/report/screens/ReportIssueScreen";
+import PersonalInfoScreen from "../features/user/screens/PersonalInfoScreen";
+import AppSettingsScreen from "../features/settings/screens/AppSettingsScreen";
+import AuthorityDashboardScreen from "../features/dashboard/screens/AuthorityDashboardScreen";
 import { useApp } from "../context/AppContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
@@ -20,8 +20,8 @@ import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo";
 import SettingsIcon from "../components/Icons/SettingsIcon";
 import ItineraryIcon from "../components/Icons/ItineraryIcon";
 
-import CreateTripScreen from "../screens/CreateTripScreen";
-import JoinGroupScreen from "../screens/JoinGroupScreen";
+import CreateTripScreen from "../features/trip/screens/CreateTripScreen";
+import JoinGroupScreen from "../features/trip/screens/JoinGroupScreen";
 
 export type RootStackParamList = {
   Auth: undefined;
