@@ -7,9 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
-import geofenceService from "../geoFence/geofenceService";
-import { appendTransition } from "../geoFence/transitionStore";
-import { syncTransitions } from "../geoFence/syncTransitions";
+import geofenceService from "../features/map/services/geofenceService";
+import { appendTransition } from "../features/map/store/transitionStore";
+import { syncTransitions } from "../features/map/services/syncTransitions";
 import { Alert } from "react-native";
 import { showToast } from "../utils/toast";
 import {
