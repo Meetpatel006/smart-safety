@@ -95,8 +95,6 @@ type AppState = {
   authorityPhone?: string | null;
   computedSafetyScore?: number | null;
   currentPrimary?: { id: string; name: string; risk?: string } | null;
-  currentLocation: Location.LocationObject | null;
-  currentAddress: string | null;
   justRegistered: boolean;
 };
 
@@ -144,8 +142,6 @@ type AppContextValue = {
   setComputedSafetyScore: (score: number | null) => void;
   wipeMockData: () => Promise<void>;
   acknowledgeHighRisk: (minutes: number) => Promise<void>;
-  setCurrentLocation: (location: Location.LocationObject | null) => void;
-  setCurrentAddress: (address: string | null) => void;
 };
 
 const AppContext = createContext<AppContextValue | undefined>(undefined);
@@ -164,8 +160,6 @@ const defaultState: AppState = {
   language: "en",
   authorityPhone: null,
   computedSafetyScore: null,
-  currentLocation: null,
-  currentAddress: null,
   currentPrimary: null,
   justRegistered: false,
 };
@@ -912,12 +906,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         } catch (e) {
           /* ignore */
         }
-      },
-      setCurrentLocation(location) {
-        setState((s) => ({ ...s, currentLocation: location }));
-      },
-      setCurrentAddress(address) {
-        setState((s) => ({ ...s, currentAddress: address }));
       },
     }),
     [state, hydrated],
