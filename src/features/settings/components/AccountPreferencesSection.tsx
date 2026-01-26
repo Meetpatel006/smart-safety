@@ -4,7 +4,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { Text, Switch, Menu, TextInput, Button } from "react-native-paper"
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useApp } from "../../../context/AppContext"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
@@ -15,6 +15,7 @@ export default function AccountPreferencesSection() {
     const [sound, setSound] = useState(true)
     const [vibration, setVibration] = useState(true)
     const [languageMenuVisible, setLanguageMenuVisible] = useState(false)
+    const isLanguageMenuDismissed = useRef(false)
     const [muteAllAlerts, setMuteAllAlerts] = useState(false)
     const [suppressMinutes, setSuppressMinutes] = useState<string>("15")
 
@@ -52,8 +53,20 @@ export default function AccountPreferencesSection() {
     }
 
     const openLanguageMenu = () => {
+        if (isLanguageMenuDismissed.current) {
+            isLanguageMenuDismissed.current = false
+            return
+        }
         if (languageMenuVisible) return
         InteractionManager.runAfterInteractions(() => setLanguageMenuVisible(true))
+    }
+
+    const closeLanguageMenu = () => {
+        isLanguageMenuDismissed.current = true
+        setLanguageMenuVisible(false)
+        setTimeout(() => {
+            isLanguageMenuDismissed.current = false
+        }, 200)
     }
 
     // Get current language display name
@@ -223,7 +236,7 @@ export default function AccountPreferencesSection() {
                 {/* Language with Dropdown */}
                 <Menu
                     visible={languageMenuVisible}
-                    onDismiss={() => setLanguageMenuVisible(false)}
+                    onDismiss={closeLanguageMenu}
                     anchor={
                         <View collapsable={false}>
                             <TouchableOpacity
