@@ -15,14 +15,14 @@ import React from "react"
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync()
 
-// Notification handler: allow sound for foreground notifications
+// Notification handler: allow notifications to show with sound
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-  shouldShowAlert: false, // we use in-app Snackbar for visual alert
-  shouldShowBanner: false,
-  shouldShowList: false,
-  shouldPlaySound: true,
-  shouldSetBadge: false,
+  shouldShowAlert: true, // Show notification alerts
+  shouldShowBanner: true, // Show banner on iOS
+  shouldShowList: true, // Show in notification list
+  shouldPlaySound: true, // Play notification sound
+  shouldSetBadge: true, // Update app icon badge
   }),
 })
 

@@ -68,7 +68,25 @@ type User = {
 } | null;
 
 type Contact = { id: string; name: string; phone: string };
-type Trip = { id: string; title: string; date: string; notes?: string };
+type Trip = { 
+  id: string; 
+  title: string; 
+  date: string; 
+  notes?: string;
+  dayWiseItinerary?: Array<{
+    dayNumber: number;
+    date: string;
+    nodes: Array<{
+      type: string;
+      name: string;
+      locationName: string;
+      lat: number;
+      lng: number;
+      scheduledTime: string;
+      activityDetails?: string;
+    }>;
+  }>;
+};
 type Geofence = {
   id: string;
   name: string;
@@ -855,26 +873,52 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           if (!state.token) {
             throw new Error("Not authenticated");
           }
-          console.log('AppContext: Fetching user data from getGroupDashboard...');
-          
-          const { getGroupDashboard } = await import("../utils/api");
-          const data = await getGroupDashboard(state.token);
-          
-          console.log('AppContext: Raw data from API:', JSON.stringify(data, null, 2));
-          
-          // Handle response structure: data.data is the actual group/user data
-          const userData = data?.data || data;
-          console.log('AppContext: Extracted user data:', userData);
-          
-          if (userData && userData.itinerary) {
-            console.log('AppContext: Found itinerary:', userData.itinerary);
-            const trips = itineraryToTrips(userData.itinerary);
-            console.log('AppContext: Converted trips:', trips);
-            setState((s) => ({ ...s, trips }));
-            console.log("Trips updated from backend:", trips.length);
+
+          const userRole = state.user?.role;
+          console.log('[AppContext] updateTripsFromBackend for role:', userRole);
+
+          // Solo travelers fetch from /api/itinerary
+          if (userRole === 'solo') {
+            console.log('[AppContext] Fetching solo itinerary...');
+            const { getSoloItinerary } = await import("../utils/api");
+            const data = await getSoloItinerary(state.token);
+            
+            console.log('[AppContext] Solo itinerary response:', data);
+            
+            // Response structure: { success: true, data: [...dayWiseItinerary] }
+            const itineraryData = data?.data || [];
+            
+            if (Array.isArray(itineraryData) && itineraryData.length > 0) {
+              console.log('[AppContext] Converting solo itinerary to trips:', itineraryData);
+              const trips = itineraryToTrips(itineraryData);
+              console.log('[AppContext] Converted trips:', trips);
+              setState((s) => ({ ...s, trips }));
+              console.log("Solo trips updated from backend:", trips.length);
+            } else {
+              console.log('[AppContext] No solo itinerary found');
+              setState((s) => ({ ...s, trips: [] }));
+            }
           } else {
-            console.log('AppContext: No itinerary found in response');
-            setState((s) => ({ ...s, trips: [] }));
+            // Group members/admins fetch from group dashboard
+            console.log('[AppContext] Fetching group dashboard...');
+            const { getGroupDashboard } = await import("../utils/api");
+            const data = await getGroupDashboard(state.token);
+            
+            console.log('[AppContext] Group dashboard response:', data);
+            
+            // Handle response structure: data.data is the actual group/user data
+            const userData = data?.data || data;
+            
+            if (userData && userData.itinerary) {
+              console.log('[AppContext] Found group itinerary:', userData.itinerary);
+              const trips = itineraryToTrips(userData.itinerary);
+              console.log('[AppContext] Converted trips:', trips);
+              setState((s) => ({ ...s, trips }));
+              console.log("Group trips updated from backend:", trips.length);
+            } else {
+              console.log('[AppContext] No group itinerary found');
+              setState((s) => ({ ...s, trips: [] }));
+            }
           }
         } catch (error) {
           console.error("Failed to fetch trips from backend:", error);
