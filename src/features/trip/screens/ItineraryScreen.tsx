@@ -6,13 +6,14 @@ import { useApp } from "../../../context/AppContext"
 import { useRef, useState, useEffect } from "react"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { BlurView } from "expo-blur"
+import { getGroupDashboard } from "../../../utils/api"
 
 export type FilterType = "all" | "upcoming" | "completed"
 
 import CreateGroupItineraryModal from "../components/CreateGroupItineraryModal"
 import EditGroupItineraryModal from "../components/EditGroupItineraryModal"
 
-export default function ItineraryScreen() {
+export default function ItineraryScreen({ navigation }: any) {
   const { state, updateTripsFromBackend } = useApp()
   const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
@@ -20,6 +21,9 @@ export default function ItineraryScreen() {
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [groupData, setGroupData] = useState<any>(null);
+
+  const isTourAdmin = state.user?.role === 'tour-admin';
 
   // Fetch trips for solo users
   useEffect(() => {
@@ -37,6 +41,19 @@ export default function ItineraryScreen() {
         .finally(() => {
           setLoadingTrips(false);
         });
+      
+      // Fetch group data for tour-admins
+      if (isTourAdmin) {
+        getGroupDashboard(state.token)
+          .then((data) => {
+            if (data?.data) {
+              setGroupData(data.data);
+            }
+          })
+          .catch((err) => {
+            console.log("Error fetching group data", err);
+          });
+      }
     }
   }, [state.token]);
 
@@ -48,6 +65,23 @@ export default function ItineraryScreen() {
   const handleGroupCreated = () => {
     console.log("✅ Group created successfully!");
     setShowCreateModal(false);
+  }
+
+  const handleEditItinerary = () => {
+    if (groupData) {
+      const startDate = groupData.startDate || new Date().toISOString()
+      const endDate = groupData.endDate || new Date().toISOString()
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const tripDuration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 7
+
+      navigation.navigate('BuildItinerary', {
+        tripDuration,
+        startDate,
+        returnDate: endDate,
+        touristId: state.user?.touristId || 'unknown',
+      })
+    }
   }
 
   const filters: { key: FilterType; label: string; icon: string }[] = [
@@ -104,20 +138,33 @@ export default function ItineraryScreen() {
         <ItineraryList ref={itineraryListRef} filter={activeFilter} loading={loadingTrips} />
       </View>
 
+      {/* Floating Action Button - Edit Itinerary for Tour Admins */}
+      {/* Commented out - Use Edit Trip button in cards instead */}
+      {/* {isTourAdmin && groupData && (
+        <FAB
+          icon="pencil"
+          style={styles.fab}
+          onPress={handleEditItinerary}
+          label="Edit Itinerary"
+        />
+      )} */}
+
       {/* Floating Action Button - Create Group Itinerary */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateGroupItinerary}>
+      {/* Commented out - Users should use navigation flow instead */}
+      {/* <TouchableOpacity style={styles.fab} onPress={handleCreateGroupItinerary}>
         <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
       {/* Edit Itinerary Button */}
-      {state.user?.role === 'tour-admin' && state.trips.length > 0 && (
+      {/* Purple Edit Button Removed - Use Edit Trip button in cards instead */}
+      {/* {state.user?.role === 'tour-admin' && state.trips.length > 0 && (
         <TouchableOpacity 
           style={styles.fabEdit} 
           onPress={() => setShowEditModal(true)}
         >
           <MaterialCommunityIcons name="pencil" size={24} color="#FFFFFF" />
         </TouchableOpacity>
-      )}
+      )} */}
 
       {/* Create Group Itinerary Modal */}
       <CreateGroupItineraryModal
@@ -227,7 +274,7 @@ const styles = StyleSheet.create({
   listContainer: {
     flex: 1,
   },
-  fab: {
+ fab: {
     position: "absolute",
     right: 20,
     bottom: 110,
@@ -258,5 +305,4 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     elevation: 8,
-  },
-})
+  },})

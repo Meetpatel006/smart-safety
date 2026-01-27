@@ -14,6 +14,8 @@ export default function DashboardScreen({ navigation }: any) {
   const { state } = useApp()
   const [groupData, setGroupData] = useState<any>(null)
 
+  const isTourAdmin = state.user?.role === 'tour-admin'
+
   useEffect(() => {
     const fetchGroupData = async () => {
       if (state.user && state.user.role !== 'solo' && state.token) {
@@ -26,6 +28,9 @@ export default function DashboardScreen({ navigation }: any) {
           } else if (data && data.groupName) {
               // Direct group object
               setGroupData(data);
+          } else if (data && data.data) {
+              // Response wrapped in data
+              setGroupData(data.data);
           }
         } catch (e) {
           console.log("Failed to fetch group dashboard", e)
@@ -35,6 +40,24 @@ export default function DashboardScreen({ navigation }: any) {
     
     fetchGroupData()
   }, [state.user, state.token])
+
+  const handleEditItinerary = () => {
+    // Calculate trip duration from group data
+    if (groupData) {
+      const startDate = groupData.startDate || new Date().toISOString()
+      const endDate = groupData.endDate || new Date().toISOString()
+      const start = new Date(startDate)
+      const end = new Date(endDate)
+      const tripDuration = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) || 7
+
+      navigation.navigate('BuildItinerary', {
+        tripDuration,
+        startDate,
+        returnDate: endDate,
+        touristId: state.user?.touristId || 'unknown',
+      })
+    }
+  }
 
   // Extract city/region from address or use default
   const getLocationDisplay = () => {
@@ -81,6 +104,8 @@ export default function DashboardScreen({ navigation }: any) {
               groupName={groupData.groupName || groupData.name || "My Group"} 
               accessCode={groupData.accessCode || "Unknown"}
               memberCount={groupData.members ? groupData.members.length : 1}
+              isTourAdmin={isTourAdmin}
+              onEditItinerary={handleEditItinerary}
             />
           </View>
         )}

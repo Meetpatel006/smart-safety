@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity, ToastAndroid, Platform, Alert } from 'react-native';
-import { Text, Card, IconButton, useTheme } from 'react-native-paper';
+import { Text, Card, IconButton, useTheme, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 
@@ -8,9 +8,11 @@ interface GroupStatusCardProps {
   groupName: string;
   accessCode: string;
   memberCount: number;
+  isTourAdmin?: boolean;
+  onEditItinerary?: () => void;
 }
 
-export default function GroupStatusCard({ groupName, accessCode, memberCount }: GroupStatusCardProps) {
+export default function GroupStatusCard({ groupName, accessCode, memberCount, isTourAdmin, onEditItinerary }: GroupStatusCardProps) {
   const theme = useTheme();
 
   const copyToClipboard = async () => {
@@ -41,6 +43,23 @@ export default function GroupStatusCard({ groupName, accessCode, memberCount }: 
             </View>
         </View>
       </Card.Content>
+      
+      {/* Edit Itinerary Button - Only for tour-admins */}
+      {isTourAdmin && onEditItinerary && (
+        <Card.Actions style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+          <Button
+            mode="contained"
+            onPress={onEditItinerary}
+            icon="pencil"
+            style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 8 }}
+            labelStyle={{ color: '#00897B', fontWeight: 'bold' }}
+            compact
+          >
+            Edit Itinerary
+          </Button>
+        </Card.Actions>
+      )}
+      
       {/* Decorative background circle */}
       <View style={styles.bgCircle} />
       <View style={styles.bgCircleSmall} />

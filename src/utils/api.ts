@@ -298,6 +298,46 @@ export const getGroupDashboard = async (token) => {
   }
 };
 
+export const getSoloItinerary = async (token) => {
+  try {
+    console.log('[API] Fetching solo itinerary from /api/itinerary');
+    const response = await fetch(`${SERVER_URL}/api/itinerary`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    const res = await handleResponse(response);
+    console.log('[API] getSoloItinerary response:', res);
+    return res;
+  } catch (e) {
+    console.error("API: getSoloItinerary error", { error: e?.message || e });
+    throw e;
+  }
+};
+
+export const updateSoloItinerary = async (token, itinerary) => {
+  try {
+    console.log('[API] Updating solo itinerary via PUT /api/itinerary');
+    console.log('[API] Itinerary payload:', JSON.stringify(itinerary, null, 2));
+    const response = await fetch(`${SERVER_URL}/api/itinerary`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ itinerary }),
+    });
+    const res = await handleResponse(response);
+    console.log('[API] updateSoloItinerary response:', res);
+    return res;
+  } catch (e) {
+    console.error("API: updateSoloItinerary error", { error: e?.message || e });
+    throw e;
+  }
+};
+
 export const getAlerts = async (token) => {
   try {
     if (!token) {
@@ -345,7 +385,7 @@ export const tripsToItinerary = (
 
 export const itineraryToTrips = (
   itinerary: any[],
-): { id: string; title: string; date: string; notes?: string }[] => {
+): Array<{ id: string; title: string; date: string; notes?: string; dayWiseItinerary?: any[] }> => {
   const baseTs = Date.now();
   
   // If itinerary is empty, return empty array
@@ -355,23 +395,89 @@ export const itineraryToTrips = (
   
   // Check if this is the day-wise structure from API (has dayNumber and nodes)
   if (itinerary[0] && typeof itinerary[0] === 'object' && itinerary[0].nodes) {
-    // Convert day-wise structure to trips
-    return itinerary.flatMap((day: any, dayIndex: number) => {
-      if (!day.nodes || !Array.isArray(day.nodes)) return [];
+    // Split into separate trips based on 'start' and 'end' nodes or date gaps
+    const trips: Array<{ id: string; title: string; date: string; notes?: string; dayWiseItinerary?: any[] }> = [];
+    let currentTrip: any[] = [];
+    let tripIndex = 0;
+    
+    for (let i = 0; i < itinerary.length; i++) {
+      const day = itinerary[i];
+      const hasStartNode = day.nodes?.some((node: any) => node.type === 'start');
+      const hasEndNode = day.nodes?.some((node: any) => node.type === 'end');
       
-      return day.nodes.map((node: any, nodeIndex: number) => {
-        const title = node.name || node.locationName || 'Unknown Location';
-        const date = day.date || '';
-        const notes = `Day ${day.dayNumber || dayIndex + 1} - ${node.type} at ${node.scheduledTime || 'TBD'}`;
+      // Check if there's a significant date gap (more than 7 days) from previous day
+      const isDateGap = currentTrip.length > 0 && i > 0 && (() => {
+        const prevDate = new Date(itinerary[i - 1].date);
+        const currDate = new Date(day.date);
+        const daysDiff = Math.abs((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+        return daysDiff > 7;
+      })();
+      
+      // Start a new trip if:
+      // 1. This is the first day with a start node, OR
+      // 2. There's a date gap indicating separate trips
+      if ((hasStartNode && currentTrip.length === 0) || isDateGap) {
+        if (currentTrip.length > 0) {
+          // Save the previous trip
+          const firstDay = currentTrip[0];
+          const firstNode = firstDay.nodes?.[0];
+          const title = firstNode?.name || firstNode?.locationName || 'Trip';
+          const startDate = firstDay.date || new Date().toISOString();
+          
+          trips.push({
+            id: `trip_${baseTs}_${tripIndex}`,
+            title,
+            date: startDate,
+            notes: `${currentTrip.length} day${currentTrip.length > 1 ? 's' : ''}`,
+            dayWiseItinerary: currentTrip,
+          });
+          
+          tripIndex++;
+        }
+        currentTrip = [];
+      }
+      
+      // Add current day to the trip
+      currentTrip.push(day);
+      
+      // End the trip if this day has an 'end' node
+      if (hasEndNode) {
+        const firstDay = currentTrip[0];
+        const firstNode = firstDay.nodes?.[0];
+        const title = firstNode?.name || firstNode?.locationName || 'Trip';
+        const startDate = firstDay.date || new Date().toISOString();
         
-        return {
-          id: `t${baseTs}_d${dayIndex}_n${nodeIndex}`,
+        trips.push({
+          id: `trip_${baseTs}_${tripIndex}`,
           title,
-          date,
-          notes,
-        };
+          date: startDate,
+          notes: `${currentTrip.length} day${currentTrip.length > 1 ? 's' : ''}`,
+          dayWiseItinerary: currentTrip,
+        });
+        
+        tripIndex++;
+        currentTrip = [];
+      }
+    }
+    
+    // If there are remaining days that haven't been saved as a trip
+    if (currentTrip.length > 0) {
+      const firstDay = currentTrip[0];
+      const firstNode = firstDay.nodes?.[0];
+      const title = firstNode?.name || firstNode?.locationName || 'Trip';
+      const startDate = firstDay.date || new Date().toISOString();
+      
+      trips.push({
+        id: `trip_${baseTs}_${tripIndex}`,
+        title,
+        date: startDate,
+        notes: `${currentTrip.length} day${currentTrip.length > 1 ? 's' : ''}`,
+        dayWiseItinerary: currentTrip,
       });
-    });
+    }
+    
+    console.log('[itineraryToTrips] Converted to trips:', trips.length, 'trips from', itinerary.length, 'days');
+    return trips;
   }
   
   // Handle simple string/object array format
