@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Keyboard } from 'react-native';
 import { Text, Menu } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -25,8 +25,26 @@ export default function PersonalInfoScreen() {
     // Emergency Info
     const [bloodGroup, setBloodGroup] = useState('O+');
     const [bloodMenuVisible, setBloodMenuVisible] = useState(false);
+    const isBloodMenuDismissed = useRef(false);
     const [medicalConditions, setMedicalConditions] = useState('None');
     const [allergies, setAllergies] = useState('Peanuts');
+
+    const openBloodMenu = () => {
+        if (isBloodMenuDismissed.current) {
+            isBloodMenuDismissed.current = false;
+            return;
+        }
+        Keyboard.dismiss();
+        setBloodMenuVisible(true);
+    };
+
+    const closeBloodMenu = () => {
+        isBloodMenuDismissed.current = true;
+        setBloodMenuVisible(false);
+        setTimeout(() => {
+            isBloodMenuDismissed.current = false;
+        }, 200);
+    };
 
     const GenderButton = ({ value, label }: { value: 'Male' | 'Female' | 'Other'; label: string }) => (
         <TouchableOpacity
@@ -135,19 +153,19 @@ export default function PersonalInfoScreen() {
                                 <Text style={styles.emergencyLabel}>Blood Group</Text>
                                 <Menu
                                     visible={bloodMenuVisible}
-                                    onDismiss={() => setBloodMenuVisible(false)}
+                                    onDismiss={closeBloodMenu}
                                     anchor={
-                                        <TouchableOpacity
-                                            style={styles.emergencyDropdown}
-                                            onPress={() => {
-                                                if (!bloodMenuVisible) setBloodMenuVisible(true)
-                                            }}
-                                            activeOpacity={0.7}
-                                        >
-                                            <Ionicons name="water" size={18} color="#ef4444" />
-                                            <Text style={styles.emergencyDropdownText}>{bloodGroup}</Text>
-                                            <Ionicons name="chevron-down" size={16} color="#6b7280" />
-                                        </TouchableOpacity>
+                                        <View collapsable={false}>
+                                            <TouchableOpacity
+                                                style={styles.emergencyDropdown}
+                                                onPress={openBloodMenu}
+                                                activeOpacity={0.7}
+                                            >
+                                                <Ionicons name="water" size={18} color="#ef4444" />
+                                                <Text style={styles.emergencyDropdownText}>{bloodGroup}</Text>
+                                                <Ionicons name="chevron-down" size={16} color="#6b7280" />
+                                            </TouchableOpacity>
+                                        </View>
                                     }
                                     contentStyle={styles.menuContent}
                                 >

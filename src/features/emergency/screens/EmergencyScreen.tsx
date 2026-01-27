@@ -5,6 +5,7 @@ import * as Location from 'expo-location'
 import { WebView } from 'react-native-webview'
 import { GeoFence, haversineKm } from '../../../utils/geofenceLogic'
 import { useApp } from '../../../context/AppContext'
+import { useLocation } from '../../../context/LocationContext'
 import { reverseGeocode } from '../../map/components/MapboxMap/geoUtils'
 import { loadFences } from '../../map/services/geofenceService'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
@@ -28,7 +29,8 @@ const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
 const REFRESH_INTERVAL_MS = 60000 // 60 seconds
 
 export default function EmergencyScreen() {
-  const { state, setCurrentLocation, setCurrentAddress } = useApp()
+  const { state } = useApp()
+  const { currentLocation, setCurrentLocation, setCurrentAddress } = useLocation()
 
   // Map state
   const [mapReady, setMapReady] = useState(false)
@@ -103,8 +105,8 @@ export default function EmergencyScreen() {
   const refreshGeofences = async () => {
     try {
       setIsBackgroundRefreshing(true)
-      const userLat = state.currentLocation?.coords.latitude
-      const userLng = state.currentLocation?.coords.longitude
+      const userLat = currentLocation?.coords.latitude
+      const userLng = currentLocation?.coords.longitude
       
       const fences = await loadFences(userLat, userLng)
       setGeoFences(fences)
@@ -130,7 +132,7 @@ export default function EmergencyScreen() {
       console.log('[Auto-Refresh] Stopping polling')
       clearInterval(intervalId)
     }
-  }, [state.currentLocation]) // Re-create interval if location changes
+  }, [currentLocation]) // Re-create interval if location changes
 
   const getCurrentLocation = async () => {
     setLoadingLocation(true)
@@ -197,12 +199,12 @@ export default function EmergencyScreen() {
   }
 
   const handleShareLocation = () => {
-    if (!state.currentLocation) {
+    if (!currentLocation) {
       Alert.alert('No Location', 'Location not available yet')
       return
     }
 
-    const { latitude, longitude } = state.currentLocation.coords
+    const { latitude, longitude } = currentLocation.coords
     const message = `My location: https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}`
     Alert.alert('Share Location', message)
   }
@@ -281,8 +283,8 @@ export default function EmergencyScreen() {
         visible={showIncidentModal}
         onClose={() => setShowIncidentModal(false)}
         onIncidentSubmitted={handleIncidentSubmitted}
-        latitude={state.currentLocation?.coords?.latitude ?? 0}
-        longitude={state.currentLocation?.coords?.longitude ?? 0}
+        latitude={currentLocation?.coords?.latitude ?? 0}
+        longitude={currentLocation?.coords?.longitude ?? 0}
       />
     </View>
   )

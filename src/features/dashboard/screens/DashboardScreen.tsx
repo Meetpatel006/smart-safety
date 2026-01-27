@@ -1,6 +1,7 @@
 import { ScrollView, View, StyleSheet } from "react-native"
 import { Text, IconButton } from "react-native-paper"
 import { useApp } from "../../../context/AppContext"
+import { useLocation } from "../../../context/LocationContext"
 import SafetyScore from "../components/SafetyScore"
 import SafetyRecommendations from "../../emergency/components/SafetyRecommendations"
 import PanicActions from "../../emergency/components/PanicActions"
@@ -12,6 +13,7 @@ import GroupStatusCard from "../../trip/components/GroupStatusCard"
 
 export default function DashboardScreen({ navigation }: any) {
   const { state } = useApp()
+  const { currentAddress } = useLocation()
   const [groupData, setGroupData] = useState<any>(null)
 
   useEffect(() => {
@@ -38,12 +40,12 @@ export default function DashboardScreen({ navigation }: any) {
 
   // Extract city/region from address or use default
   const getLocationDisplay = () => {
-    if (state.currentAddress) {
-      const parts = state.currentAddress.split(',')
+    if (currentAddress) {
+      const parts = currentAddress.split(',')
       if (parts.length >= 2) {
         return parts.slice(-2).map(s => s.trim()).join(', ')
       }
-      return state.currentAddress
+      return currentAddress
     }
     return "Getting location..."
   }

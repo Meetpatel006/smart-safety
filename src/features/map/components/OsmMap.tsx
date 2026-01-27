@@ -13,7 +13,7 @@ import MapActionButtons from './OsmMap/MapActionButtons';
 // Import types, constants and utilities
 import { OsmMapProps, LocationData } from './OsmMap/types';
 import { reverseGeocode } from './OsmMap/geoUtils';
-import { useApp } from '../../../context/AppContext';
+import { useLocation } from '../../../context/LocationContext';
 import { GeoFence, filterFencesByDistance, haversineKm } from '../../../utils/geofenceLogic';
 
 // Default tile configuration
@@ -50,7 +50,7 @@ export default function OsmMap({
   isFullScreen,
   onToggleFullScreen
 }: OsmMapProps) {
-  const { setCurrentLocation, setCurrentAddress } = useApp();
+  const { setCurrentLocation, setCurrentAddress } = useLocation();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

@@ -92,8 +92,6 @@ export default function RegisterScreen({ navigation }: any) {
       }
 
       setMsg({ type: "success", text: "Welcome!" });
-      // Auto-login succeeded; reset the justRegistered flag to avoid routing issues on future launches.
-      setJustRegistered(false);
     } catch (e: any) {
       setMsg({ type: "error", text: e.message || "An error occurred" });
     }

@@ -1,6 +1,7 @@
 import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-navigation/native"
 import { PaperProvider } from "react-native-paper"
 import { AppProvider } from "./src/context/AppContext"
+import { LocationProvider } from "./src/context/LocationContext"
 import { RootNavigator } from "./src/navigation"
 import { paperTheme } from "./src/theme/paper"
 import ToastListener from './src/components/ToastListener'
@@ -14,14 +15,14 @@ import React from "react"
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync()
 
-// Notification handler: allow sound for foreground notifications
+// Notification handler: allow notifications to show with sound
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-  shouldShowAlert: false, // we use in-app Snackbar for visual alert
-  shouldShowBanner: false,
-  shouldShowList: false,
-  shouldPlaySound: true,
-  shouldSetBadge: false,
+  shouldShowAlert: true, // Show notification alerts
+  shouldShowBanner: true, // Show banner on iOS
+  shouldShowList: true, // Show in notification list
+  shouldPlaySound: true, // Play notification sound
+  shouldSetBadge: true, // Update app icon badge
   }),
 })
 
@@ -119,13 +120,15 @@ function AppContent() {
 
   return (
     <AppProvider>
-      <PaperProvider theme={paperTheme}>
-  <ToastListener />
-        <NavigationContainer theme={navTheme}>
-          <StatusBar style="auto" />
-          <RootNavigator />
-        </NavigationContainer>
-      </PaperProvider>
+      <LocationProvider>
+        <PaperProvider theme={paperTheme}>
+          <ToastListener />
+          <NavigationContainer theme={navTheme}>
+            <StatusBar style="auto" />
+            <RootNavigator />
+          </NavigationContainer>
+        </PaperProvider>
+      </LocationProvider>
     </AppProvider>
   )
 }

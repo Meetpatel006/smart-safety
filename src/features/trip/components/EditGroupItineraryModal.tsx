@@ -33,6 +33,7 @@ export default function EditGroupItineraryModal({
 }: EditGroupItineraryModalProps) {
   const { state, updateGroupItinerary } = useApp();
   const theme = useTheme();
+  const userRole = state.user?.role;
 
   const [days, setDays] = useState<Array<{
     dayNumber: number;
@@ -151,9 +152,23 @@ export default function EditGroupItineraryModal({
 
     setSaving(true);
     try {
-      const result = await updateGroupItinerary(days);
+      console.log('[EditModal] User role:', userRole);
+      console.log('[EditModal] Updating itinerary with days:', days);
+
+      let result;
+      
+      if (userRole === 'solo') {
+        // Solo users: update via PUT /api/itinerary
+        const { updateSoloItinerary } = await import('../../../utils/api');
+        const response = await updateSoloItinerary(state.token, days);
+        result = { ok: response.success, message: response.message };
+      } else {
+        // Group users: update via existing group endpoint
+        result = await updateGroupItinerary(days);
+      }
 
       if (result.ok) {
+        console.log('[EditModal] Update successful');
         onSuccess();
         onDismiss();
       } else {

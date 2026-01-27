@@ -22,12 +22,21 @@ import ItineraryIcon from "../components/Icons/ItineraryIcon";
 
 import CreateTripScreen from "../features/trip/screens/CreateTripScreen";
 import JoinGroupScreen from "../features/trip/screens/JoinGroupScreen";
+import TripDurationScreen from "../features/trip/screens/TripDurationScreen";
+import BuildItineraryScreen from "../features/trip/screens/BuildItineraryScreen";
 
 export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   CreateTrip: undefined;
   JoinGroup: undefined;
+  TripDuration: { touristId: string };
+  BuildItinerary: { 
+    tripDuration: number; 
+    startDate: string; 
+    returnDate: string;
+    touristId: string;
+  };
   Authority: undefined;
   HelpCenter: undefined;
   ReportIssue: undefined;
@@ -313,6 +322,8 @@ export function RootNavigator() {
 
   // Determine initial route based on authentication and onboarding state
   let initialRoute: keyof RootStackParamList;
+  const isSolo = user?.role === "solo";
+  const soloHasItinerary = isSolo && user?.dayWiseItinerary && user?.dayWiseItinerary.length > 0;
 
   if (!state.user) {
     // Unauthenticated users should always start at the Auth stack
@@ -325,6 +336,8 @@ export function RootNavigator() {
         initialRoute = "JoinGroup";
       } else if (isTourAdmin && !adminHasGroup) {
         initialRoute = "CreateTrip";
+      } else if (isSolo && !soloHasItinerary) {
+        initialRoute = "TripDuration";
       }
     }
   }
@@ -354,6 +367,23 @@ export function RootNavigator() {
             name="JoinGroup"
             component={JoinGroupScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="TripDuration"
+            component={TripDurationScreen}
+            options={{ 
+              title: "Plan Your Trip",
+              headerShown: true,
+              headerBackVisible: false 
+            }}
+          />
+          <Stack.Screen
+            name="BuildItinerary"
+            component={BuildItineraryScreen}
+            options={{ 
+              title: "Build Itinerary",
+              headerShown: true 
+            }}
           />
           <Stack.Screen
             name="Authority"

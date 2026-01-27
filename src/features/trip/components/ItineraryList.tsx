@@ -26,6 +26,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import type { FilterType } from "../screens/ItineraryScreen";
 import ItinerarySkeleton from "./ItinerarySkeleton";
+import EditGroupItineraryModal from "./EditGroupItineraryModal";
 
 const { width } = Dimensions.get("window");
 const CARD_WIDTH = width - 40;
@@ -57,6 +58,23 @@ const getImageForDestination = (title: string): string => {
   return destinationImages[imageKeys[hash % imageKeys.length]];
 };
 
+// Helper function to format time from 24hr (HH:MM) to 12hr (h:MM AM/PM)
+const formatTime = (time: string): string => {
+  if (!time || typeof time !== 'string') return 'TBD';
+  
+  // Handle HH:MM format
+  const match = time.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    let hours = parseInt(match[1], 10);
+    const minutes = match[2];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12; // Convert 0 to 12
+    return `${hours}:${minutes} ${ampm}`;
+  }
+  
+  return time;
+};
+
 interface ItineraryListProps {
   filter?: FilterType;
   loading?: boolean;
@@ -64,7 +82,7 @@ interface ItineraryListProps {
 
 const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
   ({ filter = "all", loading = false }, ref) => {
-    const { state, addTrip, updateTrip, removeTrip } = useApp();
+    const { state, addTrip, updateTrip, removeTrip, updateTripsFromBackend } = useApp();
     const theme = useTheme();
     const [visible, setVisible] = useState(false);
     const [isExtending, setIsExtending] = useState(false);
@@ -78,6 +96,8 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
     const [pickerMode, setPickerMode] = useState<"start" | "end">("start");
     const [saving, setSaving] = useState(false);
     const [showHistory, setShowHistory] = useState(true);
+    const [showDayWiseEditModal, setShowDayWiseEditModal] = useState(false);
+    const [editingItinerary, setEditingItinerary] = useState<any[]>([]);
 
       useImperativeHandle(ref, () => ({
       openNew: () => {
@@ -92,15 +112,30 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       },
     }));
 
-      const openEdit = (id: string, ttitle: string, d: string, n?: string) => {
+      const openEdit = (id: string, ttitle: string, d: string, n?: string, dayWiseItinerary?: any[]) => {
+      console.log('[ItineraryList] openEdit called', { id, title: ttitle, date: d, hasDayWise: !!dayWiseItinerary });
       setEditingId(id);
-      setIsExtending(false);
-      setTitle(ttitle);
-      setDate(d);
-      setEndDate("");
-      setNotes(n || "");
-      setNotifyAuthorities(false);
-      setVisible(true);
+      
+      // If trip has day-wise itinerary, use the detailed modal
+      if (dayWiseItinerary && dayWiseItinerary.length > 0) {
+        setEditingItinerary(dayWiseItinerary);
+        setShowDayWiseEditModal(true);
+      } else {
+        // Otherwise use simple modal
+        setIsExtending(false);
+        setTitle(ttitle);
+        // Format the date if it's an ISO string
+        try {
+          const dateObj = new Date(d);
+          setDate(dateObj.toISOString().split('T')[0]); // Store as YYYY-MM-DD
+        } catch (e) {
+          setDate(d);
+        }
+        setEndDate("");
+        setNotes(n || "");
+        setNotifyAuthorities(false);
+        setVisible(true);
+      }
     };
 
       const openExtend = (id: string, ttitle: string, d: string, n?: string) => {
@@ -219,6 +254,19 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       title: string;
       date: string;
       notes?: string;
+      dayWiseItinerary?: Array<{
+        dayNumber: number;
+        date: string;
+        nodes: Array<{
+          type: string;
+          name: string;
+          locationName: string;
+          lat: number;
+          lng: number;
+          scheduledTime: string;
+          activityDetails?: string;
+        }>;
+      }>;
     }) => {
       const status = getStatus(trip.date);
       const imageUrl = getImageForDestination(trip.title);
@@ -293,7 +341,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
             <View style={styles.cardActions}>
               <TouchableOpacity
                 style={styles.editButton}
-                onPress={() => openEdit(trip.id, trip.title, trip.date, trip.notes)}
+                onPress={() => openEdit(trip.id, trip.title, trip.date, trip.notes, trip.dayWiseItinerary)}
               >
                 <MaterialCommunityIcons
                   name="pencil-outline"
@@ -320,58 +368,42 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
           {/* Detailed Itinerary View */}
           <View style={styles.detailsContainer}>
             {/* Today's Plan Card */}
-            <View style={styles.planCard}>
-              <Text style={styles.planTitle}>Today's Plan</Text>
+            {trip.dayWiseItinerary && trip.dayWiseItinerary.length > 0 && (
+              <View style={styles.planCard}>
+                <Text style={styles.planTitle}>Trip Itinerary</Text>
 
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineLeft}>
-                  <View
-                    style={[styles.timelineDot, { backgroundColor: "#22C55E" }]}
-                  />
-                  <View style={styles.timelineLine} />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTime}>10:00 AM</Text>
-                  <Text style={styles.timelineTitle}>Depart Hotel</Text>
-                  <Text style={styles.timelineSubtitle}>
-                    The Grand Northeast Inn
-                  </Text>
-                </View>
-              </View>
+                {trip.dayWiseItinerary[0].nodes.map((node, index) => {
+                  const isLast = index === trip.dayWiseItinerary![0].nodes.length - 1;
+                  const colors = ['#22C55E', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899'];
+                  const dotColor = colors[index % colors.length];
 
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineLeft}>
-                  <View
-                    style={[styles.timelineDot, { backgroundColor: "#3B82F6" }]}
-                  />
-                  <View style={styles.timelineLine} />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTime}>12:30 PM</Text>
-                  <Text style={styles.timelineTitle}>Train to Boston</Text>
-                  <View style={styles.timelineTagRow}>
-                    <View style={styles.tagContainer}>
-                      <Text style={styles.tagText}>Amtrak 174</Text>
+                  return (
+                    <View key={index} style={styles.timelineItem}>
+                      <View style={styles.timelineLeft}>
+                        <View
+                          style={[styles.timelineDot, { backgroundColor: dotColor }]}
+                        />
+                        {!isLast && <View style={styles.timelineLine} />}
+                      </View>
+                      <View style={styles.timelineContent}>
+                        <Text style={styles.timelineTime}>
+                          {formatTime(node.scheduledTime)}
+                        </Text>
+                        <Text style={styles.timelineTitle}>{node.name}</Text>
+                        <Text style={styles.timelineSubtitle}>
+                          {node.locationName}
+                        </Text>
+                        {node.activityDetails && (
+                          <Text style={styles.timelineDetails}>
+                            {node.activityDetails}
+                          </Text>
+                        )}
+                      </View>
                     </View>
-                    <Text style={styles.timelineSubtitle}>Seat 4A</Text>
-                  </View>
-                </View>
+                  );
+                })}
               </View>
-
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineLeft}>
-                  <View
-                    style={[styles.timelineDot, { backgroundColor: "#D1D5DB" }]}
-                  />
-                </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineTime}>04:00 PM</Text>
-                  <Text style={styles.timelineTitle}>
-                    Check-in at Boston Harbor Hotel
-                  </Text>
-                </View>
-              </View>
-            </View>
+            )}
           </View>
         </View>
       );
@@ -643,7 +675,11 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                       styles.customInputText,
                       !date && styles.customInputPlaceholder
                     ]}>
-                      {date || "Select start date"}
+                      {date ? new Date(date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) : "Select start date"}
                     </Text>
                     <MaterialCommunityIcons
                       name="chevron-down"
@@ -726,6 +762,22 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
             minimumDate={new Date()} // Optional constraint
           />
         )}
+
+        {/* Day-wise Itinerary Edit Modal */}
+        <EditGroupItineraryModal
+          visible={showDayWiseEditModal}
+          onDismiss={() => {
+            setShowDayWiseEditModal(false);
+            setEditingItinerary([]);
+          }}
+          onSuccess={() => {
+            setShowDayWiseEditModal(false);
+            setEditingItinerary([]);
+            // Refresh trips data
+            updateTripsFromBackend && updateTripsFromBackend();
+          }}
+          initialItinerary={editingItinerary}
+        />
       </View>
     );
   },
@@ -1257,6 +1309,12 @@ const styles = StyleSheet.create({
   timelineSubtitle: {
     fontSize: 14,
     color: "#6B7280",
+  },
+  timelineDetails: {
+    fontSize: 13,
+    color: "#9CA3AF",
+    marginTop: 4,
+    fontStyle: "italic",
   },
   timelineTagRow: {
     flexDirection: "row",

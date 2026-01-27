@@ -105,19 +105,12 @@ export default function ItineraryScreen() {
       </View>
 
       {/* Floating Action Button - Create Group Itinerary */}
-      <TouchableOpacity style={styles.fab} onPress={handleCreateGroupItinerary}>
+      {/* Commented out - Users should use navigation flow instead */}
+      {/* <TouchableOpacity style={styles.fab} onPress={handleCreateGroupItinerary}>
         <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
-      </TouchableOpacity>
+      </TouchableOpacity> */}
 
-      {/* Edit Itinerary Button */}
-      {state.user?.role === 'tour-admin' && state.trips.length > 0 && (
-        <TouchableOpacity 
-          style={styles.fabEdit} 
-          onPress={() => setShowEditModal(true)}
-        >
-          <MaterialCommunityIcons name="pencil" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-      )}
+      {/* Purple Edit Button Removed - Use Edit Trip button in cards instead */}
 
       {/* Create Group Itinerary Modal */}
       <CreateGroupItineraryModal
@@ -226,37 +219,5 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     flex: 1,
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 110,
-    width: 60,
-    height: 60,
-    borderRadius: 20,
-    backgroundColor: "#F97316",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#F97316",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 10,
-  },
-  fabEdit: {
-    position: "absolute",
-    right: 20,
-    bottom: 180,
-    width: 56,
-    height: 56,
-    borderRadius: 18,
-    backgroundColor: "#8B5CF6",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#8B5CF6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 12,
-    elevation: 8,
   },
 })

@@ -4,7 +4,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { Text, Switch, Menu, TextInput, Button } from "react-native-paper"
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from "@expo/vector-icons"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { useApp } from "../../../context/AppContext"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
@@ -15,6 +15,7 @@ export default function AccountPreferencesSection() {
     const [sound, setSound] = useState(true)
     const [vibration, setVibration] = useState(true)
     const [languageMenuVisible, setLanguageMenuVisible] = useState(false)
+    const isLanguageMenuDismissed = useRef(false)
     const [muteAllAlerts, setMuteAllAlerts] = useState(false)
     const [suppressMinutes, setSuppressMinutes] = useState<string>("15")
 
@@ -52,8 +53,20 @@ export default function AccountPreferencesSection() {
     }
 
     const openLanguageMenu = () => {
+        if (isLanguageMenuDismissed.current) {
+            isLanguageMenuDismissed.current = false
+            return
+        }
         if (languageMenuVisible) return
         InteractionManager.runAfterInteractions(() => setLanguageMenuVisible(true))
+    }
+
+    const closeLanguageMenu = () => {
+        isLanguageMenuDismissed.current = true
+        setLanguageMenuVisible(false)
+        setTimeout(() => {
+            isLanguageMenuDismissed.current = false
+        }, 200)
     }
 
     // Get current language display name
@@ -98,29 +111,32 @@ export default function AccountPreferencesSection() {
                     <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
                 </TouchableOpacity>
 
-                <View style={styles.divider} />
-
-                {/* View SOS Queue */}
-                <TouchableOpacity
-                    style={styles.listItem}
-                    activeOpacity={0.7}
-                    onPress={async () => {
-                        try {
-                            const q = await getSOSQueue()
-                            console.log('Queued SOS items:', q)
-                            Alert.alert('Queued SOS', `Count: ${q.length}\n\n${JSON.stringify(q, null, 2)}`)
-                        } catch (e) {
-                            console.warn('Failed reading SOS queue', e)
-                            Alert.alert('Queued SOS', 'Failed to read queue. See console for details.')
-                        }
-                    }}
-                >
-                    <View style={styles.listItemLeft}>
-                        <MaterialCommunityIcons name="message-alert-outline" size={22} color="#f97316" />
-                        <Text style={styles.listItemText}>View SOS Queue</Text>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
-                </TouchableOpacity>
+                {/* Debug View SOS Queue - Hidden in production */}
+                {__DEV__ && (
+                    <>
+                        <View style={styles.divider} />
+                        <TouchableOpacity
+                            style={styles.listItem}
+                            activeOpacity={0.7}
+                            onPress={async () => {
+                                try {
+                                    const q = await getSOSQueue()
+                                    console.log('Queued SOS items:', q)
+                                    Alert.alert('Queued SOS', `Count: ${q.length}\n\n${JSON.stringify(q, null, 2)}`)
+                                } catch (e) {
+                                    console.warn('Failed reading SOS queue', e)
+                                    Alert.alert('Queued SOS', 'Failed to read queue. See console for details.')
+                                }
+                            }}
+                        >
+                            <View style={styles.listItemLeft}>
+                                <MaterialCommunityIcons name="message-alert-outline" size={22} color="#f97316" />
+                                <Text style={styles.listItemText}>View SOS Queue</Text>
+                            </View>
+                            <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                        </TouchableOpacity>
+                    </>
+                )}
             </View>
 
             {/* PREFERENCES Section */}
@@ -187,35 +203,32 @@ export default function AccountPreferencesSection() {
 
                 <View style={styles.divider} />
 
-                {/* Sound and Vibration - Side by Side */}
+                {/* Sound */}
                 <View style={[styles.listItem, { paddingVertical: 5 }]}>
-                    <View style={styles.dualToggleRow}>
-                        <View style={styles.dualToggleItem}>
-                            <View style={styles.listItemLeft}>
-                                <Ionicons name="volume-high-outline" size={22} color="#1e40af" />
-                                <Text style={styles.listItemText}>Sound</Text>
-                            </View>
-                            <Switch
-                                value={sound}
-                                onValueChange={toggleSound}
-                                color="#1e40af"
-                            />
-                        </View>
-
-                        <View style={styles.verticalDivider} />
-
-                        <View style={styles.dualToggleItem}>
-                            <View style={styles.listItemLeft}>
-                                <MaterialIcons name="vibration" size={22} color="#1e40af" />
-                                <Text style={styles.listItemText}>Vibration</Text>
-                            </View>
-                            <Switch
-                                value={vibration}
-                                onValueChange={toggleVibration}
-                                color="#1e40af"
-                            />
-                        </View>
+                    <View style={styles.listItemLeft}>
+                        <Ionicons name="volume-high-outline" size={22} color="#1e40af" />
+                        <Text style={styles.listItemText}>Sound</Text>
                     </View>
+                    <Switch
+                        value={sound}
+                        onValueChange={toggleSound}
+                        color="#1e40af"
+                    />
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Vibration */}
+                <View style={[styles.listItem, { paddingVertical: 5 }]}>
+                    <View style={styles.listItemLeft}>
+                        <MaterialIcons name="vibration" size={22} color="#1e40af" />
+                        <Text style={styles.listItemText}>Vibration</Text>
+                    </View>
+                    <Switch
+                        value={vibration}
+                        onValueChange={toggleVibration}
+                        color="#1e40af"
+                    />
                 </View>
 
                 <View style={styles.divider} />
@@ -223,7 +236,7 @@ export default function AccountPreferencesSection() {
                 {/* Language with Dropdown */}
                 <Menu
                     visible={languageMenuVisible}
-                    onDismiss={() => setLanguageMenuVisible(false)}
+                    onDismiss={closeLanguageMenu}
                     anchor={
                         <View collapsable={false}>
                             <TouchableOpacity
