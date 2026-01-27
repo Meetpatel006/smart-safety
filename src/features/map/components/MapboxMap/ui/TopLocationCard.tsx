@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../../../../../context/AppContext';
+import { useLocation } from '../../../../../context/LocationContext';
 import { fetchNearestPolice, fetchNearestHospital, NearbyPOI } from '../../../services/mapboxSearchService';
 
 export default function TopLocationCard() {
     const { state } = useApp();
-    const currentAddress = state.currentAddress;
+    const { currentAddress, currentLocation: userLocation } = useLocation();
     const currentPrimary = state.currentPrimary;
-    const userLocation = state.currentLocation;
 
     // State for nearby help from Mapbox API
     const [nearestPolice, setNearestPolice] = useState<NearbyPOI | null>(null);

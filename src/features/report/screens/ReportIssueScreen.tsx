@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Image, Alert } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Image, Alert, Keyboard } from 'react-native';
 import { Text, Menu } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -18,8 +18,26 @@ export default function ReportIssueScreen() {
     const navigation = useNavigation();
     const [issueType, setIssueType] = useState(ISSUE_TYPES[0]);
     const [menuVisible, setMenuVisible] = useState(false);
+    const isMenuDismissed = useRef(false);
     const [description, setDescription] = useState('');
     const [screenshot, setScreenshot] = useState<string | null>(null);
+
+    const openMenu = () => {
+        if (isMenuDismissed.current) {
+            isMenuDismissed.current = false;
+            return;
+        }
+        Keyboard.dismiss();
+        setMenuVisible(true);
+    };
+
+    const closeMenu = () => {
+        isMenuDismissed.current = true;
+        setMenuVisible(false);
+        setTimeout(() => {
+            isMenuDismissed.current = false;
+        }, 200);
+    };
 
     const pickImage = async () => {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -76,18 +94,18 @@ export default function ReportIssueScreen() {
                 <Text style={styles.label}>ISSUE TYPE</Text>
                 <Menu
                     visible={menuVisible}
-                    onDismiss={() => setMenuVisible(false)}
+                    onDismiss={closeMenu}
                     anchor={
-                        <TouchableOpacity
-                            style={styles.dropdown}
-                            onPress={() => {
-                                if (!menuVisible) setMenuVisible(true)
-                            }}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.dropdownText}>{issueType}</Text>
-                            <Ionicons name="chevron-down" size={20} color="#6b7280" />
-                        </TouchableOpacity>
+                        <View collapsable={false}>
+                            <TouchableOpacity
+                                style={styles.dropdown}
+                                onPress={openMenu}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.dropdownText}>{issueType}</Text>
+                                <Ionicons name="chevron-down" size={20} color="#6b7280" />
+                            </TouchableOpacity>
+                        </View>
                     }
                     contentStyle={styles.menuContent}
                 >

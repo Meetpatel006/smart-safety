@@ -675,7 +675,11 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                       styles.customInputText,
                       !date && styles.customInputPlaceholder
                     ]}>
-                      {date || "Select start date"}
+                      {date ? new Date(date).toLocaleDateString('en-US', { 
+                        year: 'numeric', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      }) : "Select start date"}
                     </Text>
                     <MaterialCommunityIcons
                       name="chevron-down"

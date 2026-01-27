@@ -3,6 +3,7 @@ import React, { useEffect, useRef } from "react"
 import { View, StyleSheet, Animated, Easing, Pressable } from "react-native"
 import { Snackbar, Text } from "react-native-paper"
 import { useApp } from "../../../context/AppContext"
+import { useLocation } from "../../../context/LocationContext"
 import { t } from "../../../context/translations"
 import { triggerSOS } from "../../../utils/api";
 import { queueSOS } from "../../../utils/offlineQueue";
@@ -15,6 +16,7 @@ interface PanicActionsProps {
 
 export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {}) {
   const { state } = useApp()
+  const { currentLocation, currentAddress } = useLocation()
   const [snack, setSnack] = React.useState<{ visible: boolean; msg: string }>({ visible: false, msg: "" })
   const [loading, setLoading] = React.useState<boolean>(false);
 
@@ -97,8 +99,8 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
     if (state.offline) {
       const sosData = {
         location: {
-          coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0],
-          locationName: state.currentAddress || 'Current Location'
+          coordinates: [currentLocation?.coords.longitude || 0, currentLocation?.coords.latitude || 0],
+          locationName: currentAddress || 'Current Location'
         },
         safetyScore: state.user?.safetyScore || 100,
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'queued-offline' }
@@ -116,7 +118,7 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
       } catch (e) { }
       return;
     }
-    if (!state.currentLocation) {
+    if (!currentLocation) {
       setSnack({ visible: true, msg: "Location not available." });
       return;
     }
@@ -125,8 +127,8 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
     try {
       const sosData = {
         location: {
-          coordinates: [state.currentLocation.coords.longitude, state.currentLocation.coords.latitude],
-          locationName: state.currentAddress || 'Current Location'
+          coordinates: [currentLocation.coords.longitude, currentLocation.coords.latitude],
+          locationName: currentAddress || 'Current Location'
         },
         safetyScore: state.user?.safetyScore || 100,
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'N/A' }
@@ -148,7 +150,7 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
     } catch (error: any) {
       try {
         if (!queuedThisPress) {
-          await queueSOS({ token: currentToken, sosData: { location: { coordinates: [state.currentLocation?.coords.longitude || 0, state.currentLocation?.coords.latitude || 0], locationName: state.currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
+          await queueSOS({ token: currentToken, sosData: { location: { coordinates: [currentLocation?.coords.longitude || 0, currentLocation?.coords.latitude || 0], locationName: currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
         }
         setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
       } catch (qe) {
@@ -160,11 +162,11 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
   }
 
   const buildSmsMessage = (label: string) => {
-    const loc = state.currentLocation
+    const loc = currentLocation
     const coords = loc && loc.coords ? `${loc.coords.latitude.toFixed(6)},${loc.coords.longitude.toFixed(6)}` : null
     const name = state.user?.name || 'Unknown Tourist'
     const phone = state.user?.phone || ''
-    const addr = state.currentAddress || ''
+    const addr = currentAddress || ''
     const score = (typeof state.computedSafetyScore === 'number') ? state.computedSafetyScore : (typeof state.user?.safetyScore === 'number' ? state.user!.safetyScore : null)
     const mapLink = coords ? `https://maps.google.com/?q=${coords}` : null
 

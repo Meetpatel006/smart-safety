@@ -4,11 +4,13 @@ import { View, StyleSheet } from "react-native"
 import { Text } from "react-native-paper"
 import { computeSafetyScore, SafetyScoreResult } from "../../../utils/safetyLogic"
 import { useApp } from "../../../context/AppContext"
+import { useLocation } from "../../../context/LocationContext"
 import * as Location from 'expo-location'
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function SafetyScore() {
-  const { state, setCurrentLocation, setComputedSafetyScore } = useApp()
+  const { state, setComputedSafetyScore } = useApp()
+  const { currentLocation, setCurrentLocation } = useLocation()
   const [combinedResult, setCombinedResult] = useState<SafetyScoreResult | null>(null)
   const [combinedLoading, setCombinedLoading] = useState(false)
   const [combinedError, setCombinedError] = useState<string | null>(null)
@@ -36,7 +38,7 @@ export default function SafetyScore() {
 
   useEffect(() => {
     let mounted = true
-    const loc = state.currentLocation
+    const loc = currentLocation
 
     const fetchSafetyScore = async () => {
       if (!loc || !loc.coords) {
@@ -71,7 +73,7 @@ export default function SafetyScore() {
 
     fetchSafetyScore()
     return () => { mounted = false }
-  }, [state.currentLocation])
+  }, [currentLocation])
 
   const displayScore = combinedResult?.score ?? 0
   const isLoading = locationLoading || combinedLoading

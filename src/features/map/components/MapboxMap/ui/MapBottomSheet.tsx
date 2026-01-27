@@ -8,6 +8,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useApp } from '../../../../../context/AppContext';
+import { useLocation } from '../../../../../context/LocationContext';
 import SafetyScoreCard from '../../../../dashboard/components/SafetyScoreCard';
 import { fetchNearbyHelp, NearbyPOI } from '../../../services/mapboxSearchService';
 
@@ -28,7 +29,7 @@ export default function MapBottomSheet({
     onSOS,
 }: MapBottomSheetProps) {
     const { state } = useApp();
-    const userLocation = state.currentLocation;
+    const { currentLocation: userLocation } = useLocation();
 
     // Nearby help from Mapbox API
     const [nearbyHelp, setNearbyHelp] = useState<NearbyPOI[]>([]);
