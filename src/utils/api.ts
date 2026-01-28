@@ -48,6 +48,21 @@ export const login = async (email, password) => {
   }
 };
 
+export const loginWithCodes = async (guideId: string, touristId: string, groupAccessCode: string) => {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/auth/login-with-codes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guideId, touristId, groupAccessCode }),
+    });
+    const res = await handleResponse(response);
+    return res;
+  } catch (e: any) {
+    console.error("API: loginWithCodes error", { error: e?.message || e });
+    throw e;
+  }
+};
+
 export const register = async (userData) => {
   try {
     const response = await fetch(`${SERVER_URL}/api/auth/register`, {
@@ -580,3 +595,38 @@ export const updateGroupItinerary = async (token, itinerary) => {
     throw e;
   }
 };
+
+export const getAllMembers = async (token) => {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/group/members`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const res = await handleResponse(response);
+    return res;
+  } catch (e) {
+    console.error("API: getAllMembers error", { error: e?.message || e });
+    throw e;
+  }
+};
+
+export const sendWelcomeEmailsToAll = async (token) => {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/group/members/send-welcome-all`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const res = await handleResponse(response);
+    return res;
+  } catch (e) {
+    console.error("API: sendWelcomeEmailsToAll error", { error: e?.message || e });
+    throw e;
+  }
+};
+

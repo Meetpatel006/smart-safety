@@ -9,10 +9,12 @@ interface GroupStatusCardProps {
   accessCode: string;
   memberCount: number;
   isTourAdmin?: boolean;
+  isGroupMember?: boolean;
   onEditItinerary?: () => void;
+  onViewItinerary?: () => void;
 }
 
-export default function GroupStatusCard({ groupName, accessCode, memberCount, isTourAdmin, onEditItinerary }: GroupStatusCardProps) {
+export default function GroupStatusCard({ groupName, accessCode, memberCount, isTourAdmin, isGroupMember, onEditItinerary, onViewItinerary }: GroupStatusCardProps) {
   const theme = useTheme();
 
   const copyToClipboard = async () => {
@@ -56,6 +58,22 @@ export default function GroupStatusCard({ groupName, accessCode, memberCount, is
             compact
           >
             Edit Itinerary
+          </Button>
+        </Card.Actions>
+      )}
+      
+      {/* View Itinerary Button - Only for group-members */}
+      {isGroupMember && onViewItinerary && (
+        <Card.Actions style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+          <Button
+            mode="contained"
+            onPress={onViewItinerary}
+            icon="calendar-check"
+            style={{ backgroundColor: 'rgba(255,255,255,0.95)', borderRadius: 8 }}
+            labelStyle={{ color: '#00897B', fontWeight: 'bold' }}
+            compact
+          >
+            View Itinerary
           </Button>
         </Card.Actions>
       )}

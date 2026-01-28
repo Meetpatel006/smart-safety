@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import LoginScreen from "../features/auth/screens/LoginScreen";
+import LoginWithCodesScreen from "../features/auth/screens/LoginWithCodesScreen";
 import RegisterScreen from "../features/auth/screens/RegisterScreen";
 import DashboardScreen from "../features/dashboard/screens/DashboardScreen";
 import ItineraryScreen from "../features/trip/screens/ItineraryScreen";
@@ -24,6 +25,9 @@ import CreateTripScreen from "../features/trip/screens/CreateTripScreen";
 import JoinGroupScreen from "../features/trip/screens/JoinGroupScreen";
 import TripDurationScreen from "../features/trip/screens/TripDurationScreen";
 import BuildItineraryScreen from "../features/trip/screens/BuildItineraryScreen";
+import PeopleScreen from "../features/people/screens/PeopleScreen";
+import EditPersonScreen from "../features/people/screens/EditPersonScreen";
+import AddPersonScreen from "../features/people/screens/AddPersonScreen";
 
 export type RootStackParamList = {
   Auth: undefined;
@@ -43,6 +47,8 @@ export type RootStackParamList = {
   PersonalInfo: undefined;
   AppSettings: undefined;
   GeoFenceDebug: undefined;
+  EditPerson: { person: any };
+  AddPerson: undefined;
   // Transitions: undefined
 };
 
@@ -70,6 +76,8 @@ function TabBarBackground() {
 
 function MainTabs() {
   const theme = useTheme();
+  const { state } = useApp();
+  const isTourAdmin = state.user?.role === 'tour-admin';
   const activeColor = "#3b82f6";
   const inactiveColor = "#9ca3af";
 
@@ -190,50 +198,97 @@ function MainTabs() {
           ),
         }}
       />
-      <Tab.Screen
-        name="Itinerary"
-        component={ItineraryScreen}
-        options={{
-          tabBarIcon: ({ focused, color }) => (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                height: 60,
-              }}
-            >
-              <ItineraryIcon
-                color={focused ? activeColor : inactiveColor}
-                size={26}
-                filled={focused}
-              />
-              {focused && (
-                <>
-                  <Text
-                    style={{
-                      color: activeColor,
-                      fontSize: 10,
-                      marginTop: 2,
-                      fontWeight: "600",
-                    }}
-                  >
-                    Itinerary
-                  </Text>
-                  <View
-                    style={{
-                      width: 6,
-                      height: 6,
-                      borderRadius: 3,
-                      backgroundColor: activeColor,
-                      marginTop: 3,
-                    }}
-                  />
-                </>
-              )}
-            </View>
-          ),
-        }}
-      />
+      {isTourAdmin ? (
+        <Tab.Screen
+          name="People"
+          component={PeopleScreen}
+          options={{
+            tabBarIcon: ({ focused, color }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 60,
+                }}
+              >
+                <MaterialCommunityIcons
+                  name="account-group"
+                  size={26}
+                  color={focused ? activeColor : inactiveColor}
+                />
+                {focused && (
+                  <>
+                    <Text
+                      style={{
+                        color: activeColor,
+                        fontSize: 10,
+                        marginTop: 2,
+                        fontWeight: "600",
+                      }}
+                    >
+                      People
+                    </Text>
+                    <View
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: activeColor,
+                        marginTop: 3,
+                      }}
+                    />
+                  </>
+                )}
+              </View>
+            ),
+          }}
+        />
+      ) : (
+        <Tab.Screen
+          name="Itinerary"
+          component={ItineraryScreen}
+          options={{
+            tabBarIcon: ({ focused, color }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  height: 60,
+                }}
+              >
+                <ItineraryIcon
+                  color={focused ? activeColor : inactiveColor}
+                  size={26}
+                  filled={focused}
+                />
+                {focused && (
+                  <>
+                    <Text
+                      style={{
+                        color: activeColor,
+                        fontSize: 10,
+                        marginTop: 2,
+                        fontWeight: "600",
+                      }}
+                    >
+                      Itinerary
+                    </Text>
+                    <View
+                      style={{
+                        width: 6,
+                        height: 6,
+                        borderRadius: 3,
+                        backgroundColor: activeColor,
+                        marginTop: 3,
+                      }}
+                    />
+                  </>
+                )}
+              </View>
+            ),
+          }}
+        />
+      )}
       <Tab.Screen
         name="Settings"
         component={SettingsScreen}
@@ -296,6 +351,11 @@ function AuthStack() {
       <StackAuth.Screen
         name="Login"
         component={LoginScreen}
+        options={{ headerShown: false }}
+      />
+      <StackAuth.Screen
+        name="LoginWithCodes"
+        component={LoginWithCodesScreen}
         options={{ headerShown: false }}
       />
       <StackAuth.Screen
@@ -409,6 +469,16 @@ export function RootNavigator() {
             name="AppSettings"
             component={AppSettingsScreen}
             options={{ title: "App Settings", headerShown: true }}
+          />
+          <Stack.Screen
+            name="EditPerson"
+            component={EditPersonScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddPerson"
+            component={AddPersonScreen}
+            options={{ headerShown: false }}
           />
           {/* <Stack.Screen
             name="GeoFenceDebug"

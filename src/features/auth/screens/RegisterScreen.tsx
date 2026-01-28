@@ -312,17 +312,20 @@ export default function RegisterScreen({ navigation }: any) {
                             "Traveling alone or independently."
                         )}
                         {renderRoleButton(
-                            "group-member", 
-                            "Group Member", 
-                            "account-group", 
-                            "Joining a guided tour group."
-                        )}
-                        {renderRoleButton(
                             "tour-admin", 
                             "Tour Admin / Guide", 
                             "shield-account", 
                             "Organizing and managing a group."
                         )}
+                        
+                        {/* Info box explaining group member registration */}
+                        <View style={styles.infoBox}>
+                            <MaterialCommunityIcons name="information" size={20} color="#3B82F6" />
+                            <Text style={styles.infoBoxText}>
+                                <Text style={{ fontWeight: '600' }}>Group Members:</Text> You'll be added by your tour guide. Check your email for login codes.
+                            </Text>
+                        </View>
+                        
                          <View style={styles.footer}>
                             <Text style={styles.footerText}>Already have an account?</Text>
                             <TouchableOpacity onPress={() => navigation.navigate("Login")}>
@@ -504,5 +507,22 @@ const styles = StyleSheet.create({
     color: '#0077CC',
     fontSize: 15,
     fontWeight: '600',
+  },
+  infoBox: {
+    backgroundColor: '#EFF6FF',
+    borderWidth: 1,
+    borderColor: '#BFDBFE',
+    borderRadius: 12,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 8,
+  },
+  infoBoxText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#1E40AF',
+    marginLeft: 12,
+    lineHeight: 20,
   },
 });

@@ -75,6 +75,22 @@ const formatTime = (time: string): string => {
   return time;
 };
 
+// Helper function to calculate current day index based on trip start date
+const getCurrentDayIndex = (tripStartDate: string, totalDays: number): number => {
+  const tripStart = new Date(tripStartDate);
+  const today = new Date();
+  
+  // Reset time to midnight for accurate day comparison
+  tripStart.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  
+  // Calculate days difference
+  const daysDiff = Math.floor((today.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24));
+  
+  // Clamp between 0 and last day index (0-based)
+  return Math.max(0, Math.min(daysDiff, totalDays - 1));
+};
+
 interface ItineraryListProps {
   filter?: FilterType;
   loading?: boolean;
@@ -98,6 +114,14 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
     const [showHistory, setShowHistory] = useState(true);
     const [showDayWiseEditModal, setShowDayWiseEditModal] = useState(false);
     const [editingItinerary, setEditingItinerary] = useState<any[]>([]);
+    const [expandedTripId, setExpandedTripId] = useState<string | null>(null); // Track which trip's itinerary is expanded
+
+    // Check if user is a group member (read-only access)
+    const isGroupMember = state.user?.role === 'group-member';
+    
+    // Debug log
+    console.log('[ItineraryList] User data:', JSON.stringify(state.user, null, 2));
+    console.log('[ItineraryList] User role:', state.user?.role, 'isGroupMember:', isGroupMember);
 
       useImperativeHandle(ref, () => ({
       openNew: () => {
@@ -335,76 +359,265 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                   ]}
                 />
               </View>
+
+              {/* View Itinerary Button - Only for group members with multiple days */}
+              {isGroupMember && trip.dayWiseItinerary && trip.dayWiseItinerary.length > 1 && (
+                <TouchableOpacity
+                  style={styles.viewItineraryButton}
+                  onPress={() => {
+                    // Toggle expanded state
+                    setExpandedTripId(expandedTripId === trip.id ? null : trip.id);
+                  }}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-check"
+                    size={18}
+                    color="#3B82F6"
+                  />
+                  <Text style={styles.viewItineraryButtonText}>
+                    {expandedTripId === trip.id ? 'Show Today Only' : 'Show All Days'}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name={expandedTripId === trip.id ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color="#3B82F6"
+                  />
+                </TouchableOpacity>
+              )}
             </View>
 
-            {/* Action Buttons */}
-            <View style={styles.cardActions}>
-              <TouchableOpacity
-                style={styles.editButton}
-                onPress={() => openEdit(trip.id, trip.title, trip.date, trip.notes, trip.dayWiseItinerary)}
-              >
-                <MaterialCommunityIcons
-                  name="pencil-outline"
-                  size={18}
-                  color="#374151"
-                />
-                <Text style={styles.editButtonText}>Edit Trip</Text>
-              </TouchableOpacity>
+            {/* Action Buttons - Only show for non-group-members */}
+            {!isGroupMember && (
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={styles.editButton}
+                  onPress={() => openEdit(trip.id, trip.title, trip.date, trip.notes, trip.dayWiseItinerary)}
+                >
+                  <MaterialCommunityIcons
+                    name="pencil-outline"
+                    size={18}
+                    color="#374151"
+                  />
+                  <Text style={styles.editButtonText}>Edit Trip</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.extendButton}
-                onPress={() => openExtend(trip.id, trip.title, trip.date, trip.notes)}
-              >
-                <MaterialCommunityIcons
-                  name="calendar-refresh"
-                  size={18}
-                  color="#3B82F6"
-                />
-                <Text style={styles.extendButtonText}>Extend Stay</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Detailed Itinerary View */}
-          <View style={styles.detailsContainer}>
-            {/* Today's Plan Card */}
-            {trip.dayWiseItinerary && trip.dayWiseItinerary.length > 0 && (
-              <View style={styles.planCard}>
-                <Text style={styles.planTitle}>Trip Itinerary</Text>
-
-                {trip.dayWiseItinerary[0].nodes.map((node, index) => {
-                  const isLast = index === trip.dayWiseItinerary![0].nodes.length - 1;
-                  const colors = ['#22C55E', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899'];
-                  const dotColor = colors[index % colors.length];
-
-                  return (
-                    <View key={index} style={styles.timelineItem}>
-                      <View style={styles.timelineLeft}>
-                        <View
-                          style={[styles.timelineDot, { backgroundColor: dotColor }]}
-                        />
-                        {!isLast && <View style={styles.timelineLine} />}
-                      </View>
-                      <View style={styles.timelineContent}>
-                        <Text style={styles.timelineTime}>
-                          {formatTime(node.scheduledTime)}
-                        </Text>
-                        <Text style={styles.timelineTitle}>{node.name}</Text>
-                        <Text style={styles.timelineSubtitle}>
-                          {node.locationName}
-                        </Text>
-                        {node.activityDetails && (
-                          <Text style={styles.timelineDetails}>
-                            {node.activityDetails}
-                          </Text>
-                        )}
-                      </View>
-                    </View>
-                  );
-                })}
+                <TouchableOpacity
+                  style={styles.extendButton}
+                  onPress={() => openExtend(trip.id, trip.title, trip.date, trip.notes)}
+                >
+                  <MaterialCommunityIcons
+                    name="calendar-refresh"
+                    size={18}
+                    color="#3B82F6"
+                  />
+                  <Text style={styles.extendButtonText}>Extend Stay</Text>
+                </TouchableOpacity>
               </View>
             )}
           </View>
+
+          {/* Detailed Itinerary View */}
+          {trip.dayWiseItinerary && trip.dayWiseItinerary.length > 0 && (
+            <View style={styles.detailsContainer}>
+              <View style={styles.planCard}>
+                {/* For group members: show current day by default, all days when expanded */}
+                {/* For others (admins/solo): always show all days */}
+                {isGroupMember ? (
+                  <>
+                    {expandedTripId === trip.id ? (
+                      // Show ALL days when expanded
+                      <>
+                        <Text style={styles.planTitle}>Complete Day-wise Itinerary</Text>
+                        {trip.dayWiseItinerary.map((day, dayIndex) => {
+                          const currentDayIdx = getCurrentDayIndex(trip.date, trip.dayWiseItinerary.length);
+                          const isToday = dayIndex === currentDayIdx;
+                          
+                          return (
+                            <View key={dayIndex} style={styles.daySection}>
+                              {/* Day Header */}
+                              <View style={[styles.dayHeader, isToday && styles.todayHeader]}>
+                                <MaterialCommunityIcons 
+                                  name="calendar-today" 
+                                  size={20} 
+                                  color={isToday ? "#22C55E" : "#3B82F6"} 
+                                />
+                                <Text style={[styles.dayTitle, isToday && styles.todayTitle]}>
+                                  Day {day.dayNumber}
+                                  {isToday && " (Today)"}
+                                </Text>
+                                <Text style={styles.dayDate}>
+                                  {new Date(day.date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  })}
+                                </Text>
+                              </View>
+
+                              {/* Day's activities */}
+                              {day.nodes.map((node, nodeIndex) => {
+                                const isLast = nodeIndex === day.nodes.length - 1;
+                                const colors = ['#22C55E', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899'];
+                                const dotColor = colors[nodeIndex % colors.length];
+
+                                return (
+                                  <View key={nodeIndex} style={styles.timelineItem}>
+                                    <View style={styles.timelineLeft}>
+                                      <View
+                                        style={[styles.timelineDot, { backgroundColor: dotColor }]}
+                                      />
+                                      {!isLast && <View style={styles.timelineLine} />}
+                                    </View>
+                                    <View style={styles.timelineContent}>
+                                      <Text style={styles.timelineTime}>
+                                        {formatTime(node.scheduledTime)}
+                                      </Text>
+                                      <Text style={styles.timelineTitle}>{node.name}</Text>
+                                      <Text style={styles.timelineSubtitle}>
+                                        {node.locationName}
+                                      </Text>
+                                      {node.activityDetails && (
+                                        <Text style={styles.timelineDetails}>
+                                          {node.activityDetails}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      // Show ONLY current day by default
+                      <>
+                        <Text style={styles.planTitle}>Today's Itinerary</Text>
+                        {(() => {
+                          const currentDayIdx = getCurrentDayIndex(trip.date, trip.dayWiseItinerary.length);
+                          const currentDay = trip.dayWiseItinerary[currentDayIdx];
+                          
+                          if (!currentDay) return null;
+                          
+                          return (
+                            <View style={styles.daySection}>
+                              {/* Day Header */}
+                              <View style={[styles.dayHeader, styles.todayHeader]}>
+                                <MaterialCommunityIcons 
+                                  name="calendar-today" 
+                                  size={20} 
+                                  color="#22C55E" 
+                                />
+                                <Text style={[styles.dayTitle, styles.todayTitle]}>
+                                  Day {currentDay.dayNumber}
+                                </Text>
+                                <Text style={styles.dayDate}>
+                                  {new Date(currentDay.date).toLocaleDateString('en-US', { 
+                                    month: 'short', 
+                                    day: 'numeric', 
+                                    year: 'numeric' 
+                                  })}
+                                </Text>
+                              </View>
+
+                              {/* Day's activities */}
+                              {currentDay.nodes.map((node, nodeIndex) => {
+                                const isLast = nodeIndex === currentDay.nodes.length - 1;
+                                const colors = ['#22C55E', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899'];
+                                const dotColor = colors[nodeIndex % colors.length];
+
+                                return (
+                                  <View key={nodeIndex} style={styles.timelineItem}>
+                                    <View style={styles.timelineLeft}>
+                                      <View
+                                        style={[styles.timelineDot, { backgroundColor: dotColor }]}
+                                      />
+                                      {!isLast && <View style={styles.timelineLine} />}
+                                    </View>
+                                    <View style={styles.timelineContent}>
+                                      <Text style={styles.timelineTime}>
+                                        {formatTime(node.scheduledTime)}
+                                      </Text>
+                                      <Text style={styles.timelineTitle}>{node.name}</Text>
+                                      <Text style={styles.timelineSubtitle}>
+                                        {node.locationName}
+                                      </Text>
+                                      {node.activityDetails && (
+                                        <Text style={styles.timelineDetails}>
+                                          {node.activityDetails}
+                                        </Text>
+                                      )}
+                                    </View>
+                                  </View>
+                                );
+                              })}
+                            </View>
+                          );
+                        })()}
+                      </>
+                    )}
+                  </>
+                ) : (
+                  // For non-group members: always show all days
+                  <>
+                    <Text style={styles.planTitle}>Day-wise Itinerary</Text>
+                    {trip.dayWiseItinerary.map((day, dayIndex) => (
+                      <View key={dayIndex} style={styles.daySection}>
+                        {/* Day Header */}
+                        <View style={styles.dayHeader}>
+                          <MaterialCommunityIcons 
+                            name="calendar-today" 
+                            size={20} 
+                            color="#3B82F6" 
+                          />
+                          <Text style={styles.dayTitle}>Day {day.dayNumber}</Text>
+                          <Text style={styles.dayDate}>
+                            {new Date(day.date).toLocaleDateString('en-US', { 
+                              month: 'short', 
+                              day: 'numeric', 
+                              year: 'numeric' 
+                            })}
+                          </Text>
+                        </View>
+
+                        {/* Day's activities */}
+                        {day.nodes.map((node, nodeIndex) => {
+                          const isLast = nodeIndex === day.nodes.length - 1;
+                          const colors = ['#22C55E', '#3B82F6', '#8B5CF6', '#F97316', '#EC4899'];
+                          const dotColor = colors[nodeIndex % colors.length];
+
+                          return (
+                            <View key={nodeIndex} style={styles.timelineItem}>
+                              <View style={styles.timelineLeft}>
+                                <View
+                                  style={[styles.timelineDot, { backgroundColor: dotColor }]}
+                                />
+                                {!isLast && <View style={styles.timelineLine} />}
+                              </View>
+                              <View style={styles.timelineContent}>
+                                <Text style={styles.timelineTime}>
+                                  {formatTime(node.scheduledTime)}
+                                </Text>
+                                <Text style={styles.timelineTitle}>{node.name}</Text>
+                                <Text style={styles.timelineSubtitle}>
+                                  {node.locationName}
+                                </Text>
+                                {node.activityDetails && (
+                                  <Text style={styles.timelineDetails}>
+                                    {node.activityDetails}
+                                  </Text>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    ))}
+                  </>
+                )}
+              </View>
+            </View>
+          )}
         </View>
       );
     };
@@ -945,6 +1158,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  viewItineraryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 1.5,
+    borderColor: "#BFDBFE",
+    gap: 8,
+    marginTop: 12,
+  },
+  viewItineraryButtonText: {
+    color: "#3B82F6",
+    fontSize: 15,
+    fontWeight: "600",
+  },
   // Empty state styles
   emptyContainer: {
     flex: 1,
@@ -1262,6 +1493,38 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#111827",
     marginBottom: 24,
+  },
+  daySection: {
+    marginBottom: 32,
+  },
+  dayHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    marginBottom: 16,
+    gap: 8,
+  },
+  todayHeader: {
+    backgroundColor: "#D1FAE5",
+    borderWidth: 1.5,
+    borderColor: "#22C55E",
+  },
+  dayTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1F2937",
+    flex: 1,
+  },
+  todayTitle: {
+    color: "#22C55E",
+  },
+  dayDate: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#6B7280",
   },
   timelineItem: {
     flexDirection: "row",

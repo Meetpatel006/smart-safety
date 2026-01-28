@@ -118,6 +118,16 @@ export default function LoginScreen({ navigation }: any) {
               {t(lang, "signIn")}
             </Button>
 
+            {/* Group Member Login Link */}
+            <TouchableOpacity 
+              onPress={() => navigation.navigate("LoginWithCodes")} 
+              disabled={loading}
+              style={styles.groupMemberLink}
+            >
+              <MaterialCommunityIcons name="account-group" size={16} color="#3B82F6" />
+              <Text style={styles.groupMemberLinkText}>Group Member? Login with Codes</Text>
+            </TouchableOpacity>
+
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don't have an account?</Text>
               <TouchableOpacity onPress={() => navigation.navigate("Register")} disabled={loading}>
@@ -207,6 +217,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: 0.5,
+  },
+  groupMemberLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
+    gap: 6,
+  },
+  groupMemberLinkText: {
+    color: '#3B82F6',
+    fontSize: 14,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',

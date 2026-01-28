@@ -26,6 +26,7 @@ import { MOCK_CONTACTS, MOCK_GROUP, MOCK_ITINERARY } from "../utils/mockData";
 import type { Lang } from "./translations";
 import {
   login as apiLogin,
+  loginWithCodes as apiLoginWithCodes,
   register as apiRegister,
   getTouristData,
   tripsToItinerary,
@@ -124,6 +125,11 @@ type AppContextValue = {
   login: (
     email: string,
     password: string,
+  ) => Promise<{ ok: boolean; message: string }>;
+  loginWithCodes: (
+    guideId: string,
+    touristId: string,
+    groupAccessCode: string,
   ) => Promise<{ ok: boolean; message: string }>;
   register: (params: {
     role: "solo" | "group-member" | "tour-admin";
@@ -709,6 +715,92 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               trips,
             });
           } catch (e) {}
+          return { ok: true, message: "Login successful" };
+        } catch (error: any) {
+          // Check if this is a group member trying to login with email/password
+          if (error.message && error.message.includes("must login using the 3-code system")) {
+            return { 
+              ok: false, 
+              message: "Group members must use the 3-code login. Click 'Group Member? Login with Codes' below.",
+              isGroupMemberError: true 
+            };
+          }
+          return { ok: false, message: error.message || "An error occurred" };
+        }
+      },
+      async loginWithCodes(guideId, touristId, groupAccessCode) {
+        try {
+          const data = await apiLoginWithCodes(guideId, touristId, groupAccessCode);
+          
+          if (!data.success || !data.data) {
+            throw new Error(data.message || "Login failed");
+          }
+          
+          // Get full user data
+          const userRes = await getTouristData(data.data.token);
+          let userData: any = null;
+          if (Array.isArray(userRes)) {
+            userData = userRes.length ? userRes[0] : null;
+          } else {
+            userData = userRes;
+          }
+
+          if (!userData) throw new Error("Failed to fetch user data");
+          
+          // IMPORTANT: Ensure role is set from the login response
+          // The getTouristData might not return role, so we use it from login response
+          if (!userData.role && data.data.role) {
+            userData.role = data.data.role;
+          }
+          
+          // Also ensure other fields from login response are preserved
+          if (!userData.touristId && data.data.touristId) {
+            userData.touristId = data.data.touristId;
+          }
+          if (!userData.groupId && data.data.groupId) {
+            userData.groupId = data.data.groupId;
+          }
+          
+          // Build trips from userData.itinerary
+          const itinerary = Array.isArray(userData.itinerary)
+            ? userData.itinerary
+            : [];
+          const trips = itineraryToTrips(itinerary);
+
+          // Map emergency contact from API
+          let contactsFromApi:
+            | { id: string; name: string; phone: string }[]
+            | null = null;
+          try {
+            if (userData.emergencyContact) {
+              const ec = userData.emergencyContact;
+              const resolved = Array.isArray(ec) ? ec : [ec];
+              const now = Date.now();
+              contactsFromApi = resolved.map((c: any, i: number) => ({
+                id: `ec${now}_${i}`,
+                name: c.name || c.title || "Emergency",
+                phone: c.phone || c.mobile || c.number || "",
+              }));
+            }
+          } catch (e) {
+            contactsFromApi = null;
+          }
+
+          setState((s) => ({
+            ...s,
+            user: userData,
+            token: data.data.token,
+            trips,
+            contacts: contactsFromApi || s.contacts,
+          }));
+          
+          try {
+            console.log("✅ 3-code login successful");
+            console.log("   User role:", userData.role);
+            console.log("   User name:", userData.name);
+            console.log("   User ID:", userData.touristId);
+          } catch (e) {}
+          
           return { ok: true, message: "Login successful" };
         } catch (error: any) {
           return { ok: false, message: error.message || "An error occurred" };
