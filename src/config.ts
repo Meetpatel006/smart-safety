@@ -4,17 +4,17 @@ import Constants from "expo-constants";
 export const SERVER_URL =
   Constants.expoConfig?.extra?.SERVER_URL ||
   process.env.SERVER_URL ||
-  "https://tourist-safety-api.taskhub.me";
+  "https://smart-tourist-safety-app-backend-1.onrender.com";
 
 // AI model URLs for getting safety score predictions
 export const GEO_MODEL_URL =
   Constants.expoConfig?.extra?.GEO_MODEL_URL ||
   process.env.GEO_MODEL_URL ||
-  "https://of8766175--geofence-safety-api-fastapi-app.modal.run/predict";
+  "https://gcet--geofence-safety-api-fastapi-app.modal.run/predict";
 export const WEATHER_MODEL_URL =
   Constants.expoConfig?.extra?.WEATHER_MODEL_URL ||
   process.env.WEATHER_MODEL_URL ||
-  "https://gcet--weather-safety-api-fastapi-app-dev.modal.run/predict";
+  "https://gcet--weather-safety-api-fastapi-app.modal.run/predict";
 
 // Mapbox configuration - prioritize .env over app.json for security
 // Prefer value injected into expo.extra (via app.config.js) so it works with Expo/Metro.
@@ -52,6 +52,15 @@ export const AUTHORITY_PHONE =
   process.env.AUTHORITY_PHONE ||
   "";
 
+// Weather API Keys for backup/fallback weather data sources
+export const WEATHERAPI_KEY =
+  Constants.expoConfig?.extra?.WEATHERAPI_KEY ||
+  process.env.WEATHERAPI_KEY;
+
+export const OPENWEATHERMAP_KEY =
+  Constants.expoConfig?.extra?.OPENWEATHERMAP_KEY ||
+  process.env.OPENWEATHERMAP_KEY;
+
 if (!GROQ_API_KEY) {
   console.info(
     "Groq LLM not fully configured. GROQ_API_KEY missing. Using local fallback recommendations.",
@@ -64,4 +73,6 @@ export default {
   WEATHER_MODEL_URL,
   MAPBOX_ACCESS_TOKEN,
   ROLLING_LOG_ENABLED,
+  WEATHERAPI_KEY,
+  OPENWEATHERMAP_KEY,
 };

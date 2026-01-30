@@ -1,54 +1,70 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface RightActionButtonsProps {
     onCompassPress?: () => void;
-    onDangerFlagPress?: () => void;
     onLayersPress?: () => void;
     onSOSPress?: () => void;
+    onDirectionsPress?: () => void;
+    hideDirectionsButton?: boolean;
+    hideCompassButton?: boolean;
+    customBottom?: number;
+    visible?: boolean;
 }
 
 export default function RightActionButtons({
     onCompassPress,
-    onDangerFlagPress,
     onLayersPress,
     onSOSPress,
+    onDirectionsPress,
+    hideDirectionsButton = false,
+    hideCompassButton = false,
+    customBottom,
+    visible = true,
 }: RightActionButtonsProps) {
+    if (!visible) return null;
     return (
-        <View style={styles.container}>
-            {/* Compass / Navigation Button */}
-            <TouchableOpacity
-                style={styles.button}
-                onPress={onCompassPress}
-                activeOpacity={0.7}
-            >
-                <MaterialCommunityIcons name="navigation" size={22} color="#374151" />
-            </TouchableOpacity>
+        <View style={[styles.container, customBottom !== undefined && { bottom: customBottom }]}>
+            {/* Main Action Group */}
+            <View style={styles.buttonGroup}>
+                {/* Compass / Navigation Button */}
+                {!hideCompassButton && (
+                    <TouchableOpacity
+                        style={[styles.button, styles.compassButton]}
+                        onPress={onCompassPress}
+                        activeOpacity={0.85}
+                    >
+                        <MaterialCommunityIcons name="navigation" size={20} color="#374151" />
+                    </TouchableOpacity>
+                )}
 
-            {/* Danger Flag / Report Button */}
-            <TouchableOpacity
-                style={[styles.button, styles.dangerButton]}
-                onPress={onDangerFlagPress}
-                activeOpacity={0.7}
-            >
-                <MaterialCommunityIcons name="flag" size={22} color="#EF4444" />
-            </TouchableOpacity>
+                {/* Directions Button */}
+                {!hideDirectionsButton && (
+                    <TouchableOpacity
+                        style={[styles.button, styles.directionsButton]}
+                        onPress={onDirectionsPress}
+                        activeOpacity={0.85}
+                    >
+                        <MaterialCommunityIcons name="directions" size={20} color="#3B82F6" />
+                    </TouchableOpacity>
+                )}
 
-            {/* Layers Button */}
-            <TouchableOpacity
-                style={styles.button}
-                onPress={onLayersPress}
-                activeOpacity={0.7}
-            >
-                <MaterialCommunityIcons name="layers-outline" size={22} color="#6366F1" />
-            </TouchableOpacity>
+                {/* Layers Button */}
+                <TouchableOpacity
+                    style={[styles.button, styles.layersButton]}
+                    onPress={onLayersPress}
+                    activeOpacity={0.85}
+                >
+                    <MaterialCommunityIcons name="layers-outline" size={20} color="#6366F1" />
+                </TouchableOpacity>
+            </View>
 
-            {/* SOS Button - Opens Bottom Sheet */}
+            {/* SOS Button - Separate for emphasis */}
             <TouchableOpacity
                 style={[styles.button, styles.sosButton]}
                 onPress={onSOSPress}
-                activeOpacity={0.7}
+                activeOpacity={0.85}
             >
                 <MaterialCommunityIcons name="shield-alert" size={22} color="white" />
             </TouchableOpacity>
@@ -59,23 +75,42 @@ export default function RightActionButtons({
 const styles = StyleSheet.create({
     container: {
         position: 'absolute',
-        right: 16,
-        bottom: 110,
-        zIndex: 90,
-        gap: 10,
+        right: 14,
+        bottom: 100,
+        zIndex: 999,
+        elevation: 999,
+        gap: 14,
+    },
+    buttonGroup: {
+        gap: 8,
     },
     button: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 48,
+        height: 48,
+        borderRadius: 14,
         backgroundColor: 'white',
         alignItems: 'center',
         justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: '#e5e7eb',
     },
-    dangerButton: {
-        backgroundColor: '#FEF2F2',
+    compassButton: {
+        backgroundColor: '#ffffff',
+        borderColor: '#e5e7eb',
+    },
+    directionsButton: {
+        backgroundColor: '#eff6ff',
+        borderColor: '#dbeafe',
+    },
+    layersButton: {
+        backgroundColor: '#ffffff',
+        borderColor: '#e5e7eb',
     },
     sosButton: {
         backgroundColor: '#EF4444',
+        borderColor: '#dc2626',
+        width: 52,
+        height: 52,
+        borderRadius: 16,
     },
 });

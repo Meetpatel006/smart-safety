@@ -1,36 +1,372 @@
-import { View, ScrollView, StyleSheet } from "react-native"
-import { Appbar, List, Text, TextInput, Button, Card, Divider, Avatar, useTheme } from "react-native-paper"
+import { View, ScrollView, StyleSheet, TouchableOpacity, StatusBar, Modal } from "react-native"
+import { Text, Switch, Menu, Button, IconButton } from "react-native-paper"
+import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../../../context/AppContext"
-import LanguageToggle from "../../../components/LanguageToggle"
-import OfflineBadge from "../../../components/OfflineBadge"
-import ProfileCard from "../../user/components/ProfileCard"
-import SafetyScoreCard from "../../dashboard/components/SafetyScoreCard"
-import QuickAccessSection from "../../dashboard/components/QuickAccessSection"
-import AccountPreferencesSection from "../components/AccountPreferencesSection"
-import { t } from "../../../context/translations"
-import { useEffect, useState } from "react"
+import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome } from "@expo/vector-icons"
+import { useState, useEffect, useRef } from "react"
+import { useNavigation } from "@react-navigation/native"
+import { NativeStackNavigationProp } from "@react-navigation/native-stack"
+import { RootStackParamList } from "../../../navigation"
+import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
+import { getSOSQueue } from "../../../utils/offlineQueue"
+import { Alert } from "react-native"
 
 export default function SettingsScreen() {
-  const { state, wipeMockData, logout, setAuthorityPhone } = useApp()
-  const theme = useTheme()
-  const [authorityPhoneLocal, setAuthorityPhoneLocal] = useState<string>(state.authorityPhone || '')
+  const { state, logout, setLanguage, acknowledgeHighRisk } = useApp()
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+  const [sound, setSound] = useState(true)
+  const [vibration, setVibration] = useState(true)
+  const [languageMenuVisible, setLanguageMenuVisible] = useState(false)
+  const isLanguageMenuDismissed = useRef(false)
+  const [muteAllAlerts, setMuteAllAlerts] = useState(false)
+  const [suppressMinutes, setSuppressMinutes] = useState<string>("15")
+  const [showQR, setShowQR] = useState(false)
 
   useEffect(() => {
-    // keep local authority phone in sync when screen mounts
-    setAuthorityPhoneLocal(state.authorityPhone || '')
+    getAlertConfig().then(cfg => {
+      setSound(cfg.sound)
+      setVibration(cfg.vibration)
+    })
+    getAlertState().then(s => {
+      if (s) {
+        setMuteAllAlerts(s.muted)
+        if (s.suppressionUntil && s.suppressionUntil > Date.now()) {
+          const remaining = Math.ceil((s.suppressionUntil - Date.now()) / 60000)
+          setSuppressMinutes(String(Math.max(1, remaining)))
+        }
+      }
+    })
   }, [])
 
+  const toggleSound = (v: boolean) => {
+    setSound(v)
+    saveAlertConfig({ sound: v })
+  }
+
+  const toggleVibration = (v: boolean) => {
+    setVibration(v)
+    saveAlertConfig({ vibration: v })
+  }
+
+  const toggleMuteAll = async (v: boolean) => {
+    setMuteAllAlerts(v)
+    await setGlobalMute(v)
+  }
+
+  const getLanguageDisplay = () => {
+    switch (state.language) {
+      case 'en': return 'English'
+      case 'hi': return 'हिंदी'
+      default: return 'English'
+    }
+  }
+
+  const openLanguageMenu = () => {
+    if (isLanguageMenuDismissed.current) {
+      isLanguageMenuDismissed.current = false
+      return
+    }
+    if (languageMenuVisible) return
+    setLanguageMenuVisible(true)
+  }
+
+  const closeLanguageMenu = () => {
+    isLanguageMenuDismissed.current = true
+    setLanguageMenuVisible(false)
+    setTimeout(() => {
+      isLanguageMenuDismissed.current = false
+    }, 200)
+  }
+
+  const menuItems = [
+    {
+      section: "Account",
+      items: [
+        { icon: "person-outline", label: "Personal Information", color: "#3B82F6", onPress: () => navigation.navigate('PersonalInfo') },
+        { icon: "notifications-outline", label: "Notifications", color: "#F59E0B", onPress: () => {} },
+      ]
+    },
+    {
+      section: "Preferences",
+      items: [
+        { 
+          icon: "volume-high-outline", 
+          label: "Sound", 
+          color: "#8B5CF6",
+          isToggle: true,
+          value: sound,
+          onToggle: toggleSound
+        },
+        { 
+          icon: "phone-portrait-outline", 
+          label: "Vibration", 
+          color: "#EC4899",
+          isToggle: true,
+          value: vibration,
+          onToggle: toggleVibration
+        },
+        { 
+          icon: "language", 
+          label: "Language", 
+          color: "#06B6D4",
+          value: getLanguageDisplay(),
+          isMenu: true,
+          onPress: openLanguageMenu
+        },
+      ]
+    },
+    {
+      section: "Support",
+      items: [
+        { icon: "help-circle-outline", label: "Help Center", color: "#14B8A6", onPress: () => navigation.navigate('HelpCenter') },
+        { icon: "mail-outline", label: "Contact Us", color: "#6366F1", onPress: () => {} },
+        { icon: "document-text-outline", label: "Terms of Service", color: "#64748B", onPress: () => {} },
+      ]
+    },
+  ]
+
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Profile Section */}
+    <View style={styles.container}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F5" />
+
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarContainer}>
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{state.user?.name?.charAt(0) || "U"}</Text>
+              </View>
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={14} color="#fff" />
+              </View>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{state.user?.name || "User"}</Text>
+              <Text style={styles.profileEmail}>{state.user?.email || "user@example.com"}</Text>
+            </View>
+          </View>
+          
+          <View style={styles.profileActions}>
+            <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('PersonalInfo')}>
+              <Ionicons name="create-outline" size={18} color="#3B82F6" />
+              <Text style={styles.actionButtonText}>Edit Profile</Text>
+            </TouchableOpacity>
+            <View style={styles.actionDivider} />
+            <TouchableOpacity style={styles.actionButton} onPress={() => setShowQR(true)}>
+              <Ionicons name="qr-code-outline" size={18} color="#3B82F6" />
+              <Text style={styles.actionButtonText}>My QR</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.statsContainer}>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: "#DBEAFE" }]}>
+              <Ionicons name="shield-checkmark" size={20} color="#3B82F6" />
+            </View>
+            <Text style={styles.statValue}>85%</Text>
+            <Text style={styles.statLabel}>Safety Score</Text>
+          </View>
+          <View style={styles.statCard}>
+            <View style={[styles.statIcon, { backgroundColor: "#DCFCE7" }]}>
+              <MaterialIcons name="verified-user" size={20} color="#10B981" />
+            </View>
+            <Text style={styles.statValue}>Verified</Text>
+            <Text style={styles.statLabel}>Account Status</Text>
+          </View>
+        </View>
+
+        {/* Menu Sections */}
+        {menuItems.map((section, sectionIndex) => (
+          <View key={section.section} style={styles.section}>
+            <Text style={styles.sectionTitle}>{section.section}</Text>
+            <View style={styles.sectionCard}>
+              {section.items.map((item, itemIndex) => (
+                <View key={item.label}>
+                  {item.isToggle ? (
+                    <View style={styles.menuItem}>
+                      <View style={styles.menuItemLeft}>
+                        <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
+                          <Ionicons name={item.icon as any} size={18} color={item.color} />
+                        </View>
+                        <Text style={styles.menuItemText}>{item.label}</Text>
+                      </View>
+                      <Switch
+                        value={item.value}
+                        onValueChange={item.onToggle}
+                        color="#3B82F6"
+                      />
+                    </View>
+                  ) : item.isMenu ? (
+                    <Menu
+                      visible={languageMenuVisible}
+                      onDismiss={closeLanguageMenu}
+                      anchor={
+                        <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
+                          <View style={styles.menuItemLeft}>
+                            <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
+                              <MaterialIcons name={item.icon as any} size={18} color={item.color} />
+                            </View>
+                            <Text style={styles.menuItemText}>{item.label}</Text>
+                          </View>
+                          <View style={styles.menuItemRight}>
+                            <Text style={styles.menuItemValue}>{item.value}</Text>
+                            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                          </View>
+                        </TouchableOpacity>
+                      }
+                    >
+                      <Menu.Item
+                        onPress={() => {
+                          setLanguageMenuVisible(false)
+                          setTimeout(() => setLanguage('en'), 200)
+                        }}
+                        title="English"
+                        leadingIcon="check"
+                        disabled={state.language === 'en'}
+                      />
+                      <Menu.Item
+                        onPress={() => {
+                          setLanguageMenuVisible(false)
+                          setTimeout(() => setLanguage('hi'), 200)
+                        }}
+                        title="हिंदी (Hindi)"
+                        disabled={state.language === 'hi'}
+                      />
+                    </Menu>
+                  ) : (
+                    <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
+                      <View style={styles.menuItemLeft}>
+                        <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
+                          <Ionicons name={item.icon as any} size={18} color={item.color} />
+                        </View>
+                        <Text style={styles.menuItemText}>{item.label}</Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                    </TouchableOpacity>
+                  )}
+                  {itemIndex < section.items.length - 1 && <View style={styles.menuDivider} />}
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
+
+        {/* Alert Preferences Card */}
         <View style={styles.section}>
-          <ProfileCard />
-          <SafetyScoreCard />
-          <QuickAccessSection />
-          <AccountPreferencesSection />
+          <Text style={styles.sectionTitle}>Alert Settings</Text>
+          <View style={styles.sectionCard}>
+            <View style={styles.menuItem}>
+              <View style={styles.menuItemLeft}>
+                <View style={[styles.menuIcon, { backgroundColor: "#FEE2E220" }]}>
+                  <Ionicons name="notifications-off-outline" size={18} color="#EF4444" />
+                </View>
+                <View>
+                  <Text style={styles.menuItemText}>Mute High-Risk Alerts</Text>
+                  <Text style={styles.menuItemSubtext}>Temporarily silence notifications</Text>
+                </View>
+              </View>
+              <Switch
+                value={muteAllAlerts}
+                onValueChange={toggleMuteAll}
+                color="#EF4444"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/* Debug Options - DEV only */}
+        {__DEV__ && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Developer</Text>
+            <View style={styles.sectionCard}>
+              <TouchableOpacity 
+                style={styles.menuItem} 
+                onPress={async () => {
+                  try {
+                    const q = await getSOSQueue()
+                    Alert.alert('Queued SOS', `Count: ${q.length}`)
+                  } catch (e) {
+                    Alert.alert('Error', 'Failed to read queue')
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={[styles.menuIcon, { backgroundColor: "#F9731620" }]}>
+                    <MaterialCommunityIcons name="bug-outline" size={18} color="#F97316" />
+                  </View>
+                  <Text style={styles.menuItemText}>View SOS Queue</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Footer Actions */}
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.7}>
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <Text style={styles.logoutText}>Log Out</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.deleteAccount} activeOpacity={0.7}>
+            <Text style={styles.deleteText}>Delete Account</Text>
+          </TouchableOpacity>
+          
+          <Text style={styles.versionText}>Version 1.0.0</Text>
         </View>
       </ScrollView>
+
+      {/* QR Code Modal */}
+      <Modal
+        visible={showQR}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowQR(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>My QR Code</Text>
+              <IconButton
+                icon="close"
+                size={24}
+                onPress={() => setShowQR(false)}
+              />
+            </View>
+
+            <View style={styles.qrContainer}>
+              <QRCode 
+                value={state.user?.touristId || state.user?.phone || "USER_ID"} 
+                size={200} 
+              />
+            </View>
+
+            <Text style={styles.qrTouristId}>
+              {state.user?.touristId || "Tourist ID: Not Available"}
+            </Text>
+            <Text style={styles.qrDescription}>
+              Show this QR code for quick identification at checkpoints
+            </Text>
+
+            <Button
+              mode="contained"
+              onPress={() => setShowQR(false)}
+              style={styles.closeButton}
+              buttonColor="#3B82F6"
+            >
+              Close
+            </Button>
+          </View>
+        </View>
+      </Modal>
     </View>
   )
 }
@@ -38,65 +374,275 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#FAF8F5',
   },
+
   scrollContent: {
-    padding: 16,
-    paddingTop: 50,
-    paddingBottom: 150,
+    paddingHorizontal: 16,
+    paddingTop: 60,
+    paddingBottom: 120,
   },
-  section: {
+  profileCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
     marginBottom: 16,
   },
-  card: {
-    elevation: 4,
-    borderRadius: 12,
+  profileHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
+  avatarContainer: {
+    position: 'relative',
+    marginRight: 16,
   },
-  cardSubtitle: {
+  avatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#3B82F6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  verifiedBadge: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#10B981',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  profileInfo: {
+    flex: 1,
+  },
+  profileName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 4,
+  },
+  profileEmail: {
     fontSize: 14,
-    color: '#666',
+    color: '#6B7280',
+  },
+  profileActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    paddingTop: 16,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  actionDivider: {
+    width: 1,
+    height: 20,
+    backgroundColor: '#E5E7EB',
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3B82F6',
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 24,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  statIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 8,
   },
-  divider: {
-    marginVertical: 12,
+  statValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+    marginBottom: 2,
   },
-  settingItem: {
+  statLabel: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  section: {
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#6B7280',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  sectionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginVertical: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
-  settingText: {
+  menuItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
     flex: 1,
-    marginRight: 16,
   },
-  settingTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  menuIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  settingDescription: {
-    fontSize: 14,
-    color: '#666',
+  menuItemText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1F2937',
+  },
+  menuItemSubtext: {
+    fontSize: 12,
+    color: '#9CA3AF',
     marginTop: 2,
   },
-  privacyInfo: {
-    backgroundColor: '#E8F5E8',
-    padding: 12,
-    borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
+  menuItemRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
-  privacyText: {
+  menuItemValue: {
     fontSize: 14,
-    color: '#2E7D32',
+    color: '#6B7280',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#F3F4F6',
+    marginLeft: 64,
+  },
+  footer: {
+    marginTop: 8,
+    alignItems: 'center',
+    gap: 16,
+  },
+  logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    width: '100%',
+    paddingVertical: 14,
+    borderRadius: 12,
+    backgroundColor: '#FEE2E2',
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+  deleteAccount: {
+    paddingVertical: 8,
+  },
+  deleteText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#9CA3AF',
+  },
+  versionText: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginTop: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 24,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  qrContainer: {
+    padding: 24,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  qrTouristId: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1F2937',
+    marginBottom: 8,
+    letterSpacing: 0.5,
+  },
+  qrDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 24,
     lineHeight: 20,
   },
-  listItem: {
-    paddingVertical: 8,
+  closeButton: {
+    width: '100%',
+    borderRadius: 12,
   },
 })

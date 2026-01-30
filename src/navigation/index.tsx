@@ -13,6 +13,7 @@ import PersonalInfoScreen from "../features/user/screens/PersonalInfoScreen";
 import AppSettingsScreen from "../features/settings/screens/AppSettingsScreen";
 import AuthorityDashboardScreen from "../features/dashboard/screens/AuthorityDashboardScreen";
 import { useApp } from "../context/AppContext";
+import { usePathDeviation } from "../context/PathDeviationContext";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useTheme } from "react-native-paper";
 import DashboardLogo from "../components/Icons/DashboardLogo";
@@ -77,6 +78,7 @@ function TabBarBackground() {
 function MainTabs() {
   const theme = useTheme();
   const { state } = useApp();
+  const { isTracking } = usePathDeviation();
   const isTourAdmin = state.user?.role === 'tour-admin';
   const activeColor = "#3b82f6";
   const inactiveColor = "#9ca3af";
@@ -88,7 +90,7 @@ function MainTabs() {
         tabBarShowLabel: false,
         tabBarActiveTintColor: activeColor,
         tabBarInactiveTintColor: inactiveColor,
-        tabBarStyle: {
+        tabBarStyle: isTracking ? { display: 'none' } : {
           position: "absolute",
           bottom: 25,
           left: 24,

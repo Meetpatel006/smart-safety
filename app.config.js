@@ -24,6 +24,15 @@ module.exports = ({ config }) => {
     }
   }
   
+  // Weather API keys
+  if (process.env.WEATHERAPI_KEY) {
+    config.extra.WEATHERAPI_KEY = process.env.WEATHERAPI_KEY;
+  }
+  
+  if (process.env.OPENWEATHERMAP_KEY) {
+    config.extra.OPENWEATHERMAP_KEY = process.env.OPENWEATHERMAP_KEY;
+  }
+  
   // Groq LLM config - allow injecting API key and model from environment/.env
   if (process.env.GROQ_API_KEY) {
     config.extra.GROQ_API_KEY = process.env.GROQ_API_KEY;

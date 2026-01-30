@@ -457,5 +457,6 @@ const styles = StyleSheet.create({
     menuContent: {
         backgroundColor: '#fff',
         borderRadius: 10,
+        maxHeight: 200, // Limit height to prevent cutting off
     },
 });

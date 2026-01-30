@@ -2,6 +2,7 @@ import { NavigationContainer, DefaultTheme as NavDefaultTheme } from "@react-nav
 import { PaperProvider } from "react-native-paper"
 import { AppProvider } from "./src/context/AppContext"
 import { LocationProvider } from "./src/context/LocationContext"
+import { PathDeviationProvider } from "./src/context/PathDeviationContext"
 import { RootNavigator } from "./src/navigation"
 import { paperTheme } from "./src/theme/paper"
 import ToastListener from './src/components/ToastListener'
@@ -121,13 +122,15 @@ function AppContent() {
   return (
     <AppProvider>
       <LocationProvider>
-        <PaperProvider theme={paperTheme}>
-          <ToastListener />
-          <NavigationContainer theme={navTheme}>
-            <StatusBar style="auto" />
-            <RootNavigator />
-          </NavigationContainer>
-        </PaperProvider>
+        <PathDeviationProvider>
+          <PaperProvider theme={paperTheme}>
+            <ToastListener />
+            <NavigationContainer theme={navTheme}>
+              <StatusBar style="auto" />
+              <RootNavigator />
+            </NavigationContainer>
+          </PaperProvider>
+        </PathDeviationProvider>
       </LocationProvider>
     </AppProvider>
   )

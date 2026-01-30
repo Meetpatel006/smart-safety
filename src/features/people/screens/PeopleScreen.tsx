@@ -116,7 +116,7 @@ export default function PeopleScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F8FAFC" />
+      <StatusBar barStyle="dark-content" backgroundColor="#FAF8F5" />
 
       {/* Header Section */}
       <View style={styles.headerSection}>
@@ -211,13 +211,13 @@ export default function PeopleScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FAF8F5",
   },
   headerSection: {
     paddingTop: 56,
     paddingHorizontal: 20,
     paddingBottom: 16,
-    backgroundColor: "#F8FAFC",
+    backgroundColor: "#FAF8F5",
   },
   titleRow: {
     flexDirection: "row",

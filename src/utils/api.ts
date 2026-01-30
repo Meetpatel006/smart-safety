@@ -191,6 +191,14 @@ export const getWeatherPrediction = async (features: {
     }
 
     if (!response.ok) {
+      // Enhanced error logging for debugging
+      console.error("Weather API Error Details:", {
+        status: response.status,
+        statusText: response.statusText,
+        responseBody: data,
+        sentFeatures: features,
+      });
+      
       throw new Error(
         data && data.message
           ? data.message
@@ -207,7 +215,7 @@ export const getWeatherPrediction = async (features: {
   }
 };
 
-// Fetch Open-Meteo for the current hour and return a compact object and model-ready features
+// Fetch weather data with automatic failover across multiple providers
 export const fetchOpenMeteoCurrentHour = async (
   latitude: number,
   longitude: number,
@@ -233,63 +241,23 @@ export const fetchOpenMeteoCurrentHour = async (
   };
 }> => {
   try {
-    const hourlyParams = [
-      "temperature_2m",
-      "relativehumidity_2m",
-      "windspeed_10m",
-      "winddirection_10m",
-      "pressure_msl",
-      "visibility",
-      "cloudcover",
-      "apparent_temperature",
-    ].join(",");
+    // Use weatherClient with automatic failover across Open-Meteo, WeatherAPI, and OpenWeatherMap
+    const { fetchWeatherWithFailover } = await import('./weatherClient');
+    const result = await fetchWeatherWithFailover(latitude, longitude);
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&hourly=${encodeURIComponent(
-      hourlyParams,
-    )}&timezone=Asia%2FKolkata`;
-
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`Weather API error: ${res.status}`);
-    const data = await res.json();
-
-    const times: string[] = data.hourly?.time || [];
-    const now = new Date();
-    let idx = times.findIndex((t: string) => {
-      const dt = new Date(t);
-      return (
-        dt.getFullYear() === now.getFullYear() &&
-        dt.getMonth() === now.getMonth() &&
-        dt.getDate() === now.getDate() &&
-        dt.getHours() === now.getHours()
-      );
+    console.log('Weather data fetched successfully', {
+      provider: result.provider,
+      location: { latitude, longitude },
+      temperature: result.compact.temperature,
+      humidity: result.compact.humidity,
     });
-    if (idx === -1) idx = 0;
 
-    const h = data.hourly || {};
-
-    const compact = {
-      temperature: h.temperature_2m?.[idx] ?? null,
-      apparent_temperature: h.apparent_temperature?.[idx] ?? null,
-      humidity: h.relativehumidity_2m?.[idx] ?? null,
-      wind_speed: h.windspeed_10m?.[idx] ?? null,
-      wind_bearing: h.winddirection_10m?.[idx] ?? null,
-      visibility: h.visibility?.[idx] ?? null,
-      cloud_cover: h.cloudcover?.[idx] ?? null,
-      pressure: h.pressure_msl?.[idx] ?? null,
+    // Return the data in the expected format
+    // Note: weatherClient already handles all unit conversions and provides model-ready features
+    return { 
+      compact: result.compact, 
+      modelFeatures: result.modelFeatures 
     };
-
-    // Model features expected by getWeatherPrediction (normalize humidity to 0-1)
-    const modelFeatures = {
-      temperature: compact.temperature,
-      humidity: compact.humidity != null ? compact.humidity / 100.0 : null,
-      wind_speed: compact.wind_speed,
-      wind_bearing: compact.wind_bearing,
-      visibility: compact.visibility,
-      cloud_cover: compact.cloud_cover,
-      pressure: compact.pressure,
-    };
-
-    return { compact, modelFeatures };
   } catch (e: any) {
     console.error("fetchOpenMeteoCurrentHour error", e?.message || e);
     throw e;

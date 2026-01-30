@@ -3,6 +3,9 @@ import { StyleSheet, Platform, Alert, Dimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 
+// Import path deviation context
+import { usePathDeviation } from '../../../context/PathDeviationContext';
+
 // Import sub-components
 import MapHeader from './MapboxMap/MapHeader';
 import ErrorMessage from './MapboxMap/ErrorMessage';
@@ -72,6 +75,20 @@ export default function MapboxMap({
   const [showStyleSelector, setShowStyleSelector] = useState(false);
 
   const webViewRef = useRef<WebView>(null);
+
+  // Connect map to path deviation tracking
+  const { setMapRef } = usePathDeviation();
+
+  // Set map reference for path deviation tracking AFTER map is ready
+  useEffect(() => {
+    if (mapReady && webViewRef.current) {
+      console.log('[MapboxMap] Setting map ref after map is ready');
+      setMapRef(webViewRef);
+    }
+    return () => {
+      setMapRef(null);
+    };
+  }, [setMapRef, mapReady]);
 
 // Request location permissions on mount and load geofences
   useEffect(() => {
@@ -344,7 +361,6 @@ export default function MapboxMap({
 
           <RightActionButtons
             onCompassPress={getCurrentLocation}
-            onDangerFlagPress={() => Alert.alert('Report', 'Report a danger location')}
             onLayersPress={() => setShowStyleSelector(!showStyleSelector)}
             onSOSPress={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
           />

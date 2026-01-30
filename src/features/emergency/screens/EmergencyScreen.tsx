@@ -6,9 +6,11 @@ import { WebView } from 'react-native-webview'
 import { GeoFence, haversineKm } from '../../../utils/geofenceLogic'
 import { useApp } from '../../../context/AppContext'
 import { useLocation } from '../../../context/LocationContext'
+import { usePathDeviation } from '../../../context/PathDeviationContext'
 import { reverseGeocode } from '../../map/components/MapboxMap/geoUtils'
 import { loadFences } from '../../map/services/geofenceService'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
+import { Route, RoutingProfile } from '../../map/services/mapboxDirectionsService'
 
 // Import map components
 import MapContainer from '../../map/components/MapboxMap/MapContainer'
@@ -20,17 +22,21 @@ import {
   WarningBanner,
   RightActionButtons,
   MapBottomSheet,
-  StyleBottomSheet
+  StyleBottomSheet,
+  DirectionsBottomSheet
 } from '../../map/components/MapboxMap/ui'
+import DirectionsTopPanel from '../../map/components/MapboxMap/ui/DirectionsTopPanel'
+import NavigationView from '../../../components/NavigationView'
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window')
 
 // Configuration for auto-refresh
 const REFRESH_INTERVAL_MS = 60000 // 60 seconds
 
-export default function EmergencyScreen() {
+export default function EmergencyScreen({ navigation }: any) {
   const { state } = useApp()
   const { currentLocation, setCurrentLocation, setCurrentAddress } = useLocation()
+  const { isTracking, setMapRef } = usePathDeviation()
 
   // Map state
   const [mapReady, setMapReady] = useState(false)
@@ -46,10 +52,30 @@ export default function EmergencyScreen() {
   const [isStyleSheetExpanded, setIsStyleSheetExpanded] = useState(false)
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
 
+  // Directions Mode State
+  const [directionsMode, setDirectionsMode] = useState(false)
+  const [allRoutes, setAllRoutes] = useState<Route[]>([])
+  const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
+  const [currentProfile, setCurrentProfile] = useState<RoutingProfile>('driving')
+  const [isDirectionsSheetVisible, setIsDirectionsSheetVisible] = useState(false)
+
+  const currentRoute = allRoutes[selectedRouteIndex] || null
+
   // Geofences
   const [geoFences, setGeoFences] = useState<GeoFence[]>([])
 
   const webViewRef = React.useRef<WebView>(null)
+
+  // Set map reference for path deviation tracking AFTER map is ready
+  useEffect(() => {
+    if (mapReady && webViewRef.current) {
+      console.log('[EmergencyScreen] Setting map ref for path deviation tracking')
+      setMapRef(webViewRef)
+    }
+    return () => {
+      setMapRef(null)
+    }
+  }, [setMapRef, mapReady])
 
   // Load geofences on mount using service (tries server first, then bundled)
   useEffect(() => {
@@ -101,16 +127,34 @@ export default function EmergencyScreen() {
     }
   }, [mapReady, geoFences])
 
+  // Update map when routes change
+  useEffect(() => {
+    if (webViewRef.current && mapReady) {
+      if (allRoutes.length > 0) {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'setRoute',
+          routes: allRoutes,
+          selectedIndex: selectedRouteIndex,
+          profile: currentProfile
+        }))
+      } else {
+        webViewRef.current.postMessage(JSON.stringify({
+          type: 'clearRoute'
+        }))
+      }
+    }
+  }, [allRoutes, selectedRouteIndex, currentProfile, mapReady])
+
   // Refresh geofences function
   const refreshGeofences = async () => {
     try {
       setIsBackgroundRefreshing(true)
       const userLat = currentLocation?.coords.latitude
       const userLng = currentLocation?.coords.longitude
-      
+
       const fences = await loadFences(userLat, userLng)
       setGeoFences(fences)
-      
+
       console.log(`[Auto-Refresh] Refreshed ${fences.length} geofences`)
     } catch (err) {
       console.warn('Failed to refresh geofences:', err)
@@ -137,6 +181,26 @@ export default function EmergencyScreen() {
   const getCurrentLocation = async () => {
     setLoadingLocation(true)
     try {
+      // Check permission first
+      const { status } = await Location.getForegroundPermissionsAsync()
+      if (status !== 'granted') {
+        Alert.alert(
+          'Location Permission Required',
+          'Please enable location services to use this feature',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Settings',
+              onPress: async () => {
+                await Location.requestForegroundPermissionsAsync()
+              }
+            }
+          ]
+        )
+        setLoadingLocation(false)
+        return
+      }
+
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       })
@@ -159,8 +223,9 @@ export default function EmergencyScreen() {
           location: location.coords,
         }))
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Location error:', err)
+      Alert.alert('Location Error', err.message || 'Failed to get current location')
     } finally {
       setLoadingLocation(false)
     }
@@ -179,6 +244,11 @@ export default function EmergencyScreen() {
           break
         case 'error':
           console.error('Map error:', message.message)
+          break
+        case 'routeSelected':
+          if (message.index !== undefined) {
+            setSelectedRouteIndex(message.index)
+          }
           break
       }
     } catch (err) {
@@ -218,6 +288,23 @@ export default function EmergencyScreen() {
     refreshGeofences()
   }
 
+  const handleDirectionsPress = () => {
+    // Enable Directions Mode
+    setDirectionsMode(true)
+
+    // Close other sheets
+    setIsBottomSheetExpanded(false)
+    setIsStyleSheetExpanded(false)
+    setShowWarningBanner(false)
+  }
+
+  const handleExitDirections = () => {
+    setDirectionsMode(false)
+    setAllRoutes([])
+    setSelectedRouteIndex(0)
+    setShowWarningBanner(true)
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
@@ -231,11 +318,26 @@ export default function EmergencyScreen() {
         isFullScreen={true}
       />
 
-      {/* Top Location Card */}
-      <TopLocationCard />
+      {/* Conditional Top UI - Hide when navigation is active */}
+      {!isTracking && directionsMode ? (
+        <DirectionsTopPanel
+          onBack={handleExitDirections}
+          onRoutesCalculated={(routes, profile) => {
+            setAllRoutes(routes)
+            setSelectedRouteIndex(0)
+            setCurrentProfile(profile)
+          }}
+          onClearRoute={() => {
+            setAllRoutes([])
+            setSelectedRouteIndex(0)
+          }}
+        />
+      ) : !isTracking ? (
+        <TopLocationCard />
+      ) : null}
 
-      {/* Warning Banner (if applicable) */}
-      {showWarningBanner && (
+      {/* Warning Banner (if applicable and not in directions mode) */}
+      {showWarningBanner && !directionsMode && (
         <WarningBanner onDismiss={() => setShowWarningBanner(false)} />
       )}
 
@@ -249,19 +351,23 @@ export default function EmergencyScreen() {
         </View>
       )}
 
-      {/* Right Side Action Buttons */}
-      <RightActionButtons
-        onCompassPress={getCurrentLocation}
-        onDangerFlagPress={() => Alert.alert('Report', 'Report a dangerous location')}
-        onLayersPress={() => {
-          setIsStyleSheetExpanded(prev => !prev)
-          setIsBottomSheetExpanded(false)
-        }}
-        onSOSPress={() => {
-          setIsStyleSheetExpanded(false)
-          setIsBottomSheetExpanded(prev => !prev)
-        }}
-      />
+      {/* Right Side Action Buttons - Hide when navigation is active or directions sheet is visible */}
+      {!isTracking && (
+        <RightActionButtons
+          onCompassPress={getCurrentLocation}
+          onDirectionsPress={handleDirectionsPress}
+          onLayersPress={() => {
+            setIsStyleSheetExpanded(prev => !prev)
+            setIsBottomSheetExpanded(false)
+          }}
+          onSOSPress={() => {
+            setIsStyleSheetExpanded(false)
+            setIsBottomSheetExpanded(prev => !prev)
+          }}
+          hideDirectionsButton={directionsMode}
+          visible={!isDirectionsSheetVisible}
+        />
+      )}
 
       <StyleBottomSheet
         isExpanded={isStyleSheetExpanded}
@@ -270,9 +376,29 @@ export default function EmergencyScreen() {
         onSelectStyle={handleStyleChange}
       />
 
+      {/* Directions Bottom Sheet (Summary) - Only visible when route exists */}
+      <DirectionsBottomSheet
+        route={currentRoute}
+        profile={currentProfile}
+        onClearRoute={() => {
+          setAllRoutes([])
+          setSelectedRouteIndex(0)
+        }}
+        onVisibilityChange={setIsDirectionsSheetVisible}
+      />
+
+      {/* Navigation View - Shows when tracking is active */}
+      <NavigationView 
+        onLayersPress={() => {
+          setIsStyleSheetExpanded(prev => !prev)
+          setIsBottomSheetExpanded(false)
+        }}
+        onSOSPress={handleSOS}
+      />
+
       {/* Bottom Sheet */}
       <MapBottomSheet
-        isExpanded={isBottomSheetExpanded}
+        isExpanded={isBottomSheetExpanded && !directionsMode}
         onToggle={() => setIsBottomSheetExpanded(prev => !prev)}
         onShareLive={handleShareLocation}
         onSOS={handleSOS}
