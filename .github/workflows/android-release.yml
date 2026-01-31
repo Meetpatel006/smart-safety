@@ -143,6 +143,24 @@ jobs:
           echo "WEATHERAPI_KEY=${{ secrets.WEATHERAPI_KEY }}" >> android/gradle.properties
           echo "OPENWEATHERMAP_KEY=${{ secrets.OPENWEATHERMAP_KEY }}" >> android/gradle.properties
 
+      - name: Test JavaScript bundle (Debug)
+        continue-on-error: true
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: |
+          echo "Testing JavaScript bundling..."
+          npx react-native bundle \
+            --platform android \
+            --dev false \
+            --entry-file index.js \
+            --bundle-output android/app/build/test-bundle.js \
+            --assets-dest android/app/build/test-assets \
+            --verbose 2>&1 | tee bundle-test.log || {
+              echo "Bundle test failed. Showing error:"
+              cat bundle-test.log
+              exit 1
+            }
+
       - name: Build Release APK
         id: build
         continue-on-error: true
