@@ -121,7 +121,10 @@ jobs:
           echo "MAPBOX_DOWNLOADS_TOKEN=${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}" >> ~/.gradle/gradle.properties
 
       - name: Expo prebuild
-        run: npx expo prebuild --non-interactive
+        run: |
+          npx expo prebuild --non-interactive
+          echo "Prebuild completed. Checking generated files..."
+          ls -la android/
 
       - name: Make Gradle executable
         run: chmod +x android/gradlew
@@ -141,6 +144,8 @@ jobs:
           echo "OPENWEATHERMAP_KEY=${{ secrets.OPENWEATHERMAP_KEY }}" >> android/gradle.properties
 
       - name: Build Release APK
+        id: build
+        continue-on-error: true
         working-directory: android
         env:
           MAPBOX_DOWNLOADS_TOKEN: ${{ secrets.MAPBOX_DOWNLOADS_TOKEN }}
@@ -154,19 +159,46 @@ jobs:
           OPENWEATHERMAP_KEY: ${{ secrets.OPENWEATHERMAP_KEY }}
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
+          echo "Starting Gradle build..."
           ./gradlew clean
-          ./gradlew assembleRelease --no-daemon --stacktrace --info 2>&1 | tee build.log || {
-            echo "Build failed. Checking for JS bundle errors..."
-            if [ -f "../node_modules/.cache/metro/metro-bundler.log" ]; then
-              echo "Metro bundler log:"
-              cat ../node_modules/.cache/metro/metro-bundler.log
-            fi
-            exit 1
-          }
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build.log
+          BUILD_STATUS=${PIPESTATUS[0]}
+          echo "Build exit code: $BUILD_STATUS"
+          exit $BUILD_STATUS
+
+      - name: Upload build logs on failure
+        if: failure() || steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs-${{ needs.prepare.outputs.artifact_suffix }}
+          path: |
+            android/build.log
+            android/app/build/outputs/logs/
+          if-no-files-found: ignore
+
+      - name: Check for bundle errors
+        if: failure() || steps.build.outcome == 'failure'
+        run: |
+          echo "=== Checking for JavaScript bundle errors ==="
+          if [ -f "android/build.log" ]; then
+            echo "=== Last 200 lines of build log ==="
+            tail -n 200 android/build.log
+          fi
+          if [ -f "node_modules/.cache/metro/metro-bundler.log" ]; then
+            echo "=== Metro bundler log ==="
+            cat node_modules/.cache/metro/metro-bundler.log
+          fi
+          exit 1
 
       - name: List outputs
+        if: success()
         run: |
-          ls -R android/app/build/outputs
+          if [ -d "android/app/build/outputs" ]; then
+            ls -R android/app/build/outputs
+          else
+            echo "Build outputs directory not found"
+            exit 1
+          fi
 
       - name: Verify APK files exist
         run: |
