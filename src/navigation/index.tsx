@@ -3,6 +3,9 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import LoginScreen from "../features/auth/screens/LoginScreen";
 import LoginWithCodesScreen from "../features/auth/screens/LoginWithCodesScreen";
 import RegisterScreen from "../features/auth/screens/RegisterScreen";
+import BasicInfoScreen from "../features/auth/screens/BasicInfoScreen";
+import AdditionalInfoScreen from "../features/auth/screens/AdditionalInfoScreen";
+import AddGroupMemberScreen from "../features/auth/screens/AddGroupMemberScreen";
 import DashboardScreen from "../features/dashboard/screens/DashboardScreen";
 import ItineraryScreen from "../features/trip/screens/ItineraryScreen";
 import EmergencyScreen from "../features/emergency/screens/EmergencyScreen";
@@ -21,6 +24,7 @@ import { View, Text, StyleSheet } from "react-native";
 import EmergencyMapLogo from "../components/Icons/EmergencyMapLogo";
 import SettingsIcon from "../components/Icons/SettingsIcon";
 import ItineraryIcon from "../components/Icons/ItineraryIcon";
+import OnboardingScreen from "../features/onboarding/screens/OnboardingScreen";
 
 import CreateTripScreen from "../features/trip/screens/CreateTripScreen";
 import JoinGroupScreen from "../features/trip/screens/JoinGroupScreen";
@@ -50,6 +54,7 @@ export type RootStackParamList = {
   GeoFenceDebug: undefined;
   EditPerson: { person: any };
   AddPerson: undefined;
+  AddGroupMember: undefined;
   // Transitions: undefined
 };
 
@@ -351,6 +356,11 @@ function AuthStack() {
   return (
     <StackAuth.Navigator>
       <StackAuth.Screen
+        name="Onboarding"
+        component={OnboardingScreen}
+        options={{ headerShown: false }}
+      />
+      <StackAuth.Screen
         name="Login"
         component={LoginScreen}
         options={{ headerShown: false }}
@@ -363,7 +373,17 @@ function AuthStack() {
       <StackAuth.Screen
         name="Register"
         component={RegisterScreen}
-        options={{ title: "Register" }}
+        options={{ headerShown: false }}
+      />
+      <StackAuth.Screen
+        name="BasicInfo"
+        component={BasicInfoScreen}
+        options={{ headerShown: false }}
+      />
+      <StackAuth.Screen
+        name="AdditionalInfo"
+        component={AdditionalInfoScreen}
+        options={{ headerShown: false }}
       />
     </StackAuth.Navigator>
   );
@@ -480,6 +500,11 @@ export function RootNavigator() {
           <Stack.Screen
             name="AddPerson"
             component={AddPersonScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddGroupMember"
+            component={AddGroupMemberScreen}
             options={{ headerShown: false }}
           />
           {/* <Stack.Screen

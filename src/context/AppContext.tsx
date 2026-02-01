@@ -144,6 +144,11 @@ type AppContextValue = {
     tripEndDate?: string;
     accessCode?: string;
     organizationName?: string;
+    age?: string;
+    gender?: string;
+    dateOfBirth?: string;
+    nationality?: string;
+    bloodGroup?: string;
   }) => Promise<{ ok: boolean; message: string; regTxHash?: string }>;
   joinGroup: (accessCode: string) => Promise<{ ok: boolean; message: string }>;
   createGroup: (

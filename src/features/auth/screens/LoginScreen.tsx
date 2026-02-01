@@ -1,22 +1,58 @@
 
-import { useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { ScrollView, KeyboardAvoidingView, Platform, View, StyleSheet, TouchableOpacity } from "react-native"
-import { Button, HelperText, Text, TextInput, useTheme } from "react-native-paper"
+import { Button, HelperText, Text, TextInput, IconButton } from "react-native-paper"
 import { useApp } from "../../../context/AppContext"
-import { t } from "../../../context/translations"
 import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { useFocusEffect } from "@react-navigation/native"
 
-export default function LoginScreen({ navigation }: any) {
+export default function LoginScreen({ navigation, route }: any) {
   const { state, login } = useApp()
-  const theme = useTheme()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [msg, setMsg] = useState<{ type: "info" | "error" | "success"; text: string } | null>(null)
-  const lang = state.language
   const [secureTextEntry, setSecureTextEntry] = useState(true)
+  const role = route?.params?.role as "solo" | "group-member" | "tour-admin" | undefined
+  const emailInputRef = useRef<any>(null)
+
+  useEffect(() => {
+    if (role === "group-member") {
+      navigation.replace("LoginWithCodes", { role })
+    }
+  }, [navigation, role])
+
+  useFocusEffect(
+    useCallback(() => {
+      const timeout = setTimeout(() => {
+        emailInputRef.current?.focus?.()
+      }, 250)
+      return () => clearTimeout(timeout)
+    }, [])
+  )
 
   const onSubmit = async () => {
+    setMsg(null)
+    
+    // Email validation
+    if (!email.trim()) {
+      setMsg({ type: "error", text: "Please enter your email" })
+      return
+    }
+    
+    // Email format validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setMsg({ type: "error", text: "Please enter a valid email address" })
+      return
+    }
+    
+    // Password validation
+    if (!password.trim()) {
+      setMsg({ type: "error", text: "Please enter your password" })
+      return
+    }
+    
     setLoading(true)
     let res
     try {
@@ -32,6 +68,14 @@ export default function LoginScreen({ navigation }: any) {
 
   return (
     <View style={styles.screenContainer}>
+      {/* Back Arrow */}
+      <IconButton
+        icon="arrow-left"
+        size={24}
+        onPress={() => navigation.goBack()}
+        style={styles.backButton}
+      />
+
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -45,56 +89,60 @@ export default function LoginScreen({ navigation }: any) {
         >
           {/* Header Section */}
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <MaterialCommunityIcons name="shield-check" size={40} color="#0077CC" />
-            </View>
-            <Text style={styles.title}>Welcome Back!</Text>
-            <Text style={styles.subtitle}>{t(lang, "appTitle")}</Text>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Welcome Back to smart safety app</Text>
           </View>
 
           {/* Form Section */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t(lang, "email")}</Text>
-              <TextInput
-                mode="outlined"
-                value={email}
-                onChangeText={setEmail}
-                placeholder="Enter your email"
-                autoCapitalize="none"
-                autoCorrect={false}
-                autoComplete="email"
-                contentStyle={styles.textInputContent}
-                outlineStyle={styles.textInputOutline}
-                style={styles.textInput}
-                disabled={loading}
-                left={<TextInput.Icon icon="email-outline" color="#9CA3AF" />}
-              />
+              <Text style={styles.label}>E-mail</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  ref={emailInputRef}
+                  mode="flat"
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter email"
+                  autoCapitalize="none"
+                  cursorColor="#0C87DE"
+                  selectionColor="#0C87DE"
+                  autoCorrect={false}
+                  autoComplete="email"
+                  style={styles.textInput}
+                  underlineColor="transparent"
+                  activeUnderlineColor="transparent"
+                  disabled={loading}
+                />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>{t(lang, "password")}</Text>
-              <TextInput
-                mode="outlined"
-                value={password}
-                onChangeText={setPassword}
-                placeholder="Enter your password"
-                secureTextEntry={secureTextEntry}
-                autoCorrect={false}
-                autoComplete="password"
-                contentStyle={styles.textInputContent}
-                outlineStyle={styles.textInputOutline}
-                style={styles.textInput}
-                disabled={loading}
-                left={<TextInput.Icon icon="lock-outline" color="#9CA3AF" />}
-                right={
-                  <TextInput.Icon 
-                    icon={secureTextEntry ? "eye-off-outline" : "eye-outline"} 
-                    color="#9CA3AF" 
-                    onPress={() => setSecureTextEntry(!secureTextEntry)} 
-                  />
-                }
-              />
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  mode="flat"
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Enter password"
+                  secureTextEntry={secureTextEntry}
+                  cursorColor="#0C87DE"
+                  selectionColor="#0C87DE"
+                  autoCorrect={false}
+                  autoComplete="password"
+                  style={styles.textInput}
+                  underlineColor="transparent"
+                  activeUnderlineColor="transparent"
+                  disabled={loading}
+                  right={
+                    <TextInput.Icon 
+                      icon={secureTextEntry ? "eye-off" : "eye"} 
+                      color="#9CA4AB" 
+                      onPress={() => setSecureTextEntry(!secureTextEntry)} 
+                    />
+                  }
+                />
+              </View>
             </View>
 
             {msg && (
@@ -110,30 +158,40 @@ export default function LoginScreen({ navigation }: any) {
               mode="contained"
               onPress={onSubmit}
               style={styles.loginButton}
-              contentStyle={{ height: 50 }}
               labelStyle={styles.loginButtonLabel}
               loading={loading}
               disabled={loading}
             >
-              {t(lang, "signIn")}
+              Login
             </Button>
+
+            {role !== "group-member" && (
+              <TouchableOpacity 
+                onPress={() => navigation.navigate("Register", { role })} 
+                disabled={loading}
+                style={styles.signUpLink}
+              >
+                <Text style={styles.signUpLinkText}>Create an account</Text>
+              </TouchableOpacity>
+            )}
 
             {/* Group Member Login Link */}
             <TouchableOpacity 
-              onPress={() => navigation.navigate("LoginWithCodes")} 
+              onPress={() => navigation.navigate("LoginWithCodes", { role: "group-member" })} 
               disabled={loading}
               style={styles.groupMemberLink}
             >
-              <MaterialCommunityIcons name="account-group" size={16} color="#3B82F6" />
+              <MaterialCommunityIcons name="account-group" size={16} color="#2853AF" />
               <Text style={styles.groupMemberLinkText}>Group Member? Login with Codes</Text>
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don't have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate("Register")} disabled={loading}>
-                <Text style={styles.registerLink}>{t(lang, "register")}</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              onPress={() => navigation.navigate("Onboarding")}
+              disabled={loading}
+              style={styles.onboardingLink}
+            >
+              <Text style={styles.onboardingLinkText}>View onboarding</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -144,107 +202,123 @@ export default function LoginScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: '#FAF8F5',
+    backgroundColor: '#FFFFFF',
+  },
+  backButton: {
+    position: 'absolute',
+    top: 35,
+    left: 30,
+    zIndex: 10,
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: "center",
-    padding: 24,
+    paddingHorizontal: 34,
+    paddingTop: 117,
+    paddingBottom: 24,
   },
   header: {
     alignItems: 'center',
     marginBottom: 40,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 24,
-    backgroundColor: '#E0F2FE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-  },
   title: {
-    fontSize: 28,
+    fontFamily: 'Jost',
     fontWeight: '700',
-    color: '#1F2937',
+    fontSize: 24,
+    lineHeight: 32,
+    letterSpacing: 0.5,
+    color: '#171725',
     marginBottom: 8,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#6B7280',
-    fontWeight: '500',
+    fontFamily: 'Jost',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: 0.5,
+    color: '#434E58',
+    textAlign: 'center',
   },
   formContainer: {
     width: '100%',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontFamily: 'Jost',
     fontWeight: '600',
-    color: '#374151',
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: 0.5,
+    color: '#171725',
     marginBottom: 8,
-    marginLeft: 4,
+  },
+  inputWrapper: {
+    backgroundColor: '#F6F6F6',
+    borderRadius: 12,
+    overflow: 'hidden',
   },
   textInput: {
-    backgroundColor: '#FFFFFF',
-    fontSize: 16,
-  },
-  textInputContent: {
-    backgroundColor: '#FFFFFF',
-  },
-  textInputOutline: {
-    borderRadius: 12,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#F6F6F6',
+    fontSize: 14,
+    paddingLeft: 16,
   },
   helperText: {
     marginBottom: 10,
     fontSize: 14,
   },
   loginButton: {
+    backgroundColor: '#0C87DE',
     borderRadius: 12,
-    backgroundColor: '#0077CC',
-    marginTop: 8,
-    elevation: 2,
-    shadowColor: '#0077CC',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    marginTop: 56,
+    paddingVertical: 8,
   },
   loginButtonLabel: {
-    fontSize: 16,
+    fontFamily: 'Plus Jakarta Sans',
     fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 24,
     letterSpacing: 0.5,
+    color: '#FEFEFE',
   },
   groupMemberLink: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    gap: 6,
-  },
-  groupMemberLinkText: {
-    color: '#3B82F6',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
     marginTop: 24,
     gap: 6,
   },
-  footerText: {
-    color: '#6B7280',
-    fontSize: 15,
-  },
-  registerLink: {
-    color: '#0077CC',
-    fontSize: 15,
+  groupMemberLinkText: {
+    fontFamily: 'Jost',
     fontWeight: '600',
+    fontSize: 14,
+    color: '#2853AF',
+  },
+  onboardingLink: {
+    marginTop: 16,
+    alignItems: 'center',
+  },
+  onboardingLinkText: {
+    fontFamily: 'Jost',
+    fontWeight: '600',
+    fontSize: 14,
+    color: '#2853AF',
+  },
+  signUpLink: {
+    alignItems: 'center',
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  signUpLinkText: {
+    fontFamily: 'Jost',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: '#2853AF',
+    textAlign: 'center',
   },
 })
 

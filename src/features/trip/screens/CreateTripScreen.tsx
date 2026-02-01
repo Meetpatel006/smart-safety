@@ -219,20 +219,23 @@ export default function CreateTripScreen({ navigation }: any) {
           </Button>
         </View>
 
-        <Card style={styles.card} mode="elevated" elevation={1}>
+          <Card style={styles.card} mode="elevated" elevation={1}>
           <Card.Content>
-            <Text variant="titleMedium" style={styles.sectionTitle}>
-              Group Details
-            </Text>
+            <View style={styles.groupDescription}>
+              <Text style={styles.groupTitle}>Type Group Name</Text>
+              <Text style={styles.groupSubtitle}>
+                Chooses the Group name so member can identify it.
+              </Text>
+            </View>
+            <Text style={styles.groupLabel}>Group Name</Text>
             <TextInput
-              label="Group Name"
               value={groupName}
               onChangeText={setGroupName}
               mode="outlined"
-              style={styles.input}
-              outlineStyle={{ borderRadius: 8 }}
-              placeholder="e.g. Hayer's Himalayan Adventure"
-              right={<TextInput.Icon icon="pencil-outline" color="#9CA3AF" />}
+              style={styles.groupInput}
+              outlineStyle={styles.groupInputOutline}
+              contentStyle={styles.groupInputContent}
+              placeholder="Enter Group Name"
             />
 
             <View style={styles.dateRow}>
@@ -280,6 +283,18 @@ export default function CreateTripScreen({ navigation }: any) {
                 }}
              />
             )}
+
+            <Button
+              mode="contained"
+              style={styles.groupCreateButton}
+              contentStyle={styles.groupCreateButtonContent}
+              labelStyle={styles.groupCreateButtonLabel}
+              onPress={onSubmit}
+              loading={loading}
+              disabled={loading}
+            >
+              Crete Group
+            </Button>
           </Card.Content>
         </Card>
 
@@ -455,6 +470,55 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: '#E5E7EB'
+  },
+  groupDescription: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  groupTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#171725",
+    textAlign: "center",
+  },
+  groupSubtitle: {
+    marginTop: 8,
+    fontSize: 14,
+    fontWeight: "400",
+    lineHeight: 22,
+    color: "#434E58",
+    textAlign: "center",
+    maxWidth: 240,
+  },
+  groupLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#171725",
+    marginBottom: 8,
+  },
+  groupInput: {
+    backgroundColor: "#F6F6F6",
+    marginBottom: 16,
+  },
+  groupInputOutline: {
+    borderRadius: 12,
+    borderColor: "#F6F6F6",
+  },
+  groupInputContent: {
+    fontSize: 14,
+  },
+  groupCreateButton: {
+    marginTop: 20,
+    borderRadius: 12,
+    backgroundColor: "#0C87DE",
+  },
+  groupCreateButtonContent: {
+    height: 50,
+  },
+  groupCreateButtonLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FEFEFE",
   },
   sectionTitle: {
     marginBottom: 16,

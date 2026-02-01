@@ -1,10 +1,12 @@
 import React, { useState, useRef } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, TextInput, Keyboard, Alert, ActivityIndicator } from 'react-native';
-import { Text, Menu } from 'react-native-paper';
+import { Text, Menu, Dialog, Portal, Button } from 'react-native-paper';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useApp } from '../../../context/AppContext';
 import { SERVER_URL } from '../../../config';
+import * as DocumentPicker from 'expo-document-picker';
+import { File } from 'expo-file-system';
 
 const BLOOD_GROUPS = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
@@ -35,6 +37,11 @@ export default function AddPersonScreen() {
     const [emergencyContactName, setEmergencyContactName] = useState('');
     const [emergencyContactPhone, setEmergencyContactPhone] = useState('');
 
+    // CSV Batch Import
+    const [batchImportDialogVisible, setBatchImportDialogVisible] = useState(false);
+    const [csvData, setCsvData] = useState('');
+    const [importLoading, setImportLoading] = useState(false);
+
     const openBloodMenu = () => {
         if (isBloodMenuDismissed.current) {
             isBloodMenuDismissed.current = false;
@@ -50,6 +57,163 @@ export default function AddPersonScreen() {
         setTimeout(() => {
             isBloodMenuDismissed.current = false;
         }, 200);
+    };
+
+    // Pick CSV file from device storage
+    const pickCSVFile = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['text/csv', 'text/comma-separated-values', 'application/csv'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) {
+                return;
+            }
+
+            const asset = result.assets[0];
+            if (asset.uri) {
+                const file = new File(asset.uri);
+                const content = await file.text();
+                setCsvData(content);
+                Alert.alert("Success", `File "${asset.name}" loaded successfully!\n${content.split('\n').length - 1} rows found.`);
+            }
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to pick or read CSV file");
+        }
+    };
+
+    // Parse CSV data
+    const parseCSV = (csvText: string) => {
+        const lines = csvText.trim().split('\n');
+        if (lines.length < 2) {
+            throw new Error("CSV must have at least a header row and one data row");
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const members: any[] = [];
+
+        const requiredHeaders = ['fullname', 'email', 'phone'];
+        const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+        if (missingHeaders.length > 0) {
+            throw new Error(`Missing required columns: ${missingHeaders.join(', ')}`);
+        }
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',').map(v => v.trim());
+            if (values.length !== headers.length) {
+                throw new Error(`Row ${i + 1} has incorrect number of columns`);
+            }
+
+            const member: any = {};
+            headers.forEach((header, index) => {
+                member[header] = values[index];
+            });
+
+            if (!member.fullname || !member.email || !member.phone) {
+                throw new Error(`Row ${i + 1} is missing required fields`);
+            }
+
+            members.push({
+                fullName: member.fullname,
+                email: member.email,
+                phone: member.phone,
+                dob: member.dateofbirth || member.dob || undefined,
+                nationality: member.nationality || undefined,
+                gender: member.gender || 'Male',
+                govId: member.govid || undefined,
+                bloodGroup: member.bloodgroup || member.blood_group || 'O+',
+                medicalConditions: member.medical_conditions || undefined,
+                allergies: member.allergies || undefined,
+                emergencyContactName: member.emergency_contact_name || undefined,
+                emergencyContactPhone: member.emergency_contact_phone || undefined,
+            });
+        }
+
+        return members;
+    };
+
+    // Batch import members from CSV
+    const onBatchImport = async () => {
+        if (!csvData.trim()) {
+            Alert.alert("Error", "Please select a CSV file");
+            return;
+        }
+
+        setImportLoading(true);
+        try {
+            const members = parseCSV(csvData);
+            let successCount = 0;
+            let failCount = 0;
+            const errors: string[] = [];
+
+            for (const member of members) {
+                try {
+                    const memberData = {
+                        name: member.fullName,
+                        email: member.email,
+                        phone: member.phone,
+                        govId: member.govId,
+                        dob: member.dob,
+                        nationality: member.nationality,
+                        gender: member.gender,
+                        bloodGroup: member.bloodGroup,
+                        medicalConditions: member.medicalConditions,
+                        allergies: member.allergies,
+                        emergencyContact: (member.emergencyContactName && member.emergencyContactPhone) ? {
+                            name: member.emergencyContactName,
+                            phone: member.emergencyContactPhone,
+                        } : undefined,
+                    };
+
+                    const response = await fetch(`${SERVER_URL}/api/group/members`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${state.token}`,
+                        },
+                        body: JSON.stringify(memberData),
+                    });
+
+                    const responseText = await response.text();
+                    let data;
+                    try {
+                        data = responseText ? JSON.parse(responseText) : null;
+                    } catch (e) {
+                        data = null;
+                    }
+
+                    if (response.ok && data?.success) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                        const errorMsg = data?.message || `Error: ${response.status}`;
+                        errors.push(`${member.fullName}: ${errorMsg}`);
+                    }
+                } catch (error: any) {
+                    failCount++;
+                    errors.push(`${member.fullName}: ${error.message}`);
+                }
+            }
+
+            setBatchImportDialogVisible(false);
+            setCsvData('');
+            
+            if (successCount > 0) {
+                Alert.alert(
+                    "Batch Import Complete",
+                    `✓ ${successCount} member(s) added successfully\n` +
+                    (failCount > 0 ? `✗ ${failCount} failed` : ''),
+                    [{ text: "OK", onPress: () => navigation.goBack() }]
+                );
+            } else {
+                Alert.alert("Import Failed", "All imports failed");
+            }
+        } catch (error: any) {
+            Alert.alert("Parse Error", error.message || "Failed to parse CSV data");
+        } finally {
+            setImportLoading(false);
+        }
     };
 
     const handleSave = async () => {
@@ -193,6 +357,19 @@ export default function AddPersonScreen() {
                 contentContainerStyle={styles.content}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Batch Import Section */}
+                <View style={styles.batchImportSection}>
+                    <Button
+                        mode="outlined"
+                        onPress={() => setBatchImportDialogVisible(true)}
+                        style={styles.batchImportButton}
+                        labelStyle={styles.batchImportButtonLabel}
+                        icon="file-upload-outline"
+                    >
+                        Batch Import from CSV
+                    </Button>
+                </View>
+
                 {/* Personal Information */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
@@ -377,6 +554,55 @@ export default function AddPersonScreen() {
 
                 <View style={{ height: 40 }} />
             </ScrollView>
+
+            {/* Batch Import Dialog */}
+            <Portal>
+                <Dialog visible={batchImportDialogVisible} onDismiss={() => setBatchImportDialogVisible(false)} style={styles.dialog}>
+                    <Dialog.Title style={styles.dialogTitle}>Batch Import Members</Dialog.Title>
+                    <Dialog.Content>
+                        <Text style={styles.dialogText}>
+                            Select a CSV file to import multiple members at once.
+                        </Text>
+                        
+                        <Button
+                            mode="contained"
+                            onPress={pickCSVFile}
+                            style={styles.filePickerButton}
+                            labelStyle={styles.filePickerButtonLabel}
+                            icon="file-document-outline"
+                        >
+                            Select CSV File
+                        </Button>
+
+                        {csvData ? (
+                            <View style={styles.filePreview}>
+                                <Text style={styles.filePreviewTitle}>✓ File Loaded</Text>
+                                <Text style={styles.filePreviewText}>
+                                    {csvData.split('\n').length - 1} members ready to import
+                                </Text>
+                            </View>
+                        ) : null}
+
+                        <Text style={styles.dialogHint}>
+                            Required format: FullName, Email, Phone (Date of Birth, Nationality, Gender, Gov ID, Blood Group, Medical Conditions, Allergies, Emergency Contact Name, Emergency Contact Phone are optional)
+                        </Text>
+                    </Dialog.Content>
+                    <Dialog.Actions>
+                        <Button onPress={() => {
+                            setBatchImportDialogVisible(false);
+                            setCsvData("");
+                        }}>Cancel</Button>
+                        <Button 
+                            onPress={onBatchImport} 
+                            loading={importLoading} 
+                            disabled={importLoading || !csvData.trim()}
+                            mode="contained"
+                        >
+                            Import
+                        </Button>
+                    </Dialog.Actions>
+                </Dialog>
+            </Portal>
         </View>
     );
 }
@@ -602,5 +828,69 @@ const styles = StyleSheet.create({
     menuContent: {
         backgroundColor: '#fff',
         borderRadius: 10,
+    },
+    batchImportSection: {
+        marginBottom: 20,
+        alignItems: 'center',
+    },
+    batchImportButton: {
+        borderRadius: 12,
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+        width: '100%',
+    },
+    batchImportButtonLabel: {
+        fontWeight: '600',
+        fontSize: 14,
+        color: '#3b82f6',
+    },
+    dialog: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
+    },
+    dialogTitle: {
+        fontWeight: '700',
+        fontSize: 20,
+        color: '#1f2937',
+    },
+    dialogText: {
+        fontSize: 14,
+        color: '#6b7280',
+        marginBottom: 16,
+    },
+    filePickerButton: {
+        borderRadius: 12,
+        backgroundColor: '#3b82f6',
+        marginBottom: 16,
+    },
+    filePickerButtonLabel: {
+        fontWeight: '600',
+        fontSize: 15,
+        color: '#FFFFFF',
+    },
+    filePreview: {
+        backgroundColor: '#dcfce7',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#86efac',
+    },
+    filePreviewTitle: {
+        fontWeight: '600',
+        fontSize: 14,
+        color: '#166534',
+        marginBottom: 4,
+    },
+    filePreviewText: {
+        fontWeight: '400',
+        fontSize: 13,
+        color: '#15803d',
+    },
+    dialogHint: {
+        fontSize: 11,
+        color: '#9ca3af',
+        fontStyle: 'italic',
+        marginTop: 8,
     },
 });

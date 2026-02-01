@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
+import SafetyScoreCard from "../../dashboard/components/SafetyScoreCard"
 import { Alert } from "react-native"
 
 export default function SettingsScreen() {
@@ -83,31 +84,31 @@ export default function SettingsScreen() {
       section: "Account",
       items: [
         { icon: "person-outline", label: "Personal Information", color: "#3B82F6", onPress: () => navigation.navigate('PersonalInfo') },
-        { icon: "notifications-outline", label: "Notifications", color: "#F59E0B", onPress: () => {} },
+        { icon: "notifications-outline", label: "Notifications", color: "#F59E0B", onPress: () => { } },
       ]
     },
     {
       section: "Preferences",
       items: [
-        { 
-          icon: "volume-high-outline", 
-          label: "Sound", 
+        {
+          icon: "volume-high-outline",
+          label: "Sound",
           color: "#8B5CF6",
           isToggle: true,
           value: sound,
           onToggle: toggleSound
         },
-        { 
-          icon: "phone-portrait-outline", 
-          label: "Vibration", 
+        {
+          icon: "phone-portrait-outline",
+          label: "Vibration",
           color: "#EC4899",
           isToggle: true,
           value: vibration,
           onToggle: toggleVibration
         },
-        { 
-          icon: "language", 
-          label: "Language", 
+        {
+          icon: "language",
+          label: "Language",
           color: "#06B6D4",
           value: getLanguageDisplay(),
           isMenu: true,
@@ -119,8 +120,8 @@ export default function SettingsScreen() {
       section: "Support",
       items: [
         { icon: "help-circle-outline", label: "Help Center", color: "#14B8A6", onPress: () => navigation.navigate('HelpCenter') },
-        { icon: "mail-outline", label: "Contact Us", color: "#6366F1", onPress: () => {} },
-        { icon: "document-text-outline", label: "Terms of Service", color: "#64748B", onPress: () => {} },
+        { icon: "mail-outline", label: "Contact Us", color: "#6366F1", onPress: () => { } },
+        { icon: "document-text-outline", label: "Terms of Service", color: "#64748B", onPress: () => { } },
       ]
     },
   ]
@@ -129,7 +130,7 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#FAF8F5" />
 
-      <ScrollView 
+      <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
@@ -149,7 +150,7 @@ export default function SettingsScreen() {
               <Text style={styles.profileEmail}>{state.user?.email || "user@example.com"}</Text>
             </View>
           </View>
-          
+
           <View style={styles.profileActions}>
             <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('PersonalInfo')}>
               <Ionicons name="create-outline" size={18} color="#3B82F6" />
@@ -163,23 +164,8 @@ export default function SettingsScreen() {
           </View>
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: "#DBEAFE" }]}>
-              <Ionicons name="shield-checkmark" size={20} color="#3B82F6" />
-            </View>
-            <Text style={styles.statValue}>85%</Text>
-            <Text style={styles.statLabel}>Safety Score</Text>
-          </View>
-          <View style={styles.statCard}>
-            <View style={[styles.statIcon, { backgroundColor: "#DCFCE7" }]}>
-              <MaterialIcons name="verified-user" size={20} color="#10B981" />
-            </View>
-            <Text style={styles.statValue}>Verified</Text>
-            <Text style={styles.statLabel}>Account Status</Text>
-          </View>
-        </View>
+        <SafetyScoreCard />
+
 
         {/* Menu Sections */}
         {menuItems.map((section, sectionIndex) => (
@@ -285,8 +271,8 @@ export default function SettingsScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Developer</Text>
             <View style={styles.sectionCard}>
-              <TouchableOpacity 
-                style={styles.menuItem} 
+              <TouchableOpacity
+                style={styles.menuItem}
                 onPress={async () => {
                   try {
                     const q = await getSOSQueue()
@@ -315,11 +301,11 @@ export default function SettingsScreen() {
             <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.deleteAccount} activeOpacity={0.7}>
             <Text style={styles.deleteText}>Delete Account</Text>
           </TouchableOpacity>
-          
+
           <Text style={styles.versionText}>Version 1.0.0</Text>
         </View>
       </ScrollView>
@@ -343,9 +329,9 @@ export default function SettingsScreen() {
             </View>
 
             <View style={styles.qrContainer}>
-              <QRCode 
-                value={state.user?.touristId || state.user?.phone || "USER_ID"} 
-                size={200} 
+              <QRCode
+                value={state.user?.touristId || state.user?.phone || "USER_ID"}
+                size={200}
               />
             </View>
 

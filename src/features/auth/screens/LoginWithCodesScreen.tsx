@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import {
   ScrollView,
   KeyboardAvoidingView,
@@ -6,19 +6,19 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
 } from "react-native";
 import {
   Button,
   HelperText,
   Text,
   TextInput,
-  useTheme,
 } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useApp } from "../../../context/AppContext";
+import { useFocusEffect } from "@react-navigation/native";
 
 export default function LoginWithCodesScreen({ navigation }: any) {
-  const theme = useTheme();
   const { loginWithCodes } = useApp() as any;
   const [guideId, setGuideId] = useState("");
   const [touristId, setTouristId] = useState("");
@@ -28,19 +28,48 @@ export default function LoginWithCodesScreen({ navigation }: any) {
     type: "info" | "error" | "success";
     text: string;
   } | null>(null);
+  const touristIdInputRef = useRef<any>(null);
+
+  // Auto-focus on the first input field
+  useFocusEffect(
+    useCallback(() => {
+      const timeout = setTimeout(() => {
+        touristIdInputRef.current?.focus?.();
+      }, 250);
+      return () => clearTimeout(timeout);
+    }, [])
+  );
 
   const onSubmit = async () => {
-    // Validate inputs
-    if (!guideId || !touristId || !groupAccessCode) {
+    // Clear previous messages
+    setMsg(null);
+
+    // Validate inputs with specific messages
+    if (!touristId.trim()) {
       setMsg({
         type: "error",
-        text: "All three codes are required",
+        text: "Please enter your Tourist ID",
+      });
+      return;
+    }
+
+    if (!guideId.trim()) {
+      setMsg({
+        type: "error",
+        text: "Please enter your Guide ID",
+      });
+      return;
+    }
+
+    if (!groupAccessCode.trim()) {
+      setMsg({
+        type: "error",
+        text: "Please enter your Group Access Code",
       });
       return;
     }
 
     setLoading(true);
-    setMsg(null);
 
     try {
       // Call AppContext function which handles everything
@@ -82,101 +111,80 @@ export default function LoginWithCodesScreen({ navigation }: any) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Header Section */}
+          <Pressable
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+          >
+            <MaterialCommunityIcons name="arrow-left" size={20} color="#171725" />
+          </Pressable>
+
           <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <MaterialCommunityIcons
-                name="account-group"
-                size={40}
-                color="#3B82F6"
-              />
-            </View>
-            <Text style={styles.title}>Group Member Login</Text>
+            <Text style={styles.title}>Welcome, Traveler!</Text>
             <Text style={styles.subtitle}>
-              Enter your 3 codes from the welcome email
+              Enter your details to sync with your guide and join
+              the safety group.
             </Text>
           </View>
 
-          {/* Info Box */}
-          <View style={styles.infoBox}>
-            <MaterialCommunityIcons
-              name="information"
-              size={20}
-              color="#3B82F6"
-            />
-            <Text style={styles.infoText}>
-              You should have received an email from your tour guide with three
-              unique codes. Enter them below to access your group.
-            </Text>
-          </View>
-
-          {/* Form Section */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                <MaterialCommunityIcons name="map-marker" size={14} /> Guide ID
-              </Text>
+              <Text style={styles.label}>Tourist ID</Text>
               <TextInput
-                mode="outlined"
-                value={guideId}
-                onChangeText={setGuideId}
-                placeholder="e.g., T1738034567123"
-                autoCapitalize="characters"
-                autoCorrect={false}
-                contentStyle={styles.textInputContent}
-                outlineStyle={styles.textInputOutline}
-                style={styles.textInput}
-                disabled={loading}
-                left={<TextInput.Icon icon="account-star" color="#9CA3AF" />}
-              />
-              <HelperText type="info" style={styles.helperText}>
-                Your tour guide's unique ID
-              </HelperText>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                <MaterialCommunityIcons name="account" size={14} /> Tourist ID
-              </Text>
-              <TextInput
-                mode="outlined"
+                ref={touristIdInputRef}
+                mode="flat"
                 value={touristId}
                 onChangeText={setTouristId}
-                placeholder="e.g., T1738034890456"
+                placeholder="Enter Tourist ID"
                 autoCapitalize="characters"
                 autoCorrect={false}
-                contentStyle={styles.textInputContent}
-                outlineStyle={styles.textInputOutline}
+                cursorColor="#0C87DE"
+                selectionColor="#0C87DE"
                 style={styles.textInput}
+                underlineColor="transparent"
+                activeUnderlineColor="transparent"
+                placeholderTextColor="#9CA4AB"
                 disabled={loading}
-                left={<TextInput.Icon icon="account" color="#9CA3AF" />}
               />
-              <HelperText type="info" style={styles.helperText}>
-                Your unique tourist ID
-              </HelperText>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                <MaterialCommunityIcons name="key" size={14} /> Group Access
-                Code
-              </Text>
+              <Text style={styles.label}>Guide ID</Text>
               <TextInput
-                mode="outlined"
-                value={groupAccessCode}
-                onChangeText={setGroupAccessCode}
-                placeholder="e.g., ABC123XYZ"
+                mode="flat"
+                value={guideId}
+                onChangeText={setGuideId}
+                placeholder="Enter Guide ID"
                 autoCapitalize="characters"
                 autoCorrect={false}
-                contentStyle={styles.textInputContent}
-                outlineStyle={styles.textInputOutline}
+                cursorColor="#0C87DE"
+                selectionColor="#0C87DE"
                 style={styles.textInput}
+                underlineColor="transparent"
+                activeUnderlineColor="transparent"
+                placeholderTextColor="#9CA4AB"
                 disabled={loading}
-                left={<TextInput.Icon icon="key" color="#9CA3AF" />}
               />
-              <HelperText type="info" style={styles.helperText}>
-                Your group's unique access code
-              </HelperText>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Group Access Code</Text>
+              <TextInput
+                mode="flat"
+                value={groupAccessCode}
+                onChangeText={setGroupAccessCode}
+                placeholder="Enter Group Access Code"
+                autoCapitalize="characters"
+                autoCorrect={false}
+                cursorColor="#0C87DE"
+                selectionColor="#0C87DE"
+                style={styles.textInput}
+                underlineColor="transparent"
+                activeUnderlineColor="transparent"
+                placeholderTextColor="#9CA4AB"
+                disabled={loading}
+              />
             </View>
 
             {msg && (
@@ -200,19 +208,15 @@ export default function LoginWithCodesScreen({ navigation }: any) {
               contentStyle={styles.buttonContent}
               labelStyle={styles.buttonLabel}
             >
-              {loading ? "Logging in..." : "Login"}
+              {loading ? "Joining..." : "Join Tour"}
             </Button>
 
-            {/* Back to normal login */}
             <TouchableOpacity
               onPress={() => navigation.goBack()}
-              style={styles.linkContainer}
+              style={styles.helpLink}
               disabled={loading}
             >
-              <Text style={styles.linkText}>
-                Not a group member?{" "}
-                <Text style={styles.linkTextBold}>Login with Email</Text>
-              </Text>
+              <Text style={styles.helpText}>Need Help?</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -224,119 +228,108 @@ export default function LoginWithCodesScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   screenContainer: {
     flex: 1,
-    backgroundColor: "#F9FAFB",
+    backgroundColor: "#FFFFFF",
   },
   scrollContent: {
     flexGrow: 1,
-    padding: 24,
-    paddingTop: 40,
+    paddingHorizontal: 34,
+    paddingTop: 88,
+    paddingBottom: 32,
+  },
+  backButton: {
+    position: "absolute",
+    top: Platform.OS === "ios" ? 50 : 38,
+    left: 20,
+    zIndex: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
   header: {
     alignItems: "center",
     marginBottom: 32,
   },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#DBEAFE",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 16,
-  },
   title: {
+    fontFamily: "Jost",
     fontSize: 28,
     fontWeight: "700",
-    color: "#1F2937",
-    marginBottom: 8,
+    color: "#171725",
+    marginBottom: 12,
     textAlign: "center",
+    letterSpacing: 0.5,
   },
   subtitle: {
+    fontFamily: "Jost",
     fontSize: 14,
-    color: "#6B7280",
+    color: "#434E58",
     textAlign: "center",
-  },
-  infoBox: {
-    backgroundColor: "#EFF6FF",
-    borderWidth: 1,
-    borderColor: "#BFDBFE",
-    borderRadius: 12,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    marginBottom: 24,
-  },
-  infoText: {
-    flex: 1,
-    fontSize: 13,
-    color: "#1E40AF",
-    marginLeft: 12,
-    lineHeight: 20,
+    lineHeight: 22,
+    letterSpacing: 0.3,
+    paddingHorizontal: 20,
   },
   formContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    width: "100%",
   },
   inputGroup: {
     marginBottom: 20,
   },
   label: {
+    fontFamily: "Jost",
     fontSize: 14,
     fontWeight: "600",
-    color: "#374151",
+    color: "#171725",
     marginBottom: 8,
+    letterSpacing: 0.3,
   },
   textInput: {
-    backgroundColor: "#FFFFFF",
-  },
-  textInputContent: {
+    backgroundColor: "#F6F6F6",
+    borderRadius: 12,
+    height: 56,
+    paddingLeft: 16,
     fontSize: 15,
-  },
-  textInputOutline: {
-    borderRadius: 10,
-    borderColor: "#D1D5DB",
-  },
-  helperText: {
-    fontSize: 12,
-    color: "#6B7280",
-    marginTop: 4,
   },
   message: {
     fontSize: 14,
     marginTop: 8,
     marginBottom: 16,
+    textAlign: "center",
   },
   successMessage: {
     color: "#059669",
   },
   button: {
-    marginTop: 8,
-    borderRadius: 10,
-    backgroundColor: "#3B82F6",
+    marginTop: 24,
+    borderRadius: 12,
+    backgroundColor: "#0C87DE",
+    elevation: 3,
+    shadowColor: "#0C87DE",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
   },
   buttonContent: {
-    paddingVertical: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
   },
   buttonLabel: {
+    fontFamily: "Plus Jakarta Sans",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    color: "#FFFFFF",
   },
-  linkContainer: {
+  helpLink: {
     marginTop: 24,
     alignItems: "center",
+    paddingVertical: 8,
   },
-  linkText: {
-    fontSize: 14,
-    color: "#6B7280",
-  },
-  linkTextBold: {
-    color: "#3B82F6",
+  helpText: {
+    fontFamily: "Jost",
+    fontSize: 16,
+    color: "#2853AF",
     fontWeight: "600",
+    letterSpacing: 0.3,
   },
 });

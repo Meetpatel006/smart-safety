@@ -108,7 +108,7 @@ export default function MapBottomSheet({
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.sosBtn} onPress={onSOS} activeOpacity={0.8}>
-                    <Text style={styles.sosTextBold}>SOS</Text>
+                    <Text style={styles.sosTextBold}>Incidents</Text>
                 </TouchableOpacity>
             </View>
 

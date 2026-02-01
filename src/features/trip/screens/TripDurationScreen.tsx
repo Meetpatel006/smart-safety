@@ -1,16 +1,26 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView } from 'react-native';
-import { Text, Button, IconButton, Card, Divider } from 'react-native-paper';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, StyleSheet, ScrollView, Pressable } from 'react-native';
+import { Text, Button, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { showToast } from '../../../utils/toast';
 import { useApp } from '../../../context/AppContext';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TripDurationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { state } = useApp();
   const user = state.user as any;
+
+  // Hide default stack header (e.g. "Plan your trip") for this screen
+  useLayoutEffect(() => {
+    try {
+      (navigation as any).setOptions?.({ headerShown: false });
+    } catch (e) {
+      // ignore if navigation not available
+    }
+  }, [navigation]);
   
   const [tripDuration, setTripDuration] = useState(7);
   const [startDate, setStartDate] = useState(new Date());
@@ -90,119 +100,86 @@ export default function TripDurationScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={styles.title}>
-            How long is your trip?
-          </Text>
-          <Text variant="bodyMedium" style={styles.subtitle}>
-            Select the number of days you'll be traveling.
-          </Text>
+      <Pressable
+        style={styles.backButton}
+        onPress={() => (navigation as any).goBack?.()}
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+      >
+        <MaterialCommunityIcons name="arrow-left" size={20} color="#171725" />
+      </Pressable>
 
-          <Divider style={styles.divider} />
-
-          <Text variant="labelMedium" style={styles.label}>
-            TOTAL DURATION
-          </Text>
-
-          <View style={styles.durationContainer}>
-            <IconButton
-              icon="minus"
-              size={24}
-              onPress={handleDecrement}
-              disabled={tripDuration <= 1}
-              style={styles.iconButton}
-            />
-            <View style={styles.durationDisplay}>
-              <Text variant="displayLarge" style={styles.durationNumber}>
-                {tripDuration}
-              </Text>
-              <Text variant="bodyMedium" style={styles.daysText}>
-                Days
-              </Text>
-            </View>
-            <IconButton
-              icon="plus"
-              size={24}
-              onPress={handleIncrement}
-              disabled={tripDuration >= 150}
-              mode="contained"
-              style={styles.iconButton}
-            />
+      <View style={styles.totalDurationCard}>
+        <Text style={styles.totalLabel}>Total duration</Text>
+        <View style={styles.durationRow}>
+          <IconButton
+            icon="minus"
+            size={20}
+            onPress={handleDecrement}
+            disabled={tripDuration <= 1}
+            style={styles.circleButton}
+            iconColor="#171725"
+          />
+          <View style={styles.durationCenter}>
+            <Text style={styles.durationNumber}>{tripDuration}</Text>
+            <Text style={styles.durationUnit}>Days</Text>
           </View>
+          <IconButton
+            icon="plus"
+            size={20}
+            onPress={handleIncrement}
+            disabled={tripDuration >= 150}
+            style={styles.circleButton}
+            iconColor="#171725"
+          />
+        </View>
+      </View>
 
-          <Text variant="bodySmall" style={styles.rangeText}>
-            Min 1 day, Max 150 days
-          </Text>
-        </Card.Content>
-      </Card>
-
-      <Card style={styles.card}>
-        <Card.Content>
-          <Text variant="headlineSmall" style={styles.title}>
-            When do you leave?
-          </Text>
-
-          <Text variant="labelMedium" style={styles.label}>
-            Start Date
-          </Text>
-          <Button
-            mode="outlined"
-            icon="calendar"
-            onPress={() => setShowStartPicker(true)}
-            style={styles.dateButton}
-            contentStyle={styles.dateButtonContent}
-          >
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Starting Date</Text>
+        <Pressable style={styles.inputField} onPress={() => setShowStartPicker(true)}>
+          <Text style={styles.inputValue}>
             {startDate.toLocaleDateString('en-US', {
               month: '2-digit',
               day: '2-digit',
               year: 'numeric',
             })}
-          </Button>
-
-          {showStartPicker && (
-            <DateTimePicker
-              value={startDate}
-              mode="date"
-              display="default"
-              onChange={handleStartDateChange}
-              minimumDate={new Date()}
-            />
-          )}
-
-          <Text variant="labelMedium" style={[styles.label, styles.labelMargin]}>
-            Return Date (Auto-calculated)
           </Text>
-          <Button
-            mode="outlined"
-            icon="calendar"
-            disabled
-            style={styles.dateButton}
-            contentStyle={styles.dateButtonContent}
-          >
+          <MaterialCommunityIcons name="calendar-month" size={20} color="#9CA4AB" />
+        </Pressable>
+      </View>
+
+      {showStartPicker && (
+        <DateTimePicker
+          value={startDate}
+          mode="date"
+          display="default"
+          onChange={handleStartDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Ending Date</Text>
+        <View style={styles.inputField}>
+          <Text style={styles.inputValue}>
             {returnDate.toLocaleDateString('en-US', {
-              month: 'short',
-              day: 'numeric',
+              month: '2-digit',
+              day: '2-digit',
               year: 'numeric',
             })}
-          </Button>
-
-          <View style={styles.infoContainer}>
-            <Text variant="bodySmall" style={styles.infoText}>
-              💡 We'll use these dates to monitor your safety status while you are traveling solo.
-            </Text>
-          </View>
-        </Card.Content>
-      </Card>
+          </Text>
+          <MaterialCommunityIcons name="calendar-month" size={20} color="#9CA4AB" />
+        </View>
+      </View>
 
       <Button
         mode="contained"
         onPress={handleNext}
         style={styles.nextButton}
         contentStyle={styles.nextButtonContent}
-        icon="arrow-right"
       >
-        Next: Build Itinerary
+        Build Itinerary
       </Button>
     </ScrollView>
   );
@@ -211,86 +188,94 @@ export default function TripDurationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
   },
   contentContainer: {
-    padding: 16,
-    paddingBottom: 32,
+    paddingHorizontal: 34,
+    paddingTop: 92,
+    paddingBottom: 40,
+    alignItems: 'center',
   },
-  card: {
-    marginBottom: 16,
-    borderRadius: 12,
+  backButton: {
+    position: 'absolute',
+    top: 35,
+    left: 30,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
   },
-  title: {
-    fontWeight: 'bold',
-    marginBottom: 8,
+  totalDurationCard: {
+    alignItems: 'center',
+    marginBottom: 36,
+    width: '100%',
   },
-  subtitle: {
-    color: '#666',
-    marginBottom: 16,
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#939393',
+    marginBottom: 12,
   },
-  divider: {
-    marginVertical: 16,
-  },
-  label: {
-    color: '#666',
-    marginBottom: 8,
-    letterSpacing: 0.5,
-  },
-  labelMargin: {
-    marginTop: 16,
-  },
-  durationContainer: {
+  durationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 24,
   },
-  iconButton: {
-    margin: 8,
+  circleButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    marginHorizontal: 16,
   },
-  durationDisplay: {
+  durationCenter: {
     alignItems: 'center',
-    marginHorizontal: 32,
   },
   durationNumber: {
-    fontSize: 72,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#000000',
   },
-  daysText: {
-    fontSize: 18,
-    color: '#666',
-    marginTop: -8,
+  durationUnit: {
+    marginTop: 6,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#939393',
   },
-  rangeText: {
-    textAlign: 'center',
-    color: '#999',
-    marginTop: 8,
+  inputGroup: {
+    marginBottom: 20,
   },
-  dateButton: {
-    justifyContent: 'flex-start',
-    borderRadius: 8,
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#171725',
+    marginBottom: 8,
   },
-  dateButtonContent: {
-    justifyContent: 'flex-start',
-    paddingVertical: 8,
-  },
-  infoContainer: {
+  inputField: {
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: '#F6F6F6',
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
   },
-  infoText: {
-    color: '#1976d2',
-    flex: 1,
+  inputValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#9CA4AB',
   },
   nextButton: {
-    marginTop: 8,
-    borderRadius: 8,
+    marginTop: 20,
+    borderRadius: 12,
+    backgroundColor: '#0C87DE',
   },
   nextButtonContent: {
-    paddingVertical: 8,
+    height: 52,
   },
 });

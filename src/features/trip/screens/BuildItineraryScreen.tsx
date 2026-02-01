@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Alert } from 'react-native';
-import { Text, Button, Card, SegmentedButtons, Chip, TextInput } from 'react-native-paper';
+import React, { useState, useEffect, useLayoutEffect } from 'react';
+import { View, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
+import { Text, Button, Card, SegmentedButtons, Chip, TextInput, IconButton } from 'react-native-paper';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { showToast } from '../../../utils/toast';
 import { useApp } from '../../../context/AppContext';
@@ -39,6 +39,15 @@ export default function BuildItineraryScreen() {
 
   // Role detection
   const user = state.user as any;
+
+  // Hide default stack header for this screen (remove titles like "Plan your trip")
+  useLayoutEffect(() => {
+    try {
+      (navigation as any).setOptions?.({ headerShown: false });
+    } catch (e) {
+      // ignore when navigation not available
+    }
+  }, [navigation]);
   const userRole = user?.role;
   const isSolo = userRole === 'solo';
   const isTourAdmin = userRole === 'tour-admin';
@@ -179,25 +188,34 @@ export default function BuildItineraryScreen() {
       if (isSolo) {
         // SOLO FLOW (unchanged)
         console.log('[BuildItinerary] Solo flow: POST to /api/itinerary/:touristId');
+        console.log('[BuildItinerary] Request URL:', `${SERVER_URL}/api/itinerary/${touristId}`);
+        console.log('[BuildItinerary] Request body:', JSON.stringify({ itinerary: sortedItinerary }, null, 2));
+        console.log('[BuildItinerary] Auth token:', state.token ? 'Present' : 'Missing');
+        
         const response = await fetch(`${SERVER_URL}/api/itinerary/${touristId}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            'Authorization': `Bearer ${state.token}`,
           },
           body: JSON.stringify({
             itinerary: sortedItinerary,
           }),
         });
 
+        console.log('[BuildItinerary] Response status:', response.status, response.statusText);
         const data = await response.json();
+        console.log('[BuildItinerary] Response data:', JSON.stringify(data, null, 2));
 
         if (response.ok && data.success) {
           showToast('Itinerary created successfully!');
           // Clear the justRegistered flag to prevent redirect loops
           setJustRegistered(false);
+          console.log('[BuildItinerary] Navigating to Main dashboard...');
           // Navigate to main dashboard
           (navigation.navigate as any)('Main');
         } else {
+          console.error('[BuildItinerary] API error:', data);
           showToast(data.message || 'Failed to create itinerary');
         }
       } else if (isCreatingGroup) {
@@ -224,7 +242,8 @@ export default function BuildItineraryScreen() {
         if (result.ok) {
           showToast(`Group "${groupName}" created successfully!`);
           setJustRegistered(false);
-          (navigation.navigate as any)('Main');
+          // Navigate to AddGroupMember screen to add members
+          (navigation.navigate as any)('AddGroupMember');
         } else {
           showToast(result.message || 'Failed to create group');
         }
@@ -320,134 +339,140 @@ export default function BuildItineraryScreen() {
         </View>
       )}
 
-      {/* Day Navigation */}
-      <Card style={styles.dayNavCard}>
-        <Card.Content>
-          <Text variant="titleMedium" style={styles.dayNavTitle}>
-            {isGroupMember ? 'View Group Itinerary' : isEditingGroup ? 'Edit Group Itinerary' : 'Build Your Itinerary'}
+      {/* Current Day Content */}
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
+        {/* Header Section - Now scrollable */}
+        <View style={styles.header}>
+          <IconButton
+            icon="arrow-left"
+            size={24}
+            onPress={() => navigation.goBack()}
+            style={styles.backButton}
+          />
+          <View style={styles.headerTextContainer}>
+            <Text style={styles.headerTitle}>
+              {isGroupMember ? 'View Group Itinerary' : isEditingGroup ? 'Edit Group Itinerary' : 'Build your Itinerary'}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              You need to added the day-wise itinerary{'\n'}on this page
+            </Text>
+          </View>
+        </View>
+
+        {/* Divider */}
+        <View style={styles.divider} />
+
+        {/* Day Title */}
+        <View style={styles.dayTitleContainer}>
+          <Text style={styles.dayTitle}>
+            Day {currentDay} - {getCurrentDayDateFormatted()}
           </Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.dayChipsContainer}>
+          <Text style={styles.daySubtitle}>
+            Add your activities and stops for this day.
+          </Text>
+        </View>
+
+        {/* Day Navigation Tabs */}
+        <View style={styles.dayTabsContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             {Array.from({ length: tripDuration }, (_, i) => i + 1).map((day) => {
               const isSaved = itinerary.some((d) => d.dayNumber === day);
+              const isSelected = currentDay === day;
               return (
-                <Chip
+                <TouchableOpacity
                   key={day}
-                  selected={currentDay === day}
                   onPress={() => handleChangeDay(day)}
-                  style={styles.dayChip}
-                  icon={isSaved ? 'check' : undefined}
+                  style={[
+                    styles.dayTab,
+                    isSelected && styles.dayTabSelected,
+                  ]}
                 >
-                  Day {day}
-                </Chip>
+                  <Text style={[styles.dayTabText, isSelected && styles.dayTabTextSelected]}>
+                    Day {day}
+                  </Text>
+                </TouchableOpacity>
               );
             })}
           </ScrollView>
-        </Card.Content>
-      </Card>
+        </View>
 
-      {/* Current Day Content */}
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.contentContainer}>
-        <Card style={styles.card}>
-          <Card.Content>
-            <Text variant="headlineSmall" style={styles.title}>
-              Day {currentDay} - {getCurrentDayDateFormatted()}
-            </Text>
-            <Text variant="bodyMedium" style={styles.subtitle}>
-              Add your activities and stops for this day.
-            </Text>
-
-            {/* Display saved nodes */}
-            {currentDayNodes.map((node, index) => (
-              <Card key={index} style={styles.nodeCard} mode="outlined">
-                <Card.Content>
-                  <View style={styles.nodeHeader}>
-                    <Text variant="titleMedium">{node.name}</Text>
-                    {(isSolo || isTourAdmin) && (
-                      <Button
-                        icon="delete"
-                        mode="text"
-                        onPress={() => handleRemoveNode(index)}
-                        compact
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </View>
+        {/* Display saved nodes */}
+        {currentDayNodes.map((node, index) => (
+          <Card key={index} style={styles.nodeCard} mode="outlined">
+            <Card.Content>
+              <View style={styles.nodeHeader}>
+                <Text variant="titleMedium">{node.name}</Text>
+                {(isSolo || isTourAdmin) && (
+                  <Button
+                    icon="delete"
+                    mode="text"
+                    onPress={() => handleRemoveNode(index)}
+                    compact
+                  >
+                    Remove
+                  </Button>
+                )}
+              </View>
+              <Text variant="bodySmall" style={styles.nodeDetail}>
+                Type: {node.type}
+              </Text>
+              {node.scheduledTime && (
+                <View style={styles.nodeDetailRow}>
+                  <IconButton icon="clock-outline" size={16} style={styles.nodeIcon} />
                   <Text variant="bodySmall" style={styles.nodeDetail}>
-                    Type: {node.type}
+                    {node.scheduledTime}
                   </Text>
-                  {node.scheduledTime && (
-                    <Text variant="bodySmall" style={styles.nodeDetail}>
-                      Time: {node.scheduledTime}
-                    </Text>
-                  )}
-                  {node.address && (
-                    <Text variant="bodySmall" style={styles.nodeDetail}>
-                      📍 {node.address}
-                    </Text>
-                  )}
-                  {node.description && (
-                    <Text variant="bodySmall" style={styles.nodeDetail}>
-                      📝 {node.description}
-                    </Text>
-                  )}
-                </Card.Content>
-              </Card>
-            ))}
+                </View>
+              )}
+              {node.address && (
+                <View style={styles.nodeDetailRow}>
+                  <IconButton icon="map-marker" size={16} style={styles.nodeIcon} />
+                  <Text variant="bodySmall" style={styles.nodeDetail}>
+                    {node.address}
+                  </Text>
+                </View>
+              )}
+              {node.description && (
+                <View style={styles.nodeDetailRow}>
+                  <IconButton icon="text" size={16} style={styles.nodeIcon} />
+                  <Text variant="bodySmall" style={styles.nodeDetail}>
+                    {node.description}
+                  </Text>
+                </View>
+              )}
+            </Card.Content>
+          </Card>
+        ))}
 
-            {/* Add Activity Form - Only for solo and tour-admin */}
-            {(isSolo || isTourAdmin) && (
-              <ActivityNodeForm onAddNode={handleAddNode} />
-            )}
-
-            {/* Info for group members */}
-            {isGroupMember && (
-              <View style={styles.infoContainer}>
-                <Text variant="bodySmall" style={styles.infoText}>
-                  ℹ️ You are viewing your group's itinerary. Only your tour administrator can make changes.
-                </Text>
-              </View>
-            )}
-
-            {/* Info for all users */}
-            {(isSolo || isTourAdmin) && (
-              <View style={styles.infoContainer}>
-                <Text variant="bodySmall" style={styles.infoText}>
-                  💡 Smart Safety Tip: Adding specific locations helps us provide real-time alerts if you're near a high-risk area.
-                </Text>
-              </View>
-            )}
-          </Card.Content>
-        </Card>
-
-        {/* Save Day Button - Only for solo and tour-admin */}
+        {/* Add Activity Form - Only for solo and tour-admin */}
         {(isSolo || isTourAdmin) && (
+          <ActivityNodeForm onAddNode={handleAddNode} />
+        )}
+
+        {/* Save Current Day Button - Only for solo and tour-admin */}
+        {(isSolo || isTourAdmin) && currentDayNodes.length > 0 && (
           <Button
             mode="contained"
             onPress={handleSaveDay}
             style={styles.saveDayButton}
-            icon="check"
-            disabled={currentDayNodes.length === 0}
+            labelStyle={styles.saveDayButtonLabel}
+            icon={currentDay < tripDuration ? "arrow-right" : "check"}
           >
-            Save Day {currentDay}
+            {currentDay < tripDuration ? `Save Day ${currentDay} & Continue` : `Save Day ${currentDay}`}
           </Button>
         )}
 
         {/* Final Submit Button - Only for solo and tour-admin */}
         {(isSolo || isTourAdmin) && itinerary.length > 0 && (
           <Button
-            mode="contained-tonal"
+            mode="contained"
             onPress={handleSubmitItinerary}
             style={styles.submitButton}
-            icon="upload"
+            labelStyle={styles.submitButtonLabel}
             loading={isSubmitting}
             disabled={isSubmitting}
           >
-            {isCreatingGroup 
-              ? `Create Group with Itinerary (${itinerary.length}/${tripDuration} days)`
-              : isEditingGroup
-              ? `Update Itinerary (${itinerary.length}/${tripDuration} days)`
-              : `Submit Complete Itinerary (${itinerary.length}/${tripDuration} days)`}
+            Build Itinerary
           </Button>
         )}
       </ScrollView>
@@ -458,46 +483,102 @@ export default function BuildItineraryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFFFFF',
   },
-  dayNavCard: {
-    margin: 16,
+  header: {
+    paddingHorizontal: 0,
+    paddingTop: 0,
+    paddingBottom: 16,
+  },
+  backButton: {
+    marginLeft: -8,
+    marginTop: 30,
     marginBottom: 8,
-    borderRadius: 12,
   },
-  dayNavTitle: {
-    fontWeight: 'bold',
-    marginBottom: 12,
+  headerTextContainer: {
+    marginLeft: 8,
   },
-  dayChipsContainer: {
-    marginTop: 8,
+  headerTitle: {
+    fontFamily: 'Jost',
+    fontWeight: '700',
+    fontSize: 24,
+    lineHeight: 32,
+    letterSpacing: 0.5,
+    color: '#171725',
+    marginBottom: 8,
   },
-  dayChip: {
-    marginRight: 8,
+  headerSubtitle: {
+    fontFamily: 'Jost',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: 0.5,
+    color: '#434E58',
+  },
+  divider: {
+    height: 1,
+    backgroundColor: '#9B9B9B',
+    marginHorizontal: 0,
+    marginBottom: 16,
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    padding: 16,
-    paddingTop: 8,
+    paddingHorizontal: 24,
     paddingBottom: 32,
   },
-  card: {
-    borderRadius: 12,
+  dayTitleContainer: {
     marginBottom: 16,
   },
-  title: {
-    fontWeight: 'bold',
+  dayTitle: {
+    fontFamily: 'Jost',
+    fontWeight: '600',
+    fontSize: 20,
+    lineHeight: 32,
+    letterSpacing: 0.5,
+    color: '#171725',
     marginBottom: 4,
   },
-  subtitle: {
-    color: '#666',
-    marginBottom: 16,
+  daySubtitle: {
+    fontFamily: 'Jost',
+    fontWeight: '400',
+    fontSize: 14,
+    lineHeight: 22,
+    letterSpacing: 0.5,
+    color: '#434E58',
+  },
+  dayTabsContainer: {
+    backgroundColor: '#F2F2F2',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 24,
+  },
+  dayTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginRight: 8,
+    borderRadius: 12,
+  },
+  dayTabSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  dayTabText: {
+    fontFamily: 'Roboto',
+    fontWeight: '400',
+    fontSize: 15,
+    lineHeight: 16,
+    color: '#808080',
+  },
+  dayTabTextSelected: {
+    color: '#808080',
   },
   nodeCard: {
     marginBottom: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderColor: '#EEEEEE',
   },
   nodeHeader: {
     flexDirection: 'row',
@@ -508,22 +589,55 @@ const styles = StyleSheet.create({
   nodeDetail: {
     color: '#666',
     marginTop: 4,
+    flex: 1,
   },
-  infoContainer: {
-    backgroundColor: '#e3f2fd',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
+  nodeDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
   },
-  infoText: {
-    color: '#1976d2',
+  nodeIcon: {
+    margin: 0,
+    marginRight: -8,
   },
   saveDayButton: {
-    marginBottom: 12,
-    borderRadius: 8,
+    backgroundColor: '#4CAF50',
+    borderRadius: 12,
+    marginTop: 16,
+    paddingVertical: 8,
+  },
+  saveDayButtonLabel: {
+    fontFamily: 'Plus Jakarta Sans',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: '#FEFEFE',
   },
   submitButton: {
+    backgroundColor: '#0C87DE',
+    borderRadius: 12,
+    marginTop: 24,
+    paddingVertical: 8,
+  },
+  submitButtonLabel: {
+    fontFamily: 'Plus Jakarta Sans',
+    fontWeight: '600',
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: 0.5,
+    color: '#FEFEFE',
+  },
+  card: {
+    borderRadius: 12,
+    margin: 16,
+  },
+  title: {
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  subtitle: {
+    color: '#666',
     marginBottom: 16,
-    borderRadius: 8,
   },
 });

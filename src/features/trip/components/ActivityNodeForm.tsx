@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { View, StyleSheet, Platform } from 'react-native';
-import { TextInput, Button, SegmentedButtons, HelperText, Menu } from 'react-native-paper';
+import { View, StyleSheet, Platform, TouchableOpacity, ScrollView } from 'react-native';
+import { TextInput, Button, SegmentedButtons, HelperText, Menu, Text } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { showToast } from '../../../utils/toast';
 
@@ -151,12 +151,33 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
   return (
     <View style={styles.container}>
       {/* Activity Type Selector */}
-      <SegmentedButtons
-        value={activityType}
-        onValueChange={setActivityType}
-        buttons={activityTypes}
-        style={styles.segmentedButtons}
-      />
+      <View style={styles.typeContainerWrapper}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.typeContainer}
+        >
+          {activityTypes.map((type) => (
+            <TouchableOpacity
+              key={type.value}
+              onPress={() => setActivityType(type.value)}
+              style={[
+                styles.typeButton,
+                activityType === type.value && styles.typeButtonSelected,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  activityType === type.value && styles.typeButtonTextSelected,
+                ]}
+              >
+                {type.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
 
       {/* Activity Title */}
       <TextInput
@@ -166,9 +187,12 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
         mode="outlined"
         placeholder="e.g., Morning Hike"
         style={styles.input}
+        outlineColor="#C2C2C2"
+        activeOutlineColor="#C2C2C2"
+        theme={{ colors: { background: '#FFFFFF' } }}
       />
 
-      {/* Scheduled Time */}
+      {/* Scheduled Time and Duration */}
       <View style={styles.timeRow}>
         <TextInput
           label="Start Time"
@@ -176,6 +200,9 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
           mode="outlined"
           placeholder="09:00 AM"
           style={[styles.input, styles.timeInput]}
+          outlineColor="#C2C2C2"
+          activeOutlineColor="#C2C2C2"
+          theme={{ colors: { background: '#FFFFFF' } }}
           right={
             <TextInput.Icon
               icon="clock-outline"
@@ -193,6 +220,9 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
           mode="outlined"
           placeholder="1 hr"
           style={[styles.input, styles.durationInput]}
+          outlineColor="#C2C2C2"
+          activeOutlineColor="#C2C2C2"
+          theme={{ colors: { background: '#FFFFFF' } }}
         />
       </View>
 
@@ -214,6 +244,9 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
         mode="outlined"
         placeholder="Search for a place..."
         style={styles.input}
+        outlineColor="#C2C2C2"
+        activeOutlineColor="#C2C2C2"
+        theme={{ colors: { background: '#FFFFFF' } }}
         left={<TextInput.Icon icon="magnify" />}
         right={
           <TextInput.Icon
@@ -231,7 +264,7 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
 
       {/* Safety Notes / Description */}
       <TextInput
-        label="Safety Notes (Optional)"
+        label="Safety Notes"
         value={safetyNotes}
         onChangeText={setSafetyNotes}
         mode="outlined"
@@ -239,12 +272,14 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
         multiline
         numberOfLines={3}
         style={styles.input}
+        outlineColor="#C2C2C2"
+        activeOutlineColor="#C2C2C2"
+        theme={{ colors: { background: '#FFFFFF' } }}
       />
 
       {/* Action Buttons */}
       <View style={styles.buttonRow}>
-        <Button
-          mode="outlined"
+        <TouchableOpacity
           onPress={() => {
             console.log('[ActivityForm] cancel');
             setShowForm(false);
@@ -257,18 +292,17 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
             setSafetyNotes('');
             setDuration('');
           }}
-          style={styles.cancelButton}
+          style={styles.clearButton}
         >
-          Cancel
-        </Button>
-        <Button
-          mode="contained"
+          <Text style={styles.clearButtonText}>Clear</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={handleAddActivity}
           style={styles.addActivityButton}
-          icon="plus"
         >
-          Add Activity
-        </Button>
+          <Text style={styles.addActivityButtonText}>Add Activity</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -276,19 +310,44 @@ export default function ActivityNodeForm({ onAddNode }: Props) {
 
 const styles = StyleSheet.create({
   container: {
-    marginTop: 16,
-    padding: 16,
-    backgroundColor: '#f9f9f9',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-  },
-  segmentedButtons: {
+    marginTop: 24,
     marginBottom: 16,
+  },
+  typeContainerWrapper: {
+    backgroundColor: '#F2F2F2',
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+  },
+  typeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  typeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 70,
+  },
+  typeButtonSelected: {
+    backgroundColor: '#FFFFFF',
+  },
+  typeButtonText: {
+    fontFamily: 'Roboto',
+    fontSize: 15,
+    lineHeight: 16,
+    color: '#808080',
+  },
+  typeButtonTextSelected: {
+    color: '#808080',
   },
   input: {
     marginBottom: 12,
-    backgroundColor: '#fff',
+    backgroundColor: '#FFFFFF',
   },
   timeRow: {
     flexDirection: 'row',
@@ -305,13 +364,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 8,
-    gap: 12,
+    gap: 9,
   },
-  cancelButton: {
+  clearButton: {
     flex: 1,
+    height: 45,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#C2C2C2',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  clearButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 24,
+    color: '#000000',
+    textAlign: 'center',
   },
   addActivityButton: {
     flex: 1,
+    height: 45,
+    backgroundColor: '#0C87DE',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addActivityButtonText: {
+    fontFamily: 'Inter',
+    fontSize: 14,
+    lineHeight: 24,
+    color: '#FFFFFF',
+    textAlign: 'center',
   },
   addButton: {
     marginTop: 16,
