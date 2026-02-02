@@ -102,7 +102,7 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
           coordinates: [currentLocation?.coords.longitude || 0, currentLocation?.coords.latitude || 0],
           locationName: currentAddress || 'Current Location'
         },
-        safetyScore: state.user?.safetyScore || 100,
+        safetyScore: (typeof state.computedSafetyScore === 'number') ? state.computedSafetyScore : (state.user?.safetyScore || 100),
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'queued-offline' }
       };
       try {
@@ -130,9 +130,11 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
           coordinates: [currentLocation.coords.longitude, currentLocation.coords.latitude],
           locationName: currentAddress || 'Current Location'
         },
-        safetyScore: state.user?.safetyScore || 100,
+        safetyScore: (typeof state.computedSafetyScore === 'number') ? state.computedSafetyScore : (state.user?.safetyScore || 100),
         sosReason: { reason: label, weatherInfo: 'N/A', extra: 'N/A' }
       };
+      
+      console.log('[PanicActions] Triggering SOS with score:', sosData.safetyScore); // Debug log for verification
       await triggerSOS(currentToken, sosData);
       try {
         const recipients = [state.authorityPhone, ...state.contacts.map(c => c.phone)].filter(Boolean)
@@ -150,7 +152,8 @@ export default function PanicActions({ onSOSTriggered }: PanicActionsProps = {})
     } catch (error: any) {
       try {
         if (!queuedThisPress) {
-          await queueSOS({ token: currentToken, sosData: { location: { coordinates: [currentLocation?.coords.longitude || 0, currentLocation?.coords.latitude || 0], locationName: currentAddress || 'Current Location' }, safetyScore: state.user?.safetyScore || 100, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
+          const scoreToQueue = (typeof state.computedSafetyScore === 'number') ? state.computedSafetyScore : (state.user?.safetyScore || 100);
+          await queueSOS({ token: currentToken, sosData: { location: { coordinates: [currentLocation?.coords.longitude || 0, currentLocation?.coords.latitude || 0], locationName: currentAddress || 'Current Location' }, safetyScore: scoreToQueue, sosReason: { reason: label, weatherInfo: 'N/A', extra: 'retry-on-fail' } } })
         }
         setSnack({ visible: true, msg: "Network issue: alert queued for retry" })
       } catch (qe) {
