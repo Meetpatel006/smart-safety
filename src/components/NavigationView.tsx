@@ -15,9 +15,10 @@ import { RightActionButtons } from '../features/map/components/MapboxMap/ui';
 interface NavigationViewProps {
   onLayersPress?: () => void;
   onSOSPress?: () => void;
+  onLegendPress?: () => void;
 }
 
-export default function NavigationView({ onLayersPress, onSOSPress }: NavigationViewProps) {
+export default function NavigationView({ onLayersPress, onSOSPress, onLegendPress }: NavigationViewProps) {
   const [showDeviationModal, setShowDeviationModal] = React.useState(false);
   const {
     isTracking,
@@ -137,6 +138,7 @@ export default function NavigationView({ onLayersPress, onSOSPress }: Navigation
       <RightActionButtons
         onLayersPress={onLayersPress}
         onSOSPress={onSOSPress}
+        onLegendPress={onLegendPress}
         hideDirectionsButton={true}
         hideCompassButton={true}
         customBottom={100}

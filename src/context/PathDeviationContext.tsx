@@ -4,7 +4,7 @@
  */
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { Alert, Vibration } from 'react-native';
+import { Alert, Vibration, AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import { Audio } from 'expo-av';
 import type { WebView } from 'react-native-webview';
@@ -1001,6 +1001,21 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       pathDeviationWebSocket.disconnect();
     };
   }, []);
+
+  // Keep WebSocket alive across app background/foreground transitions
+  useEffect(() => {
+    const handleAppStateChange = (nextState: AppStateStatus) => {
+      if (nextState === 'active') {
+        if (journeyId && isTrackingActiveRef.current && !pathDeviationWebSocket.isConnected()) {
+          console.log('[PathDeviation] App active: reconnecting WebSocket');
+          pathDeviationWebSocket.connect(journeyId);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription.remove();
+  }, [journeyId]);
 
   const value: PathDeviationContextType = {
     journeyId,

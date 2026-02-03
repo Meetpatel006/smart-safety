@@ -2,6 +2,18 @@
 
 export type GeoFenceType = 'point' | 'circle' | 'polygon' | 'area'
 
+export type VisualStyle = {
+  zoneType?: string
+  borderStyle?: string
+  borderWidth?: number
+  fillOpacity?: number
+  fillPattern?: string
+  iconType?: string
+  renderPriority?: number
+  gridSize?: number
+  color?: string
+}
+
 export type GeoFence = {
   id: string
   name: string
@@ -15,6 +27,7 @@ export type GeoFence = {
   metadata?: Record<string, any>
   version?: string
   distanceToUser?: number // Distance from user's location in km
+  visualStyle?: VisualStyle
 }
 
 // Haversine distance in kilometers between two coordinates

@@ -19,7 +19,8 @@ import {
   TopLocationCard,
   WarningBanner,
   RightActionButtons,
-  MapBottomSheet
+  MapBottomSheet,
+  LegendBottomSheet
 } from './MapboxMap/ui';
 
 // Import types, constants and utilities
@@ -73,6 +74,12 @@ export default function MapboxMap({
   const [isBottomSheetExpanded, setIsBottomSheetExpanded] = useState(false);
   const [showWarningBanner, setShowWarningBanner] = useState(true);
   const [showStyleSelector, setShowStyleSelector] = useState(false);
+  const [isLegendExpanded, setIsLegendExpanded] = useState(false);
+
+  // Legend statistics
+  const [dangerZoneCount, setDangerZoneCount] = useState(0);
+  const [riskGridCount, setRiskGridCount] = useState(0);
+  const [geofenceCount, setGeofenceCount] = useState(0);
 
   const webViewRef = useRef<WebView>(null);
 
@@ -124,7 +131,9 @@ export default function MapboxMap({
       const data = require('../../../../assets/geofences-output.json');
       const fencesWithDistance = data.map((f: GeoFence) => ({
         ...f,
-        distanceToUser: undefined
+        distanceToUser: undefined,
+        // Add default visualStyle if missing (for bundled data)
+        visualStyle: f.visualStyle || getDefaultVisualStyle(f)
       }));
       setAllGeoFences(fencesWithDistance);
       setLoadedGeoFences(fencesWithDistance);
@@ -139,15 +148,63 @@ export default function MapboxMap({
   const loadAndFilterFences = async (userLat: number, userLng: number) => {
     try {
       const data = require('../../../../assets/geofences-output.json');
-      setAllGeoFences(data);
-      const nearby = filterFencesByDistance(data, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
+      // Add default visualStyle to bundled data if missing
+      const dataWithStyle = data.map((f: GeoFence) => ({
+        ...f,
+        visualStyle: f.visualStyle || getDefaultVisualStyle(f)
+      }));
+      setAllGeoFences(dataWithStyle);
+      const nearby = filterFencesByDistance(dataWithStyle, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
       setLoadedGeoFences(nearby);
-      console.log(`Loaded ${data.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);
+      console.log(`Loaded ${dataWithStyle.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);
     } catch (err) {
       console.warn('Failed to load/filter geo-fences:', err);
       setAllGeoFences([]);
       setLoadedGeoFences([]);
     }
+  };
+
+  // Helper function to add default visualStyle based on fence properties
+  const getDefaultVisualStyle = (fence: GeoFence) => {
+    const category = (fence.category || '').toLowerCase();
+    const riskLevel = (fence.riskLevel || '').toLowerCase();
+    
+    // Determine zone type from category
+    if (category.includes('danger') || category.includes('hazard')) {
+      return {
+        zoneType: 'danger_zone',
+        borderStyle: 'solid',
+        borderWidth: 3,
+        fillOpacity: 0.25,
+        fillPattern: 'diagonal-stripes',
+        iconType: 'warning-triangle',
+        renderPriority: 1
+      };
+    }
+    
+    if (category.includes('risk') || category.includes('grid')) {
+      return {
+        zoneType: 'risk_grid',
+        borderStyle: 'dashed',
+        borderWidth: 2,
+        fillOpacity: 0.4,
+        fillPattern: 'dots',
+        iconType: 'incident-marker',
+        renderPriority: 2,
+        gridSize: 500
+      };
+    }
+    
+    // Default to danger zone styling for bundled data
+    return {
+      zoneType: 'danger_zone',
+      borderStyle: 'solid',
+      borderWidth: 2,
+      fillOpacity: 0.3,
+      fillPattern: 'solid',
+      iconType: 'warning-triangle',
+      renderPriority: 1
+    };
   };
 
   // Re-filter fences when location changes significantly
@@ -185,6 +242,31 @@ export default function MapboxMap({
     }
   }, [mapReady, geoFences, loadedGeoFences]);
 
+  // Calculate legend statistics whenever geofences change
+  useEffect(() => {
+    const fencesToCount = geoFences || loadedGeoFences;
+    if (!Array.isArray(fencesToCount)) return;
+
+    const danger = fencesToCount.filter(f => 
+      f.visualStyle?.zoneType === 'danger_zone' || 
+      (f.category && f.category.toLowerCase().includes('danger'))
+    ).length;
+
+    const risk = fencesToCount.filter(f => 
+      f.visualStyle?.zoneType === 'risk_grid' || 
+      f.category === 'Risk Grid'
+    ).length;
+
+    const geofences = fencesToCount.filter(f => 
+      f.visualStyle?.zoneType === 'geofence' || 
+      f.category === 'Tourist Destination'
+    ).length;
+
+    setDangerZoneCount(danger);
+    setRiskGridCount(risk);
+    setGeofenceCount(geofences);
+  }, [geoFences, loadedGeoFences]);
+
   // Handle WebView messages
   const handleWebViewMessage = (event: any) => {
     try {
@@ -199,6 +281,11 @@ export default function MapboxMap({
           if (onLocationSelect && message.location) {
             onLocationSelect(message.location);
           }
+          break;
+        case 'mapClick':
+          // Handle map click - currently we don't create geofences on click
+          // but we could implement custom geofence creation functionality here if needed
+          console.log('Map clicked at:', message.lat, message.lng);
           break;
         case 'error':
           setError(message.message || 'Map error occurred');
@@ -362,7 +449,18 @@ export default function MapboxMap({
           <RightActionButtons
             onCompassPress={getCurrentLocation}
             onLayersPress={() => setShowStyleSelector(!showStyleSelector)}
-            onSOSPress={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+            onSOSPress={() => {
+              setShowStyleSelector(false);
+              setIsLegendExpanded(false);
+              setIsBottomSheetExpanded(prev => !prev);
+            }}
+            onLegendPress={() => {
+              console.log('[MapboxMap] Legend button pressed, current state:', isLegendExpanded);
+              // Close other bottom sheets
+              setShowStyleSelector(false);
+              setIsBottomSheetExpanded(false);
+              setIsLegendExpanded(prev => !prev);
+            }}
           />
 
           {showStyleSelector && (
@@ -379,9 +477,23 @@ export default function MapboxMap({
 
           <MapBottomSheet
             isExpanded={isBottomSheetExpanded}
-            onToggle={() => setIsBottomSheetExpanded(!isBottomSheetExpanded)}
+            onToggle={() => {
+              setIsLegendExpanded(false);
+              setIsBottomSheetExpanded(prev => !prev);
+            }}
             onShareLive={shareLocation}
             onSOS={() => Alert.alert('SOS', 'Emergency SOS activated!')}
+          />
+
+          <LegendBottomSheet
+            isExpanded={isLegendExpanded}
+            onToggle={() => {
+              setIsBottomSheetExpanded(false);
+              setIsLegendExpanded(prev => !prev);
+            }}
+            dangerZoneCount={dangerZoneCount}
+            riskGridCount={riskGridCount}
+            geofenceCount={geofenceCount}
           />
         </View>
       ) : (

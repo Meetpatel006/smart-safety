@@ -7,6 +7,7 @@ interface RightActionButtonsProps {
     onLayersPress?: () => void;
     onSOSPress?: () => void;
     onDirectionsPress?: () => void;
+    onLegendPress?: () => void;
     hideDirectionsButton?: boolean;
     hideCompassButton?: boolean;
     customBottom?: number;
@@ -18,6 +19,7 @@ export default function RightActionButtons({
     onLayersPress,
     onSOSPress,
     onDirectionsPress,
+    onLegendPress,
     hideDirectionsButton = false,
     hideCompassButton = false,
     customBottom,
@@ -58,6 +60,17 @@ export default function RightActionButtons({
                 >
                     <MaterialCommunityIcons name="layers-outline" size={20} color="#6366F1" />
                 </TouchableOpacity>
+
+                {/* Legend Button */}
+                {onLegendPress && (
+                    <TouchableOpacity
+                        style={[styles.button, styles.legendButton]}
+                        onPress={onLegendPress}
+                        activeOpacity={0.85}
+                    >
+                        <MaterialCommunityIcons name="map-legend" size={20} color="#10B981" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* SOS Button - Separate for emphasis */}
@@ -105,6 +118,10 @@ const styles = StyleSheet.create({
     layersButton: {
         backgroundColor: '#ffffff',
         borderColor: '#e5e7eb',
+    },
+    legendButton: {
+        backgroundColor: '#f0fdf4',
+        borderColor: '#d1fae5',
     },
     sosButton: {
         backgroundColor: '#EF4444',

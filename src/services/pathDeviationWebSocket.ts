@@ -42,10 +42,11 @@ class PathDeviationWebSocket {
   private journeyId: string | null = null;
   private connected: boolean = false;
   private reconnectAttempts: number = 0;
-  private maxReconnectAttempts: number = 5;
+  private maxReconnectAttempts: number | null = null; // null = retry forever while journey is active
   private reconnectDelay: number = 2000;
   private listeners: Map<string, MessageHandler[]> = new Map();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private shouldReconnect: boolean = false;
 
   /**
    * Connect to WebSocket
@@ -58,6 +59,7 @@ class PathDeviationWebSocket {
 
     this.disconnect(); // Clean up any existing connection
     this.journeyId = journeyId;
+    this.shouldReconnect = true;
 
     const wsUrl = pathDeviationService.getWebSocketUrl(journeyId);
     console.log('[PathDeviationWS] Connecting to:', wsUrl);
@@ -127,7 +129,12 @@ class PathDeviationWebSocket {
     this.emit('disconnected', {});
 
     // Attempt reconnection
-    if (this.reconnectAttempts < this.maxReconnectAttempts && this.journeyId) {
+    const canRetry =
+      this.shouldReconnect &&
+      this.journeyId &&
+      (this.maxReconnectAttempts === null || this.reconnectAttempts < this.maxReconnectAttempts);
+
+    if (canRetry) {
       this.reconnectAttempts++;
       const delay = this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1);
       
@@ -223,6 +230,7 @@ class PathDeviationWebSocket {
     if (this.ws) {
       console.log('[PathDeviationWS] Disconnecting...');
       this.stopHeartbeat();
+      this.shouldReconnect = false;
       this.journeyId = null;
       this.ws.close();
       this.ws = null;

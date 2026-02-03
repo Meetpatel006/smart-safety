@@ -89,7 +89,10 @@ export default function MapBottomSheet({
     };
 
     return (
-        <Animated.View style={[styles.container, animatedStyle]}>
+        <Animated.View
+            style={[styles.container, animatedStyle]}
+            pointerEvents={isExpanded ? 'auto' : 'none'}
+        >
             {/* Handle */}
             <TouchableOpacity style={styles.handleContainer} onPress={onToggle} activeOpacity={0.8}>
                 <View style={styles.handle} />

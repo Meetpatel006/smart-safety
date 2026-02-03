@@ -3,8 +3,13 @@ import { GeoFence, pointInCircle, pointInPolygon, haversineKm, normalizePolygon 
 import { loadCachedFences, saveFences } from '../model/geoFenceModel'
 import { fetchDynamicGeofences } from '../../../utils/geofenceApi'
 
-// Simple geofence service: loads geofences from bundled assets/geofences-output.json
-// and watches user location; emits 'enter' and 'exit' events with { fence, location }
+// Simple geofence service: loads geofences from server API and bundled assets/geofences-output.json
+// Watches user location; emits 'enter' and 'exit' events with { fence, location }
+// Note: Fetches from /api/geofence/all-zones-styled endpoint which returns:
+//   - dangerZones (static hazard areas with diagonal-stripe patterns)
+//   - riskGrids (dynamic incident-based zones with dot patterns)
+//   - geofences (tourist destination safe zones with solid patterns)
+// All zones include visualStyle metadata for map rendering
 
 // Small in-file EventEmitter replacement (avoids Node 'events' dependency)
 const listeners: Record<string, Set<(payload: any) => void>> = {}

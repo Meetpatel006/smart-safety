@@ -23,7 +23,8 @@ import {
   RightActionButtons,
   MapBottomSheet,
   StyleBottomSheet,
-  DirectionsBottomSheet
+  DirectionsBottomSheet,
+  LegendBottomSheet
 } from '../../map/components/MapboxMap/ui'
 import DirectionsTopPanel from '../../map/components/MapboxMap/ui/DirectionsTopPanel'
 import NavigationView from '../../../components/NavigationView'
@@ -51,6 +52,7 @@ export default function EmergencyScreen({ navigation }: any) {
   const [showIncidentModal, setShowIncidentModal] = useState(false)
   const [isStyleSheetExpanded, setIsStyleSheetExpanded] = useState(false)
   const [isBackgroundRefreshing, setIsBackgroundRefreshing] = useState(false)
+  const [isLegendExpanded, setIsLegendExpanded] = useState(false)
 
   // Directions Mode State
   const [directionsMode, setDirectionsMode] = useState(false)
@@ -63,6 +65,9 @@ export default function EmergencyScreen({ navigation }: any) {
 
   // Geofences
   const [geoFences, setGeoFences] = useState<GeoFence[]>([])
+  const [dangerZoneCount, setDangerZoneCount] = useState(0)
+  const [riskGridCount, setRiskGridCount] = useState(0)
+  const [geofenceCount, setGeofenceCount] = useState(0)
 
   const webViewRef = React.useRef<WebView>(null)
 
@@ -144,6 +149,30 @@ export default function EmergencyScreen({ navigation }: any) {
       }
     }
   }, [allRoutes, selectedRouteIndex, currentProfile, mapReady])
+
+  // Calculate legend statistics whenever geofences change
+  useEffect(() => {
+    if (!Array.isArray(geoFences)) return
+
+    const danger = geoFences.filter(f =>
+      f.visualStyle?.zoneType === 'danger_zone' ||
+      (f.category && f.category.toLowerCase().includes('danger'))
+    ).length
+
+    const risk = geoFences.filter(f =>
+      f.visualStyle?.zoneType === 'risk_grid' ||
+      f.category === 'Risk Grid'
+    ).length
+
+    const geofences = geoFences.filter(f =>
+      f.visualStyle?.zoneType === 'geofence' ||
+      f.category === 'Tourist Destination'
+    ).length
+
+    setDangerZoneCount(danger)
+    setRiskGridCount(risk)
+    setGeofenceCount(geofences)
+  }, [geoFences])
 
   // Refresh geofences function
   const refreshGeofences = async () => {
@@ -240,7 +269,9 @@ export default function EmergencyScreen({ navigation }: any) {
           setMapReady(true)
           break
         case 'mapClick':
-          // Could handle map clicks here
+          // Handle map click - currently we don't create geofences on click
+          // but we could implement custom geofence creation functionality here if needed
+          console.log('Map clicked at:', message.lat, message.lng);
           break
         case 'error':
           console.error('Map error:', message.message)
@@ -295,6 +326,7 @@ export default function EmergencyScreen({ navigation }: any) {
     // Close other sheets
     setIsBottomSheetExpanded(false)
     setIsStyleSheetExpanded(false)
+    setIsLegendExpanded(false)
     setShowWarningBanner(false)
   }
 
@@ -359,10 +391,17 @@ export default function EmergencyScreen({ navigation }: any) {
           onLayersPress={() => {
             setIsStyleSheetExpanded(prev => !prev)
             setIsBottomSheetExpanded(false)
+            setIsLegendExpanded(false)
           }}
           onSOSPress={() => {
             setIsStyleSheetExpanded(false)
+            setIsLegendExpanded(false)
             setIsBottomSheetExpanded(prev => !prev)
+          }}
+          onLegendPress={() => {
+            setIsStyleSheetExpanded(false)
+            setIsBottomSheetExpanded(false)
+            setIsLegendExpanded(prev => !prev)
           }}
           hideDirectionsButton={directionsMode}
           visible={!isDirectionsSheetVisible}
@@ -392,16 +431,36 @@ export default function EmergencyScreen({ navigation }: any) {
         onLayersPress={() => {
           setIsStyleSheetExpanded(prev => !prev)
           setIsBottomSheetExpanded(false)
+          setIsLegendExpanded(false)
         }}
         onSOSPress={handleSOS}
+        onLegendPress={() => {
+          setIsStyleSheetExpanded(false)
+          setIsBottomSheetExpanded(false)
+          setIsLegendExpanded(prev => !prev)
+        }}
       />
 
       {/* Bottom Sheet */}
       <MapBottomSheet
         isExpanded={isBottomSheetExpanded && !directionsMode}
-        onToggle={() => setIsBottomSheetExpanded(prev => !prev)}
+        onToggle={() => {
+          setIsLegendExpanded(false)
+          setIsBottomSheetExpanded(prev => !prev)
+        }}
         onShareLive={handleShareLocation}
         onSOS={handleSOS}
+      />
+
+      <LegendBottomSheet
+        isExpanded={isLegendExpanded}
+        onToggle={() => {
+          setIsBottomSheetExpanded(false)
+          setIsLegendExpanded(prev => !prev)
+        }}
+        dangerZoneCount={dangerZoneCount}
+        riskGridCount={riskGridCount}
+        geofenceCount={geofenceCount}
       />
 
       {/* Incident Report Modal */}

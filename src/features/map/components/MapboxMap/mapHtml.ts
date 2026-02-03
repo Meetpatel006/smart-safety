@@ -56,10 +56,190 @@ export const generateMapHTML = (accessToken?: string): string => {
             0% { transform: scale(0.8); opacity: 1; }
             100% { transform: scale(2.5); opacity: 0; }
           }
+
+          /* Legend Styles */
+          /* Legend styles removed - now using React Native bottom sheet */
+
+          .legend-header {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 12px;
+            color: #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+          }
+
+          .legend-toggle {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0;
+            color: #666;
+          }
+
+          .legend-stats {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+            text-align: center;
+          }
+
+          .stat-item {
+            display: flex;
+            flex-direction: column;
+          }
+
+          .stat-number {
+            font-size: 18px;
+            font-weight: bold;
+          }
+
+          .stat-label {
+            font-size: 9px;
+            opacity: 0.9;
+            margin-top: 2px;
+          }
+
+          .legend-section {
+            margin-bottom: 12px;
+          }
+
+          .legend-section-title {
+            font-weight: 600;
+            font-size: 11px;
+            margin-bottom: 8px;
+            color: #555;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+          }
+
+          .zone-type-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+            padding: 6px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 3px solid;
+          }
+
+          .zone-type-item.danger {
+            border-left-color: #ef4444;
+          }
+
+          .zone-type-item.risk {
+            border-left-color: #f97316;
+          }
+
+          .zone-type-item.geofence {
+            border-left-color: #3b82f6;
+          }
+
+          .zone-icon {
+            font-size: 16px;
+            margin-right: 8px;
+            min-width: 20px;
+            text-align: center;
+          }
+
+          .zone-info {
+            flex: 1;
+          }
+
+          .zone-name {
+            font-weight: 600;
+            font-size: 11px;
+            color: #333;
+          }
+
+          .zone-pattern {
+            font-size: 9px;
+            color: #666;
+            margin-top: 2px;
+          }
+
+          .border-demo {
+            display: inline-block;
+            width: 25px;
+            height: 2px;
+            vertical-align: middle;
+            margin: 0 3px;
+          }
+
+          .border-solid {
+            border-top: 2px solid #333;
+          }
+
+          .border-dashed {
+            border-top: 2px dashed #333;
+          }
+
+          .border-dotted {
+            border-top: 2px dotted #333;
+          }
+
+          .severity-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px;
+          }
+
+          .severity-item {
+            display: flex;
+            align-items: center;
+            font-size: 10px;
+          }
+
+          .severity-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            margin-right: 6px;
+            border: 1px solid rgba(0, 0, 0, 0.1);
+          }
+
+          .legend-collapsed .legend-content {
+            display: none;
+          }
+
+          .legend-collapsed {
+            padding: 10px 12px;
+          }
+
+          @media (max-width: 768px) {
+            .map-legend {
+              bottom: 10px;
+              right: 10px;
+              max-width: 240px;
+              font-size: 11px;
+            }
+
+            .legend-stats {
+              padding: 8px;
+              gap: 6px;
+            }
+
+            .stat-number {
+              font-size: 16px;
+            }
+
+            .stat-label {
+              font-size: 8px;
+            }
+          }
       </style>
   </head>
   <body>
       <div id="map"></div>
+      
+      <!-- Legend removed - now using React Native bottom sheet -->
       <script>
           if (!'${token}'.startsWith('pk.')) {
             alert('Mapbox access token is not set. Please add MAPBOX_ACCESS_TOKEN to your environment variables or config.');
@@ -76,15 +256,22 @@ export const generateMapHTML = (accessToken?: string): string => {
           // Add attribution control to top-right
           map.addControl(new mapboxgl.AttributionControl(), 'top-right');
 
-          let userMarker = null;
-          let userMarkerEl = null;
-          let destinationMarker = null;
+           let userMarker = null;
+           let userMarkerEl = null;
+           let destinationMarker = null;
 
-          // Store route data to handle clicks
-          let currentRoutesData = [];
+           // Store route data to handle clicks
+           let currentRoutesData = [];
+           
+           // Store geofence data for re-render after style change
+           let currentFencesData = [];
+           let userLocation = null;
 
           map.on('load', function () {
               window.ReactNativeWebView?.postMessage(JSON.stringify({ type: 'mapReady' }));
+
+              // Load zone icons
+              loadZoneIcons();
 
               // Load images for arrows/icons
               // Simple triangular arrow for direction
@@ -109,49 +296,434 @@ export const generateMapHTML = (accessToken?: string): string => {
               setupRouteLayers();
           });
 
-          function setupGeofenceLayers() {
+          // Create SVG patterns for different fill styles
+          function createFillPatterns() {
+              // Diagonal stripes pattern for danger zones
+              const diagonalStripes = createPattern(64, 64, (ctx) => {
+                  ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+                  ctx.lineWidth = 3;
+                  for (let i = -64; i < 128; i += 8) {
+                      ctx.beginPath();
+                      ctx.moveTo(i, 0);
+                      ctx.lineTo(i + 64, 64);
+                      ctx.stroke();
+                  }
+              });
+              if (diagonalStripes) map.addImage('diagonal-stripes', diagonalStripes, { pixelRatio: 2 });
+
+              // Dot pattern for risk grids
+              const dots = createPattern(20, 20, (ctx) => {
+                  ctx.fillStyle = 'rgba(245, 158, 11, 0.7)';
+                  ctx.beginPath();
+                  ctx.arc(10, 10, 3, 0, Math.PI * 2);
+                  ctx.fill();
+              });
+              if (dots) map.addImage('dots', dots, { pixelRatio: 2 });
+
+              // Solid pattern (fallback)
+              const solid = createPattern(1, 1, (ctx) => {
+                  ctx.fillStyle = 'rgba(100, 100, 100, 0.3)';
+                  ctx.fillRect(0, 0, 1, 1);
+              });
+              if (solid) map.addImage('solid', solid, { pixelRatio: 1 });
+          }
+
+          // Helper function to create canvas-based pattern
+          function createPattern(width, height, drawFn) {
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return null;
+              drawFn(ctx);
+              return {
+                  width: width,
+                  height: height,
+                  data: ctx.getImageData(0, 0, width, height).data
+              };
+          }
+
+          // Load icon assets for different zone types
+          function loadZoneIcons() {
+              // Warning triangle for danger zones
+              const warningTriangle = createIconImage(32, 32, (ctx) => {
+                  ctx.fillStyle = '#ef4444';
+                  ctx.strokeStyle = '#fff';
+                  ctx.lineWidth = 2;
+                  ctx.beginPath();
+                  ctx.moveTo(16, 4);
+                  ctx.lineTo(28, 26);
+                  ctx.lineTo(4, 26);
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.stroke();
+                  // Exclamation mark
+                  ctx.fillStyle = '#fff';
+                  ctx.fillRect(14, 10, 4, 10);
+                  ctx.fillRect(14, 22, 4, 3);
+              });
+              if (warningTriangle) map.addImage('warning-triangle', warningTriangle);
+
+              // Incident marker for risk grids
+              const incidentMarker = createIconImage(24, 24, (ctx) => {
+                  ctx.fillStyle = '#f59e0b';
+                  ctx.strokeStyle = '#fff';
+                  ctx.lineWidth = 2;
+                  ctx.beginPath();
+                  ctx.arc(12, 12, 10, 0, Math.PI * 2);
+                  ctx.fill();
+                  ctx.stroke();
+                  // Warning symbol
+                  ctx.fillStyle = '#fff';
+                  ctx.font = 'bold 14px Arial';
+                  ctx.textAlign = 'center';
+                  ctx.textBaseline = 'middle';
+                  ctx.fillText('!', 12, 12);
+              });
+              if (incidentMarker) map.addImage('incident-marker', incidentMarker);
+
+              // Shield for geofences
+              const shield = createIconImage(28, 32, (ctx) => {
+                  ctx.fillStyle = '#3b82f6';
+                  ctx.strokeStyle = '#fff';
+                  ctx.lineWidth = 2;
+                  ctx.beginPath();
+                  ctx.moveTo(14, 2);
+                  ctx.lineTo(26, 8);
+                  ctx.lineTo(26, 18);
+                  ctx.quadraticCurveTo(26, 28, 14, 30);
+                  ctx.quadraticCurveTo(2, 28, 2, 18);
+                  ctx.lineTo(2, 8);
+                  ctx.closePath();
+                  ctx.fill();
+                  ctx.stroke();
+                  // Checkmark
+                  ctx.strokeStyle = '#fff';
+                  ctx.lineWidth = 3;
+                  ctx.beginPath();
+                  ctx.moveTo(8, 15);
+                  ctx.lineTo(12, 19);
+                  ctx.lineTo(20, 11);
+                  ctx.stroke();
+              });
+              if (shield) map.addImage('shield', shield);
+          }
+
+          // Helper to create icon image from canvas
+          function createIconImage(width, height, drawFn) {
+              const canvas = document.createElement('canvas');
+              canvas.width = width;
+              canvas.height = height;
+              const ctx = canvas.getContext('2d');
+              if (!ctx) return null;
+              drawFn(ctx);
+              return {
+                  width: width,
+                  height: height,
+                  data: ctx.getImageData(0, 0, width, height).data
+              };
+          }
+
+           function setupGeofenceLayers() {
+              // Create patterns for different fill styles
+              createFillPatterns();
+
               map.addSource('geofences', {
                   type: 'geojson',
                   data: { type: 'FeatureCollection', features: [] }
               });
 
+              // Layer 1: Fill with patterns (lowest priority)
               map.addLayer({
                   id: 'geofence-fill',
                   type: 'fill',
                   source: 'geofences',
                   paint: {
-                      'fill-color': ['get', 'color'],
-                      'fill-opacity': ['get', 'fillOpacity']
+                      'fill-color': ['get', 'fillColor'],
+                      'fill-opacity': ['get', 'fillOpacity'],
+                      'fill-pattern': ['get', 'fillPattern']
                   }
               });
+
+              // Layer 2: Border lines with different styles
               map.addLayer({
                   id: 'geofence-line',
                   type: 'line',
                   source: 'geofences',
                   paint: {
-                      'line-color': ['get', 'color'],
-                      'line-width': ['get', 'weight']
+                      'line-color': ['get', 'borderColor'],
+                      'line-width': ['get', 'borderWidth'],
+                      'line-opacity': 0.9,
+                      'line-dasharray': [
+                          'match',
+                          ['get', 'borderStyle'],
+                          'dashed', ['literal', [4, 2]],
+                          'dotted', ['literal', [1, 2]],
+                          ['literal', [1, 0]] // solid
+                      ]
                   }
               });
+
+               // Layer 3: Icon markers for zone centers
               map.addLayer({
-                id: 'geofence-points',
-                type: 'circle',
+                id: 'geofence-icons',
+                type: 'symbol',
                 source: 'geofences',
-                paint: {
-                  'circle-radius': 8,
-                  'circle-color': ['get', 'color']
+                filter: ['has', 'iconType'],
+                layout: {
+                  'icon-image': ['get', 'iconType'],
+                  'icon-size': 0.8,
+                  'icon-allow-overlap': true,
+                  'text-field': ['get', 'name'],
+                  'text-size': 10,
+                  'text-offset': [0, 2],
+                  'text-anchor': 'top'
                 },
-                filter: ['==', '$type', 'Point']
+                paint: {
+                  'text-color': '#333',
+                  'text-halo-color': '#fff',
+                  'text-halo-width': 1
+                }
               });
               
-              // Event listeners for geofences (kept from original)
-              // ... (Omitting detailed click handlers here for brevity, assuming they work as before)
+              // Add click handlers for zones to show details
+              map.on('click', 'geofence-fill', handleZoneClick);
+              map.on('click', 'geofence-line', handleZoneClick);
+              
+              // Change cursor on hover
+              map.on('mouseenter', 'geofence-fill', () => { map.getCanvas().style.cursor = 'pointer'; });
+              map.on('mouseleave', 'geofence-fill', () => { map.getCanvas().style.cursor = ''; });
           }
 
           function setupRouteLayers() {
              // We will create sources/layers dynamically for multiple routes
              // or use a fixed set source 'routes-source'
           }
+
+          // Handle zone clicks with overlap detection
+          function handleZoneClick(e) {
+              // Query all features at the click point
+              const features = map.queryRenderedFeatures(e.point, {
+                  layers: ['geofence-fill', 'geofence-line']
+              });
+              
+              if (features.length === 0) return;
+              
+              // Prevent default map click
+              e.originalEvent.stopPropagation();
+              
+              // Get unique zones (features might be duplicated between layers)
+              const uniqueZones = [];
+              const seenIds = new Set();
+              
+              features.forEach(feature => {
+                  const id = feature.properties.id || feature.properties.name;
+                  if (!seenIds.has(id)) {
+                      seenIds.add(id);
+                      uniqueZones.push(feature.properties);
+                  }
+              });
+              
+              // Sort by risk priority
+              const riskPriority = { 'Very High': 4, 'High': 3, 'Medium': 2, 'Low': 1 };
+              uniqueZones.sort((a, b) => {
+                  const priorityA = riskPriority[a.riskLevel] || 0;
+                  const priorityB = riskPriority[b.riskLevel] || 0;
+                  return priorityB - priorityA;
+              });
+              
+              // Create popup content
+              const popupContent = createPopupContent(uniqueZones);
+              
+              // Show popup
+              new mapboxgl.Popup({ maxWidth: '400px' })
+                  .setLngLat(e.lngLat)
+                  .setHTML(popupContent)
+                  .addTo(map);
+          }
+          
+          // Create popup content for zones
+          function createPopupContent(zones) {
+              let html = '<div style="font-family: sans-serif; max-width: 380px;">';
+              
+              if (zones.length > 1) {
+                  html += '<div style="font-weight: 600; font-size: 14px; margin-bottom: 10px; color: #333;">⚠️ ' + zones.length + ' Zones Found Here</div>';
+                  html += '<div style="max-height: 400px; overflow-y: auto;">';
+              }
+              
+              zones.forEach((zone, index) => {
+                  if (index > 0) {
+                      html += '<hr style="margin: 12px 0; border: 0; border-top: 1px solid #ddd;">';
+                  }
+                  
+                  if (zone.zoneType === 'danger_zone') {
+                      html += createDangerZonePopup(zone);
+                  } else if (zone.zoneType === 'risk_grid') {
+                      html += createRiskGridPopup(zone);
+                  } else if (zone.zoneType === 'geofence') {
+                      html += createGeofencePopup(zone);
+                  } else {
+                      // Legacy zone without type
+                      html += createLegacyZonePopup(zone);
+                  }
+              });
+              
+              if (zones.length > 1) {
+                  html += '</div>';
+              }
+              
+              html += '</div>';
+              return html;
+          }
+          
+          // Create danger zone popup content
+          function createDangerZonePopup(zone) {
+              const badgeClass = zone.riskLevel ? 'badge-' + zone.riskLevel.toLowerCase().replace(/\\s+/g, '-') : 'badge-low';
+              return \`
+                  <div style="min-width: 200px;">
+                      <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #333;">⚠️ \${zone.name || 'Danger Zone'}</div>
+                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> Danger Zone</div>
+                      \${zone.category ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Category:</strong> ' + zone.category + '</div>' : ''}
+                      \${zone.state ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>State:</strong> ' + zone.state + '</div>' : ''}
+                      <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; \${getBadgeStyle(badgeClass)}">\${zone.riskLevel || 'Unknown'}</div>
+                  </div>
+              \`;
+          }
+          
+          // Create risk grid popup content with reasons
+          function createRiskGridPopup(zone) {
+              const badgeClass = zone.riskLevel ? 'badge-' + zone.riskLevel.toLowerCase().replace(/\\s+/g, '-') : 'badge-low';
+              let html = \`
+                  <div style="min-width: 250px;">
+                      <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #333;">📍 \${zone.name || 'Risk Grid'}</div>
+                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> Risk Grid</div>
+              \`;
+              
+              // Add grid-specific details from metadata
+              if (zone.gridId) {
+                  html += \`<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Grid ID:</strong> \${zone.gridId}</div>\`;
+              }
+              if (zone.riskScore !== undefined && zone.riskScore !== null) {
+                  html += \`<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Risk Score:</strong> \${(zone.riskScore * 100).toFixed(1)}%</div>\`;
+              }
+              if (zone.lastUpdated) {
+                  const date = new Date(zone.lastUpdated).toLocaleDateString();
+                  html += \`<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Last Updated:</strong> \${date}</div>\`;
+              }
+              
+              html += \`<div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; \${getBadgeStyle(badgeClass)}">\${zone.riskLevel || 'Unknown'}</div>\`;
+              
+              // Parse reasons from JSON string if needed
+              let reasons = [];
+              if (zone.reasons) {
+                  try {
+                      reasons = typeof zone.reasons === 'string' ? JSON.parse(zone.reasons) : zone.reasons;
+                  } catch (e) {
+                      console.warn('Failed to parse reasons:', e);
+                  }
+              }
+              
+              // Display reasons (SOS alerts and incidents)
+              if (reasons && reasons.length > 0) {
+                  html += \`
+                      <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e0e0e0;">
+                          <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #555;">📋 Recent Events (\${reasons.length}):</div>
+                          <div style="max-height: 200px; overflow-y: auto;">
+                  \`;
+                  
+                  reasons.forEach(reason => {
+                      const icon = reason.type === 'sos_alert' ? '🚨' : '⚠️';
+                      const typeLabel = reason.type === 'sos_alert' ? 'SOS Alert' : 'Incident';
+                      const date = new Date(reason.timestamp).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                      });
+                      
+                      // Calculate severity percentage
+                      let severityPercent;
+                      if (reason.type === 'sos_alert') {
+                          severityPercent = reason.severity || 0;
+                      } else {
+                          severityPercent = ((reason.severity || 0) * 100).toFixed(0);
+                      }
+                      
+                      // Color based on severity
+                      let severityColor = '#4ade80';
+                      if (severityPercent > 70) severityColor = '#ef4444';
+                      else if (severityPercent > 40) severityColor = '#f97316';
+                      
+                      html += \`
+                          <div style="background: #f9fafb; padding: 8px; margin-bottom: 6px; border-radius: 6px; border-left: 3px solid \${severityColor};">
+                              <div style="display: flex; justify-content: space-between; align-items: start;">
+                                  <div style="flex: 1;">
+                                      <div style="font-size: 12px; font-weight: 600; color: #374151;">\${icon} \${reason.title || 'Event'}</div>
+                                      <div style="font-size: 11px; color: #6b7280; margin-top: 2px;">\${typeLabel} • \${date}</div>
+                                      \${reason.eventType ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Type: ' + reason.eventType + '</div>' : ''}
+                                  </div>
+                                  <div style="background: \${severityColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-left: 8px;">
+                                      \${severityPercent}%
+                                  </div>
+                              </div>
+                          </div>
+                      \`;
+                  });
+                  
+                  html += \`
+                          </div>
+                      </div>
+                  \`;
+              } else {
+                  html += \`
+                      <div style="margin-top: 12px; padding: 8px; background: #f3f4f6; border-radius: 6px; font-size: 12px; color: #6b7280; text-align: center;">
+                          No recent events recorded
+                      </div>
+                  \`;
+              }
+              
+              html += '</div>';
+              return html;
+          }
+          
+          // Create geofence popup content
+          function createGeofencePopup(zone) {
+              return \`
+                  <div style="min-width: 200px;">
+                      <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #333;">🛡️ \${zone.name || 'Geofence'}</div>
+                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> Geofence</div>
+                      \${zone.destination ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Destination:</strong> ' + zone.destination + '</div>' : ''}
+                      \${zone.alertMessage ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Alert:</strong> ' + zone.alertMessage + '</div>' : ''}
+                      <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; background: #dbeafe; color: #1e40af;">Safe Zone</div>
+                  </div>
+              \`;
+          }
+          
+          // Create legacy zone popup content
+          function createLegacyZonePopup(zone) {
+              const badgeClass = zone.riskLevel ? 'badge-' + zone.riskLevel.toLowerCase().replace(/\\s+/g, '-') : 'badge-low';
+              return \`
+                  <div style="min-width: 200px;">
+                      <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #333;">\${zone.name || 'Zone'}</div>
+                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> \${zone.category || 'Unknown'}</div>
+                      \${zone.state ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>State:</strong> ' + zone.state + '</div>' : ''}
+                      <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; \${getBadgeStyle(badgeClass)}">\${zone.riskLevel || 'Unknown'}</div>
+                  </div>
+              \`;
+          }
+          
+          // Get badge styling based on risk level
+          function getBadgeStyle(badgeClass) {
+              const styles = {
+                  'badge-low': 'background: #d1fae5; color: #065f46;',
+                  'badge-medium': 'background: #fef3c7; color: #92400e;',
+                  'badge-high': 'background: #fed7aa; color: #9a3412;',
+                  'badge-very-high': 'background: #fee2e2; color: #991b1b;'
+              };
+              return styles[badgeClass] || styles['badge-low'];
+          }
+
+          // Legend functions removed - now using React Native bottom sheet
 
           map.on('click', function (e) {
               const features = map.queryRenderedFeatures(e.point, { layers: ['route-line-inactive-hitbox'] });
@@ -198,6 +770,23 @@ export const generateMapHTML = (accessToken?: string): string => {
                         if (data.style) {
                             const styleUrl = getStyleUrl(data.style);
                             map.setStyle(styleUrl);
+                            
+                            map.once('style.load', () => {
+                                setupGeofenceLayers();
+                                setupRouteLayers();
+                                
+                                if (currentFencesData.length > 0) {
+                                    renderGeoFences(currentFencesData);
+                                }
+                                
+                                if (currentRoutesData.length > 0) {
+                                    renderRoutes(currentRoutesData, 0, 'driving');
+                                }
+                                
+                                if (userLocation) {
+                                    updateLocation(userLocation.lng, userLocation.lat, userLocation.accuracy || 0, 14);
+                                }
+                            });
                         }
                         break;
                     case 'setRoute':
@@ -402,10 +991,12 @@ export const generateMapHTML = (accessToken?: string): string => {
           document.addEventListener('message', handleMessageEvent);
           window.addEventListener('message', handleMessageEvent);
 
-          function updateLocation(lng, lat, accuracy, zoom) {
-              if (!map) return;
+           function updateLocation(lng, lat, accuracy, zoom) {
+               if (!map) return;
+               
+               userLocation = { lng, lat, accuracy };
 
-              const isFirstLoad = !userMarker;
+               const isFirstLoad = !userMarker;
 
               // Create Custom Pulsing Marker if not exists
               if (!userMarker) {
@@ -433,77 +1024,340 @@ export const generateMapHTML = (accessToken?: string): string => {
           // Simplified re-inclusion of helper functions to ensure file completion
           
           function getRiskPriority(level) { /* ... same ... */ } 
-          function renderGeoFences(fences) { /* ... same logic for clusters ... */ 
-              // Re-implementing simplified version to save space but keep logic
-              // In real file, we would keep the full logic
-              // For this response, I have to ensure the closure is valid.
-              // I will paste the original helpers below.
-               const dynamicFences = fences.filter(f => f.source === 'server' || f.category === 'Dynamic Risk Zone');
-               const staticFences = fences.filter(f => f.source !== 'server' && f.category !== 'Dynamic Risk Zone');
-               // ... clustering logic same as before ... 
-               // (Creating source 'geofences' was handled in setupGeofenceLayers)
-               // See full implementation below or reuse existing if possible
-               // I will insert the Full Clustering Logic here again to be safe.
+           function renderGeoFences(fences) {
+               currentFencesData = fences;
                
-              const features = [];
-              const clusters = clusterFeatures(dynamicFences, 0.6);
-              
-              clusters.forEach(cluster => {
-                  if (cluster.length === 0) return;
-                  let sumLat = 0, sumLng = 0, maxRiskScore = 0, maxRiskLevel = 'Low';
-                  cluster.forEach(f => {
-                      const [lat, lng] = f.coords || [0, 0];
-                      sumLat += lat; sumLng += lng;
-                      const score = f.metadata?.riskScore || 0;
-                      if (score > maxRiskScore) { maxRiskScore = score; maxRiskLevel = f.riskLevel || 'Low'; }
-                  });
-                  const centroidLat = sumLat / cluster.length;
-                  const centroidLng = sumLng / cluster.length;
-                  const clusterStyle = getGeofenceStyle({ riskLevel: maxRiskLevel, category: 'cluster' });
-                  const clusterCircle = turf.circle([centroidLng, centroidLat], 0.4, { steps: 20, units: 'kilometers' });
-
-                  features.push({
-                      type: 'Feature', geometry: clusterCircle.geometry,
-                      properties: {
-                          name: maxRiskLevel + ' Risk Cluster',
-                          isCluster: true,
-                          color: clusterStyle.color,
-                          fillOpacity: 0.35,
-                          riskLevel: maxRiskLevel,
-                          clusterSize: cluster.length
-                      }
-                  });
-              });
-              
-              staticFences.forEach(fence => {
-                  let geometry; // ... Simplified logic for static
-                   if (fence.type === 'circle' && fence.coords) {
-                       const center = [fence.coords[1], fence.coords[0]];
-                       geometry = turf.circle(center, fence.radiusKm || 0.5, { steps: 32, units: 'kilometers' }).geometry;
-                   } 
+               // Separate zones by type for different rendering strategies
+               const dangerZones = fences.filter(f => 
+                   f.visualStyle?.zoneType === 'danger_zone' || 
+                   (f.category && f.category.toLowerCase().includes('danger'))
+               );
+               const riskGrids = fences.filter(f => 
+                   f.visualStyle?.zoneType === 'risk_grid' || 
+                   f.category === 'Risk Grid'
+               );
+               const geofencesDestinations = fences.filter(f => 
+                   f.visualStyle?.zoneType === 'geofence' || 
+                   f.category === 'Tourist Destination'
+               );
+               const otherZones = fences.filter(f => 
+                   !f.visualStyle?.zoneType && 
+                   f.category !== 'Risk Grid' && 
+                   f.category !== 'Tourist Destination' &&
+                   (!f.category || !f.category.toLowerCase().includes('danger'))
+               );
+               
+               const features = [];
+               
+               // Render danger zones with diagonal stripes
+               dangerZones.forEach(fence => {
+                   const geometry = createGeometry(fence);
                    if (geometry) {
-                      const style = getGeofenceStyle(fence);
-                      features.push({ type: 'Feature', geometry, properties: { ...fence, ...style } });
+                       const style = getGeofenceStyle(fence);
+                       const center = getCenter(fence);
+                       features.push({
+                           type: 'Feature',
+                           geometry: geometry,
+                           properties: {
+                               ...style,
+                               name: fence.name,
+                               id: fence.id,
+                               zoneType: 'danger_zone',
+                               riskLevel: fence.riskLevel,
+                               category: fence.category,
+                               state: fence.state,
+                               centerLat: center[0],
+                               centerLng: center[1]
+                           }
+                       });
                    }
-              });
+               });
+               
+               // Cluster and render risk grids with dot patterns
+               const clusters = clusterFeatures(riskGrids, 1.0); // 1km clustering distance
+               clusters.forEach(cluster => {
+                   if (cluster.length === 0) return;
+                   
+                   if (cluster.length === 1) {
+                       // Single grid - render as-is
+                       const fence = cluster[0];
+                       const geometry = createGeometry(fence);
+                       if (geometry) {
+                           const style = getGeofenceStyle(fence);
+                           const center = getCenter(fence);
+                           
+                           // Extract metadata for risk grids
+                           const metadata = fence.metadata || {};
+                           
+                           features.push({
+                               type: 'Feature',
+                               geometry: geometry,
+                               properties: {
+                                   ...style,
+                                   name: fence.name,
+                                   id: fence.id,
+                                   zoneType: 'risk_grid',
+                                   riskLevel: fence.riskLevel,
+                                   gridId: metadata.gridId,
+                                   riskScore: metadata.riskScore,
+                                   lastUpdated: metadata.lastUpdated,
+                                   reasons: JSON.stringify(metadata.reasons || []),
+                                   centerLat: center[0],
+                                   centerLng: center[1]
+                               }
+                           });
+                       }
+                   } else {
+                       // Multiple grids - create cluster circle
+                       let sumLat = 0, sumLng = 0, maxRiskLevel = 'Low';
+                       let maxRiskScore = 0;
+                       
+                       cluster.forEach(f => {
+                           const center = getCenter(f);
+                           sumLat += center[0];
+                           sumLng += center[1];
+                           const score = f.metadata?.riskScore || 0;
+                           if (score > maxRiskScore) {
+                               maxRiskScore = score;
+                               maxRiskLevel = f.riskLevel || 'Low';
+                           }
+                       });
+                       
+                       const centroidLat = sumLat / cluster.length;
+                       const centroidLng = sumLng / cluster.length;
+                       const clusterRadius = 0.6; // 600m cluster radius
+                       
+                       const clusterCircle = turf.circle([centroidLng, centroidLat], clusterRadius, { 
+                           steps: 24, 
+                           units: 'kilometers' 
+                       });
+                       
+                       const clusterStyle = getGeofenceStyle({ 
+                           riskLevel: maxRiskLevel, 
+                           visualStyle: { 
+                               zoneType: 'risk_grid',
+                               fillPattern: 'dots',
+                               fillOpacity: 0.4,
+                               borderStyle: 'dashed',
+                               borderWidth: 2
+                           }
+                       });
+                       
+                       features.push({
+                           type: 'Feature',
+                           geometry: clusterCircle.geometry,
+                           properties: {
+                               ...clusterStyle,
+                               name: maxRiskLevel + ' Risk Cluster (' + cluster.length + ')',
+                               isCluster: true,
+                               zoneType: 'risk_grid',
+                               riskLevel: maxRiskLevel,
+                               clusterSize: cluster.length,
+                               centerLat: centroidLat,
+                               centerLng: centroidLng
+                           }
+                       });
+                   }
+               });
+               
+               // Render geofence destinations with solid fill
+               geofencesDestinations.forEach(fence => {
+                   const geometry = createGeometry(fence);
+                   if (geometry) {
+                       const style = getGeofenceStyle(fence);
+                       const center = getCenter(fence);
+                       
+                       // Extract metadata for geofences
+                       const metadata = fence.metadata || {};
+                       
+                       features.push({
+                           type: 'Feature',
+                           geometry: geometry,
+                           properties: {
+                               ...style,
+                               name: fence.name,
+                               id: fence.id,
+                               zoneType: 'geofence',
+                               riskLevel: fence.riskLevel,
+                               destination: metadata.destination,
+                               alertMessage: metadata.alertMessage,
+                               centerLat: center[0],
+                               centerLng: center[1]
+                           }
+                       });
+                   }
+               });
+               
+               // Render other zones (legacy)
+               otherZones.forEach(fence => {
+                   const geometry = createGeometry(fence);
+                   if (geometry) {
+                       const style = getGeofenceStyle(fence);
+                       const center = getCenter(fence);
+                       features.push({
+                           type: 'Feature',
+                           geometry: geometry,
+                           properties: {
+                               ...style,
+                               name: fence.name,
+                               id: fence.id,
+                               riskLevel: fence.riskLevel,
+                               centerLat: center[0],
+                               centerLng: center[1]
+                           }
+                       });
+                   }
+               });
 
-              map.getSource('geofences')?.setData({ type: 'FeatureCollection', features });
-          }
-          
-          function clusterFeatures(fences, dist) {
-             // Simple clustering
-             return fences.map(f => [f]); // improved later or kept simple
-          }
+               // Update map source
+               const source = map.getSource('geofences');
+               if (source) {
+                   source.setData({ type: 'FeatureCollection', features });
+               }
+               
+               // Legend stats now handled in React Native bottom sheet
+           }
+           
+           // Helper to create geometry from fence
+           function createGeometry(fence) {
+               if (!fence.coords) return null;
+               
+               if (fence.type === 'circle') {
+                   const center = [fence.coords[1], fence.coords[0]]; // [lng, lat]
+                   const radiusKm = fence.radiusKm || 0.5;
+                   return turf.circle(center, radiusKm, { steps: 32, units: 'kilometers' }).geometry;
+               } else if (fence.type === 'polygon' && Array.isArray(fence.coords[0])) {
+                   // Convert [lat, lng] to [lng, lat] for GeoJSON
+                   const coordinates = fence.coords.map(coord => [coord[1], coord[0]]);
+                   return {
+                       type: 'Polygon',
+                       coordinates: [coordinates]
+                   };
+               } else if (fence.type === 'point') {
+                   // Render point as small circle
+                   const center = [fence.coords[1], fence.coords[0]];
+                   return turf.circle(center, 0.2, { steps: 16, units: 'kilometers' }).geometry;
+               }
+               
+               return null;
+           }
+           
+           // Helper to get center coordinates from fence
+           function getCenter(fence) {
+               if (!fence.coords) return [0, 0];
+               if (Array.isArray(fence.coords[0])) {
+                   // Polygon - calculate centroid
+                   let sumLat = 0, sumLng = 0;
+                   fence.coords.forEach(coord => {
+                       sumLat += coord[0];
+                       sumLng += coord[1];
+                   });
+                   return [sumLat / fence.coords.length, sumLng / fence.coords.length];
+               }
+               // Point or circle - return center
+               return [fence.coords[0], fence.coords[1]];
+           }
+           
+           // Improved clustering algorithm
+           function clusterFeatures(fences, distanceKm) {
+               if (!fences || fences.length === 0) return [];
+               
+               const clusters = [];
+               const visited = new Set();
+               
+               fences.forEach((fence, i) => {
+                   if (visited.has(i)) return;
+                   
+                   const cluster = [fence];
+                   visited.add(i);
+                   const center1 = getCenter(fence);
+                   
+                   fences.forEach((other, j) => {
+                       if (i === j || visited.has(j)) return;
+                       
+                       const center2 = getCenter(other);
+                       const distance = turf.distance(
+                           turf.point([center1[1], center1[0]]),
+                           turf.point([center2[1], center2[0]]),
+                           { units: 'kilometers' }
+                       );
+                       
+                       if (distance <= distanceKm) {
+                           cluster.push(other);
+                           visited.add(j);
+                       }
+                   });
+                   
+                   clusters.push(cluster);
+               });
+               
+               return clusters;
+           }
           
           function getGeofenceStyle(fence) {
+              // Use backend visualStyle if available, otherwise fallback to legacy logic
+              if (fence.visualStyle) {
+                  const vs = fence.visualStyle;
+                  
+                  // Determine color based on zone type and risk level
+                  let color = vs.color || '#9e9e9e';
+                  
+                  if (!vs.color) {
+                      // Color based on risk level if not specified
+                      const riskLevel = (fence.riskLevel || '').toLowerCase();
+                      if (riskLevel.includes('very') && riskLevel.includes('high')) {
+                          color = '#d32f2f'; // Very High: Dark Red
+                      } else if (riskLevel.includes('high')) {
+                          color = '#ef4444'; // High: Red
+                      } else if (riskLevel.includes('medium')) {
+                          color = '#f59e0b'; // Medium: Orange
+                      } else if (riskLevel.includes('low')) {
+                          color = '#22c55e'; // Low: Green
+                      }
+                      
+                      // Override color for specific zone types
+                      const zoneType = vs.zoneType || '';
+                      if (zoneType === 'geofence') {
+                          color = '#3b82f6'; // Blue for tourist destinations
+                      }
+                  }
+                  
+                  return {
+                      fillColor: color,
+                      fillOpacity: vs.fillOpacity || 0.25,
+                      fillPattern: vs.fillPattern || 'solid',
+                      borderColor: color,
+                      borderWidth: vs.borderWidth || 2,
+                      borderStyle: vs.borderStyle || 'solid',
+                      iconType: vs.iconType,
+                      renderPriority: vs.renderPriority || 2
+                  };
+              }
+              
+              // Legacy fallback for zones without visualStyle
               const category = (fence.category || '').toLowerCase();
-              if (category.includes('police')) return { color: '#6366F1', fillOpacity: 0.3 };
-              if (category.includes('hospital')) return { color: '#EF4444', fillOpacity: 0.3 };
+              if (category.includes('police')) return { 
+                  fillColor: '#6366F1', fillOpacity: 0.3, fillPattern: 'solid',
+                  borderColor: '#6366F1', borderWidth: 2, borderStyle: 'solid'
+              };
+              if (category.includes('hospital')) return { 
+                  fillColor: '#EF4444', fillOpacity: 0.3, fillPattern: 'solid',
+                  borderColor: '#EF4444', borderWidth: 2, borderStyle: 'solid'
+              };
               
               const l = (fence.riskLevel || '').toLowerCase();
-              if (l.includes('high')) return { color: '#ef4444', fillOpacity: 0.4 };
-              if (l.includes('medium')) return { color: '#f59e0b', fillOpacity: 0.4 };
-              return { color: '#22c55e', fillOpacity: 0.2 };
+              if (l.includes('high')) return { 
+                  fillColor: '#ef4444', fillOpacity: 0.4, fillPattern: 'solid',
+                  borderColor: '#ef4444', borderWidth: 2, borderStyle: 'solid'
+              };
+              if (l.includes('medium')) return { 
+                  fillColor: '#f59e0b', fillOpacity: 0.4, fillPattern: 'solid',
+                  borderColor: '#f59e0b', borderWidth: 2, borderStyle: 'solid'
+              };
+              return { 
+                  fillColor: '#22c55e', fillOpacity: 0.2, fillPattern: 'solid',
+                  borderColor: '#22c55e', borderWidth: 2, borderStyle: 'solid'
+              };
           }
           
            function clearAllGeoFences() {
