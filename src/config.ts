@@ -1,10 +1,16 @@
 import Constants from "expo-constants";
 
 // Central configuration for backend endpoints used during development.
+// IMPORTANT: If using Socket.IO for real-time alerts, ensure this URL matches your backend server
+// - For physical device testing: use your computer's IP (e.g., http://192.168.1.4:5000)
+// - For Android emulator: use http://10.0.2.2:5000
+// - For iOS simulator: use http://localhost:5000
+// - Update the port to match your actual backend port
 export const SERVER_URL =
   Constants.expoConfig?.extra?.SERVER_URL ||
   process.env.SERVER_URL ||
-  "https://smart-tourist-safety-app-backend-1.onrender.com";
+  "http://192.168.1.22:5000"; // Your computer's local IP
+// "https://smart-tourist-safety-app-backend-1.onrender.com";
 
 // AI model URLs for getting safety score predictions
 export const GEO_MODEL_URL =
@@ -54,8 +60,7 @@ export const AUTHORITY_PHONE =
 
 // Weather API Keys for backup/fallback weather data sources
 export const WEATHERAPI_KEY =
-  Constants.expoConfig?.extra?.WEATHERAPI_KEY ||
-  process.env.WEATHERAPI_KEY;
+  Constants.expoConfig?.extra?.WEATHERAPI_KEY || process.env.WEATHERAPI_KEY;
 
 export const OPENWEATHERMAP_KEY =
   Constants.expoConfig?.extra?.OPENWEATHERMAP_KEY ||

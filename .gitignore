@@ -9,9 +9,11 @@ android
 .github/
 .bmad-core
 .agent
-
+.idea/
 # Environment variables
 .env
 .env.local
 .env.development
 .env.production
+package-lock.json
+docs/
