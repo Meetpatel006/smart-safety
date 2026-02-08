@@ -1,4 +1,4 @@
-import { LocationData, Coordinates } from './types';
+  import { LocationData, Coordinates } from './types';
 
 // Convert decimal coordinates to DMS (Degrees, Minutes, Seconds)
 export const convertToDMS = (decimal: number, type: 'lat' | 'lon'): string => {
