@@ -35,7 +35,12 @@ import {
   createGroup as apiCreateGroup,
 } from "../utils/api";
 import * as Location from "expo-location";
+import * as Notifications from "expo-notifications";
 import { Buffer } from "buffer";
+import {
+  SafetyEvent,
+  sendSafetyLocationUpdate,
+} from "../services/safetyLocationService";
 
 const decodeBase64 = (str: string): string => {
   return Buffer.from(str, "base64").toString("binary");
@@ -204,6 +209,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const prevOfflineRef = useRef<boolean | null>(null);
   const tokenRef = useRef<string | null>(null);
   const stateRef = useRef<AppState>(state);
+  const safetyNotificationSentAtRef = useRef<Record<string, number>>({});
+
+  const SAFETY_LOCATION_INTERVAL_MS = 5 * 60 * 1000;
+  const SAFETY_NOTIFICATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
+
+  const getSafetyNotificationTitle = (event: SafetyEvent): string => {
+    if (event.zoneType === "danger_zone") return "Critical Safety Alert";
+    if (event.zoneType === "risk_grid") return "Risk Area Alert";
+    return "Geofence Alert";
+  };
+
+  const buildSafetyNotificationKey = (event: SafetyEvent): string => {
+    return [
+      event.zoneKey,
+      event.state,
+      event.thresholdMeters || 0,
+      event.occurredAt,
+    ].join(":");
+  };
 
   // keep refs updated with latest state/token to avoid stale closures in listeners
   useEffect(() => {
@@ -606,6 +630,136 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       } catch (e) {}
     };
   }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!state.user?.touristId) return;
+
+    let isDisposed = false;
+    let intervalRef: ReturnType<typeof setInterval> | null = null;
+
+    const hasLocationPermission = async (): Promise<boolean> => {
+      try {
+        const current = await Location.getForegroundPermissionsAsync();
+        if (current.status === "granted") return true;
+        const requested = await Location.requestForegroundPermissionsAsync();
+        return requested.status === "granted";
+      } catch (error) {
+        console.warn("[SafetyTracking] Location permission check failed:", error);
+        return false;
+      }
+    };
+
+    const hasNotificationPermission = async (): Promise<boolean> => {
+      try {
+        const current = await Notifications.getPermissionsAsync();
+        if (current.status === "granted") return true;
+        const requested = await Notifications.requestPermissionsAsync();
+        return requested.status === "granted";
+      } catch (error) {
+        console.warn(
+          "[SafetyTracking] Notification permission check failed:",
+          error,
+        );
+        return false;
+      }
+    };
+
+    const pruneNotificationRegistry = () => {
+      const now = Date.now();
+      const registry = safetyNotificationSentAtRef.current;
+      Object.keys(registry).forEach((key) => {
+        if (now - registry[key] > SAFETY_NOTIFICATION_COOLDOWN_MS) {
+          delete registry[key];
+        }
+      });
+    };
+
+    const syncSafetyLocation = async () => {
+      if (isDisposed) return;
+      if (stateRef.current.offline) return;
+
+      const userId = stateRef.current.user?.touristId;
+      if (!userId) return;
+
+      const locationPermissionGranted = await hasLocationPermission();
+      if (!locationPermissionGranted) return;
+
+      try {
+        const location = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        const response = await sendSafetyLocationUpdate({
+          userId: String(userId),
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          timestamp: new Date().toISOString(),
+          safetyScore: stateRef.current.computedSafetyScore || stateRef.current.user?.safetyScore || 0,
+        });
+
+        if (response) {
+          console.log(
+            "[SafetyTracking] Location synced:",
+            "userId=",
+            userId,
+            "events=",
+            response.events?.length || 0,
+          );
+        } else {
+          console.warn("[SafetyTracking] Location sync returned null response");
+        }
+
+        if (
+          !response ||
+          !Array.isArray(response.events) ||
+          response.events.length === 0
+        ) {
+          return;
+        }
+
+        const notificationPermissionGranted = await hasNotificationPermission();
+        if (!notificationPermissionGranted) return;
+
+        pruneNotificationRegistry();
+
+        for (const event of response.events) {
+          const dedupeKey = buildSafetyNotificationKey(event);
+          const lastSentAt = safetyNotificationSentAtRef.current[dedupeKey];
+          const now = Date.now();
+          if (lastSentAt && now - lastSentAt < SAFETY_NOTIFICATION_COOLDOWN_MS) {
+            continue;
+          }
+
+          await Notifications.scheduleNotificationAsync({
+            content: {
+              title: getSafetyNotificationTitle(event),
+              body: event.message,
+              data: {
+                type: "safety-zone-event",
+                ...event,
+              },
+            },
+            trigger: null,
+          });
+
+          safetyNotificationSentAtRef.current[dedupeKey] = now;
+        }
+      } catch (error) {
+        console.warn("[SafetyTracking] Failed syncing safety location:", error);
+      }
+    };
+
+    syncSafetyLocation();
+    intervalRef = setInterval(syncSafetyLocation, SAFETY_LOCATION_INTERVAL_MS);
+
+    return () => {
+      isDisposed = true;
+      if (intervalRef) {
+        clearInterval(intervalRef);
+      }
+    };
+  }, [hydrated, state.offline, state.user?.touristId]);
 
   // Persist state changes with a small debounce to avoid frequent disk writes when
   // the app state updates rapidly (this also helps reduce re-renders related to

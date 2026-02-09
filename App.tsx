@@ -19,7 +19,6 @@ SplashScreen.preventAutoHideAsync()
 // Notification handler: allow notifications to show with sound
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
-  shouldShowAlert: true, // Show notification alerts
   shouldShowBanner: true, // Show banner on iOS
   shouldShowList: true, // Show in notification list
   shouldPlaySound: true, // Play notification sound
