@@ -370,6 +370,48 @@ export const itineraryToTrips = (
   itinerary: any[],
 ): Array<{ id: string; title: string; date: string; notes?: string; dayWiseItinerary?: any[] }> => {
   const baseTs = Date.now();
+
+  const normalizeNode = (node: any) => {
+    if (!node || typeof node !== 'object') return node;
+
+    const locationCoords = Array.isArray(node.location?.coordinates)
+      ? node.location.coordinates
+      : Array.isArray(node.coordinates)
+        ? node.coordinates
+        : null;
+
+    const lat =
+      typeof node.lat === 'number'
+        ? node.lat
+        : typeof node.latitude === 'number'
+          ? node.latitude
+          : locationCoords && typeof locationCoords[1] === 'number'
+            ? locationCoords[1]
+            : undefined;
+
+    const lng =
+      typeof node.lng === 'number'
+        ? node.lng
+        : typeof node.longitude === 'number'
+          ? node.longitude
+          : locationCoords && typeof locationCoords[0] === 'number'
+            ? locationCoords[0]
+            : undefined;
+
+    return {
+      ...node,
+      name: node.name || node.title || node.activity || node.locationName || 'Stop',
+      locationName: node.locationName || node.address || node.name || node.title || '',
+      lat,
+      lng,
+    };
+  };
+
+  const normalizeDays = (days: any[]) =>
+    days.map((day) => ({
+      ...day,
+      nodes: Array.isArray(day?.nodes) ? day.nodes.map(normalizeNode) : [],
+    }));
   
   // If itinerary is empty, return empty array
   if (!Array.isArray(itinerary) || itinerary.length === 0) {
@@ -378,53 +420,26 @@ export const itineraryToTrips = (
   
   // Check if this is the day-wise structure from API (has dayNumber and nodes)
   if (itinerary[0] && typeof itinerary[0] === 'object' && itinerary[0].nodes) {
-    // Split into separate trips based on 'start' and 'end' nodes or date gaps
+    const normalizedItinerary = normalizeDays(itinerary);
+    // Group consecutive days into trips. Only split on large date gaps (>3 days).
+    // 'start'/'end' node types are per-day markers, NOT trip boundaries.
     const trips: Array<{ id: string; title: string; date: string; notes?: string; dayWiseItinerary?: any[] }> = [];
     let currentTrip: any[] = [];
     let tripIndex = 0;
     
-    for (let i = 0; i < itinerary.length; i++) {
-      const day = itinerary[i];
-      const hasStartNode = day.nodes?.some((node: any) => node.type === 'start');
-      const hasEndNode = day.nodes?.some((node: any) => node.type === 'end');
+    for (let i = 0; i < normalizedItinerary.length; i++) {
+      const day = normalizedItinerary[i];
       
-      // Check if there's a significant date gap (more than 7 days) from previous day
+      // Check if there's a significant date gap (more than 3 days) from previous day
       const isDateGap = currentTrip.length > 0 && i > 0 && (() => {
-        const prevDate = new Date(itinerary[i - 1].date);
+        const prevDate = new Date(normalizedItinerary[i - 1].date);
         const currDate = new Date(day.date);
         const daysDiff = Math.abs((currDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
-        return daysDiff > 7;
+        return daysDiff > 3;
       })();
       
-      // Start a new trip if:
-      // 1. This is the first day with a start node, OR
-      // 2. There's a date gap indicating separate trips
-      if ((hasStartNode && currentTrip.length === 0) || isDateGap) {
-        if (currentTrip.length > 0) {
-          // Save the previous trip
-          const firstDay = currentTrip[0];
-          const firstNode = firstDay.nodes?.[0];
-          const title = firstNode?.name || firstNode?.locationName || 'Trip';
-          const startDate = firstDay.date || new Date().toISOString();
-          
-          trips.push({
-            id: `trip_${baseTs}_${tripIndex}`,
-            title,
-            date: startDate,
-            notes: `${currentTrip.length} day${currentTrip.length > 1 ? 's' : ''}`,
-            dayWiseItinerary: currentTrip,
-          });
-          
-          tripIndex++;
-        }
-        currentTrip = [];
-      }
-      
-      // Add current day to the trip
-      currentTrip.push(day);
-      
-      // End the trip if this day has an 'end' node
-      if (hasEndNode) {
+      // Start a new trip only when there's a significant date gap
+      if (isDateGap && currentTrip.length > 0) {
         const firstDay = currentTrip[0];
         const firstNode = firstDay.nodes?.[0];
         const title = firstNode?.name || firstNode?.locationName || 'Trip';
@@ -441,9 +456,12 @@ export const itineraryToTrips = (
         tripIndex++;
         currentTrip = [];
       }
+      
+      // Add current day to the trip
+      currentTrip.push(day);
     }
     
-    // If there are remaining days that haven't been saved as a trip
+    // Save the remaining trip
     if (currentTrip.length > 0) {
       const firstDay = currentTrip[0];
       const firstNode = firstDay.nodes?.[0];

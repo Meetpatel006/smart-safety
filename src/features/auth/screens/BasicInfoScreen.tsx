@@ -98,8 +98,15 @@ export default function BasicInfoScreen({ navigation, route }: any) {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.header}>
-            <Text style={styles.title}>Create Account</Text>
-            <Text style={styles.subtitle}>Step 1 of 2 - Basic Information</Text>
+                    <Text style={styles.title}>Create account</Text>
+                    {role && (
+                      <View style={styles.roleBadge}>
+                        <Text style={styles.roleBadgeText}>
+                          {role === 'solo' ? 'Solo Traveler' : role === 'group-member' ? 'Group Member' : role === 'tour-admin' ? 'Tour Admin' : role}
+                        </Text>
+                      </View>
+                    )}
+                    <Text style={styles.subtitle}>Step 1 of 2 — Basic information</Text>
           </View>
 
           <View style={styles.formContainer}>
@@ -120,7 +127,7 @@ export default function BasicInfoScreen({ navigation, route }: any) {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>E-mail</Text>
+              <Text style={styles.label}>Email</Text>
               <TextInput
                 mode="flat"
                 value={email}
@@ -241,14 +248,16 @@ const styles = StyleSheet.create({
   },
   backIcon: {
     position: "absolute",
-    top: Platform.OS === "ios" ? 50 : 38,
+    top: 67,
     left: 20,
     zIndex: 10,
   },
   scrollContent: {
-    paddingHorizontal: 34,
-    paddingTop: 88,
-    paddingBottom: 32,
+    flexGrow: 1,
+    justifyContent: "flex-start",
+    paddingHorizontal: 28,
+    paddingTop: 48,
+    paddingBottom: 24,
   },
   header: {
     alignItems: "center",
@@ -257,25 +266,26 @@ const styles = StyleSheet.create({
   title: {
     fontFamily: "Jost",
     fontWeight: "700",
-    fontSize: 24,
-    lineHeight: 32,
-    letterSpacing: 0.5,
-    color: "#171725",
-    marginBottom: 8,
+    fontSize: 28,
+    lineHeight: 36,
+    letterSpacing: 0.2,
+    color: "#0F172A",
+    marginBottom: 12,
   },
   subtitle: {
     fontFamily: "Jost",
     fontWeight: "400",
     fontSize: 14,
-    lineHeight: 22,
-    letterSpacing: 0.5,
-    color: "#434E58",
+    lineHeight: 20,
+    letterSpacing: 0.2,
+    color: "#6B7280",
+    marginTop: 6,
   },
   formContainer: {
     width: "100%",
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
     fontFamily: "Jost",
@@ -335,7 +345,7 @@ const styles = StyleSheet.create({
   submitButton: {
     borderRadius: 12,
     backgroundColor: "#0C87DE",
-    marginTop: 8,
+    marginTop: 32,
   },
   submitButtonContent: {
     paddingVertical: 12,
@@ -350,7 +360,7 @@ const styles = StyleSheet.create({
     color: "#FEFEFE",
   },
   signInLink: {
-    marginTop: 24,
+    marginTop: 18,
     alignItems: "center",
   },
   signInLinkText: {
@@ -360,5 +370,22 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: "#2853AF",
+  },
+  roleBadge: {
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#EEF6FF',
+    borderWidth: 1,
+    borderColor: '#D3EFFF',
+  },
+  roleBadgeText: {
+    color: '#0C87DE',
+    fontWeight: '700',
+    fontSize: 12,
+    textAlign: 'center',
   },
 });

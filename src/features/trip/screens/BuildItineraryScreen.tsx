@@ -30,12 +30,14 @@ export default function BuildItineraryScreen() {
   const navigation = useNavigation();
   const route = useRoute();
   const { state, setJustRegistered, createGroup, updateGroupItinerary } = useApp();
-  const { tripDuration, startDate, returnDate, touristId } = route.params as {
-    tripDuration: number;
-    startDate: string;
-    returnDate: string;
-    touristId: string;
-  };
+  const { tripDuration, startDate, returnDate, touristId, initialItinerary } =
+    route.params as {
+      tripDuration: number;
+      startDate: string;
+      returnDate: string;
+      touristId: string;
+      initialItinerary?: DayItinerary[];
+    };
 
   // Role detection
   const user = state.user as any;
@@ -48,6 +50,25 @@ export default function BuildItineraryScreen() {
       // ignore when navigation not available
     }
   }, [navigation]);
+  
+  // Safe goBack helper: fall back to navigating to Main if goBack isn't available
+  const safeGoBack = () => {
+    try {
+      const navAny = navigation as any;
+      if (typeof navAny.canGoBack === 'function' && navAny.canGoBack()) {
+        navAny.goBack();
+        return;
+      }
+      // Fallback to navigate to main screen
+      if (typeof navAny.navigate === 'function') {
+        navAny.navigate('Main');
+        return;
+      }
+    } catch (e) {
+      // swallow any navigation errors
+      console.warn('[BuildItinerary] safeGoBack failed', e);
+    }
+  };
   const userRole = user?.role;
   const isSolo = userRole === 'solo';
   const isTourAdmin = userRole === 'tour-admin';
@@ -62,24 +83,47 @@ export default function BuildItineraryScreen() {
   const [groupName, setGroupName] = useState('');
   const [showGroupNamePrompt, setShowGroupNamePrompt] = useState(false);
   const [isLoadingExisting, setIsLoadingExisting] = useState(false);
+  const hasInitialItinerary =
+    Array.isArray(initialItinerary) && initialItinerary.length > 0;
+
+  useEffect(() => {
+    if (!hasInitialItinerary) {
+      return;
+    }
+
+    const firstDay =
+      initialItinerary.find((day) => day.dayNumber === 1) ||
+      initialItinerary[0];
+
+    setItinerary(initialItinerary);
+    setCurrentDay(firstDay?.dayNumber || 1);
+    setCurrentDayNodes(firstDay?.nodes || []);
+  }, [hasInitialItinerary, initialItinerary]);
 
   // Load existing group itinerary for editing or viewing
   useEffect(() => {
-    if (isEditingGroup || isGroupMember) {
+    if (!hasInitialItinerary && (isEditingGroup || isGroupMember)) {
       setIsLoadingExisting(true);
       (async () => {
         try {
           console.log('[BuildItinerary] Loading existing group itinerary...');
           const groupData = await getGroupDashboard(state.token);
           console.log('[BuildItinerary] Group data:', groupData);
-          
-          if (groupData?.data?.itinerary && Array.isArray(groupData.data.itinerary)) {
-            console.log('[BuildItinerary] Setting itinerary:', groupData.data.itinerary);
-            setItinerary(groupData.data.itinerary);
-            
+
+          const loadedItinerary =
+            groupData?.data?.itinerary ||
+            groupData?.group?.itinerary ||
+            groupData?.itinerary;
+
+          if (Array.isArray(loadedItinerary)) {
+            console.log('[BuildItinerary] Setting itinerary:', loadedItinerary);
+            setItinerary(loadedItinerary);
+
             // Load the first day's nodes
-            if (groupData.data.itinerary.length > 0) {
-              const firstDay = groupData.data.itinerary.find((d: any) => d.dayNumber === 1);
+            if (loadedItinerary.length > 0) {
+              const firstDay =
+                loadedItinerary.find((d: any) => d.dayNumber === 1) ||
+                loadedItinerary[0];
               if (firstDay && firstDay.nodes) {
                 setCurrentDayNodes(firstDay.nodes);
               }
@@ -94,7 +138,7 @@ export default function BuildItineraryScreen() {
         }
       })();
     }
-  }, []);
+  }, [hasInitialItinerary, isEditingGroup, isGroupMember, state.token]);
 
   // Initialize current day's date
   const getCurrentDayDate = () => {
@@ -255,7 +299,7 @@ export default function BuildItineraryScreen() {
         
         if (result.ok) {
           showToast('Group itinerary updated successfully!');
-          (navigation.goBack as any)();
+          safeGoBack();
         } else {
           showToast(result.message || 'Failed to update itinerary');
         }
@@ -346,7 +390,7 @@ export default function BuildItineraryScreen() {
           <IconButton
             icon="arrow-left"
             size={24}
-            onPress={() => navigation.goBack()}
+            onPress={safeGoBack}
             style={styles.backButton}
           />
           <View style={styles.headerTextContainer}>
@@ -484,6 +528,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFFFFF',
+    paddingTop: 30,
   },
   header: {
     paddingHorizontal: 0,

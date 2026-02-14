@@ -64,6 +64,18 @@ type User = {
   groupId?: string;
   ownedGroupId?: string;
   itinerary: string[];
+  dayWiseItinerary?: Array<{
+    dayNumber: number;
+    date: string;
+    nodes: Array<{
+      type: string;
+      name: string;
+      location?: { type?: string; coordinates?: [number, number] };
+      address?: string;
+      scheduledTime?: string;
+      description?: string;
+    }>;
+  }>;
   emergencyContact: { name: string; phone: string };
   language: string;
   safetyScore: number;
@@ -400,12 +412,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // restore persisted state (including token). We'll avoid overwriting trips so that
           // server-sourced itineraries can be refreshed below if needed.
           setState((prev) => ({ ...defaultState, ...prev, ...parsed }));
-          // If the persisted state contains a token but trips are empty, fetch /me now
+          // If the persisted state contains a token, always refresh /me now
+          // This ensures server-side updates (groupId, name, itinerary) are reflected
           try {
-            if (
-              parsed.token &&
-              (!Array.isArray(parsed.trips) || parsed.trips.length === 0)
-            ) {
+            if (parsed.token) {
               console.log(
                 "Hydration: token present in storage but no trips — fetching /me",
               );
@@ -416,8 +426,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   : null
                 : userRes;
               if (userData && mounted) {
-                const itinerary = Array.isArray(userData.itinerary)
-                  ? userData.itinerary
+                const itinerary = Array.isArray(userData.dayWiseItinerary)
+                  ? userData.dayWiseItinerary
                   : [];
                 const trips = itineraryToTrips(itinerary);
                 setState((s) => ({
@@ -479,7 +489,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     (async () => {
       try {
-        await geofenceService.loadFences();
+        // Pass userId to loadFences to fetch user's personal itinerary geofences
+        const userId = state.user?.touristId;
+        await geofenceService.loadFences(undefined, undefined, userId);
         // start geofence monitoring; transitions will be logged on enter/exit
         await geofenceService.startMonitoring({ intervalMs: 30000 });
 
@@ -760,6 +772,42 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [hydrated, state.offline, state.user?.touristId]);
+
+  // Day change detection: refresh geofences when the day changes (for itinerary geofences)
+  useEffect(() => {
+    if (!hydrated) return;
+    if (!state.user?.touristId) return;
+
+    // Store the current day to detect changes
+    let currentDay = new Date().toDateString();
+
+    const checkDayChange = async () => {
+      const newDay = new Date().toDateString();
+      if (newDay !== currentDay) {
+        console.log('Day changed - refreshing geofences for new itinerary day');
+        currentDay = newDay;
+        
+        // Reload geofences to get updated itinerary geofences for the new day
+        try {
+          const userId = state.user?.touristId;
+          await geofenceService.loadFences(undefined, undefined, userId);
+          console.log('Geofences refreshed after day change');
+        } catch (error) {
+          console.warn('Failed to refresh geofences after day change:', error);
+        }
+      }
+    };
+
+    // Check for day change every hour (3600000 ms)
+    const dayChangeInterval = setInterval(checkDayChange, 3600000);
+
+    // Also check immediately when user changes (e.g., login/logout)
+    checkDayChange();
+
+    return () => {
+      clearInterval(dayChangeInterval);
+    };
+  }, [hydrated, state.user?.touristId]);
 
   // Persist state changes with a small debounce to avoid frequent disk writes when
   // the app state updates rapidly (this also helps reduce re-renders related to
@@ -1053,6 +1101,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 }) as typeof defaultState,
             );
 
+            // Refresh geofences after itinerary update
+            try {
+              const userId = stateRef.current.user?.touristId;
+              if (userId) {
+                await geofenceService.loadFences(undefined, undefined, userId);
+                console.log('Geofences refreshed after itinerary update');
+              }
+            } catch (geoErr) {
+              console.warn('Failed to refresh geofences after itinerary update:', geoErr);
+            }
+
             return {
               ok: true,
               message: "Group itinerary updated successfully",
@@ -1145,6 +1204,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               console.log('[AppContext] Converted trips:', trips);
               setState((s) => ({ ...s, trips }));
               console.log("Solo trips updated from backend:", trips.length);
+              
+              // Refresh geofences after solo itinerary update
+              try {
+                const userId = state.user?.touristId;
+                if (userId) {
+                  await geofenceService.loadFences(undefined, undefined, userId);
+                  console.log('Geofences refreshed after solo itinerary update');
+                }
+              } catch (geoErr) {
+                console.warn('Failed to refresh geofences after solo itinerary update:', geoErr);
+              }
             } else {
               console.log('[AppContext] No solo itinerary found');
               setState((s) => ({ ...s, trips: [] }));
@@ -1153,22 +1223,47 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             // Group members/admins fetch from group dashboard
             console.log('[AppContext] Fetching group dashboard...');
             const { getGroupDashboard } = await import("../utils/api");
-            const data = await getGroupDashboard(state.token);
-            
-            console.log('[AppContext] Group dashboard response:', data);
-            
-            // Handle response structure: data.data is the actual group/user data
-            const userData = data?.data || data;
-            
-            if (userData && userData.itinerary) {
-              console.log('[AppContext] Found group itinerary:', userData.itinerary);
-              const trips = itineraryToTrips(userData.itinerary);
+            let groupItinerary: any[] | null = null;
+            try {
+              const data = await getGroupDashboard(state.token);
+              console.log('[AppContext] Group dashboard response:', data);
+              const groupData = data?.data || data;
+              if (groupData && Array.isArray(groupData.itinerary) && groupData.itinerary.length > 0) {
+                groupItinerary = groupData.itinerary;
+              }
+            } catch (dashErr: any) {
+              console.warn('[AppContext] Group dashboard failed, will use user itinerary:', dashErr?.message);
+            }
+
+            if (groupItinerary && groupItinerary.length > 0) {
+              console.log('[AppContext] Found group itinerary:', groupItinerary.length, 'days');
+              const trips = itineraryToTrips(groupItinerary);
               console.log('[AppContext] Converted trips:', trips);
               setState((s) => ({ ...s, trips }));
               console.log("Group trips updated from backend:", trips.length);
+              
+              // Refresh geofences after group itinerary fetch
+              try {
+                const userId = state.user?.touristId;
+                if (userId) {
+                  await geofenceService.loadFences(undefined, undefined, userId);
+                  console.log('Geofences refreshed after group itinerary fetch');
+                }
+              } catch (geoErr) {
+                console.warn('Failed to refresh geofences after group itinerary fetch:', geoErr);
+              }
             } else {
-              console.log('[AppContext] No group itinerary found');
-              setState((s) => ({ ...s, trips: [] }));
+              // Fallback: use the user's own dayWiseItinerary
+              const fallbackItinerary = state.user?.dayWiseItinerary || [];
+              if (Array.isArray(fallbackItinerary) && fallbackItinerary.length > 0) {
+                console.log('[AppContext] Using user dayWiseItinerary as fallback:', fallbackItinerary.length, 'days');
+                const trips = itineraryToTrips(fallbackItinerary);
+                setState((s) => ({ ...s, trips }));
+                console.log("User trips updated from backend:", trips.length);
+              } else {
+                console.log('[AppContext] No itinerary found anywhere');
+                setState((s) => ({ ...s, trips: [] }));
+              }
             }
           }
         } catch (error) {

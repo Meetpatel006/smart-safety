@@ -8,6 +8,9 @@ import { Alert, Vibration, AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import { Audio } from 'expo-av';
 import type { WebView } from 'react-native-webview';
+import { useApp } from './AppContext';
+import { sendSMS } from '../utils/sms';
+import { queueSMS } from '../utils/smsQueue';
 import {
   pathDeviationService,
   JourneyConfig,
@@ -85,6 +88,7 @@ interface PathDeviationContextType {
 const PathDeviationContext = createContext<PathDeviationContextType | null>(null);
 
 export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { state } = useApp();
   // State
   const [journeyId, setJourneyId] = useState<string | null>(null);
   const [isTracking, setIsTracking] = useState(false);
@@ -139,6 +143,11 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   const simulationIntervalRef = useRef<NodeJS.Timeout | null>(null); // Simulation interval
   const simulationIndexRef = useRef<number>(0); // Current index in route coordinates
   const routeCoordinatesRef = useRef<[number, number][]>([]); // Route coordinates for simulation [lng, lat]
+  const appStateRef = useRef(state);
+
+  useEffect(() => {
+    appStateRef.current = state;
+  }, [state]);
 
   /**
    * Set map reference for sending tracking updates
@@ -165,6 +174,33 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
         hasMapRef: !!mapRef.current,
         hasWebView: !!(mapRef.current && mapRef.current.current)
       });
+    }
+  }, []);
+
+  const sendDeviationSmsToContacts = useCallback(async (deviation: DeviationStatus) => {
+    const currentState = appStateRef.current;
+    if (currentState.user?.role !== 'solo') return;
+
+    const contacts = currentState.contacts || [];
+    const recipients = contacts
+      .map((contact) => contact.phone)
+      .filter((phone) => typeof phone === 'string' && phone.trim().length > 0);
+
+    if (recipients.length === 0) return;
+
+    const gpsPoint = lastGPSPointRef.current;
+    const locationUrl = gpsPoint
+      ? `https://www.google.com/maps?q=${gpsPoint.lat},${gpsPoint.lng}`
+      : null;
+
+    const travelerName = currentState.user?.name || 'Traveler';
+    const details = `Severity: ${deviation.severity}. Spatial: ${deviation.spatial}. Temporal: ${deviation.temporal}. Directional: ${deviation.directional}.`;
+    const message = `Safety alert: ${travelerName} has a path deviation. ${details}${locationUrl ? ` Location: ${locationUrl}` : ''}`;
+
+    const payload = { recipients, message };
+    const result = await sendSMS(payload);
+    if (!result.ok) {
+      await queueSMS({ payload });
     }
   }, []);
 
@@ -235,6 +271,11 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Trigger alerts based on severity
         handleDeviationAlerts(message.deviation);
+
+        // Send solo user notifications to emergency contacts
+        sendDeviationSmsToContacts(message.deviation).catch((error) => {
+          console.warn('[PathDeviation] Failed sending deviation SMS:', error);
+        });
       }
     };
 
@@ -253,7 +294,7 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       pathDeviationWebSocket.off('deviation_update', handleDeviationUpdate);
       pathDeviationWebSocket.off('error', handleError);
     };
-  }, []);
+  }, [handleDeviationAlerts, sendDeviationSmsToContacts, sendToMap]);
 
   /**
    * Create alert from deviation status

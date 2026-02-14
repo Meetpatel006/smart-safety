@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { StyleSheet, Platform, Alert, Dimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
+import { useApp } from '../../../context/AppContext';
 
 // Import path deviation context
 import { usePathDeviation } from '../../../context/PathDeviationContext';
@@ -56,6 +57,7 @@ export default function MapboxMap({
   isFullScreen = false,
   onToggleFullScreen
 }: MapboxMapProps) {
+  const { state } = useApp();
   const [location, setLocation] = useState<Location.LocationObject | null>(null);
   const [address, setAddress] = useState<string>('');
   const [loadingLocation, setLoadingLocation] = useState(false);
@@ -128,7 +130,15 @@ export default function MapboxMap({
 
   const loadAllFencesWithoutFiltering = async () => {
     try {
-      const data = require('../../../../assets/geofences-output.json');
+      const geofenceService = require('../services/geofenceService').default;
+      let data = geofenceService.getFences();
+      if (!data || data.length === 0) {
+        const userId = state.user?.touristId;
+        data = await geofenceService.loadFences(undefined, undefined, userId);
+      }
+      if (!data || data.length === 0) {
+        data = require('../../../../assets/geofences-output.json');
+      }
       const fencesWithDistance = data.map((f: GeoFence) => ({
         ...f,
         distanceToUser: undefined,
@@ -147,7 +157,15 @@ export default function MapboxMap({
 
   const loadAndFilterFences = async (userLat: number, userLng: number) => {
     try {
-      const data = require('../../../../assets/geofences-output.json');
+      const geofenceService = require('../services/geofenceService').default;
+      let data = geofenceService.getFences();
+      if (!data || data.length === 0) {
+        const userId = state.user?.touristId;
+        data = await geofenceService.loadFences(userLat, userLng, userId);
+      }
+      if (!data || data.length === 0) {
+        data = require('../../../../assets/geofences-output.json');
+      }
       // Add default visualStyle to bundled data if missing
       const dataWithStyle = data.map((f: GeoFence) => ({
         ...f,
@@ -259,7 +277,10 @@ export default function MapboxMap({
 
     const geofences = fencesToCount.filter(f => 
       f.visualStyle?.zoneType === 'geofence' || 
-      f.category === 'Tourist Destination'
+      f.visualStyle?.zoneType === 'itinerary_geofence' ||
+      f.category === 'Tourist Destination' ||
+      f.category === 'Itinerary Geofence' ||
+      f.metadata?.sourceType === 'itinerary'
     ).length;
 
     setDangerZoneCount(danger);

@@ -186,9 +186,11 @@ export default function OnboardingPage3({
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 89,
+    flex: 1,
+    justifyContent: "center",
     paddingHorizontal: 16,
     alignItems: "stretch",
+    backgroundColor: "#FFFFFF",
   },
   textBlock: {
     width: "100%",
@@ -229,10 +231,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    ...Platform.select({
-      ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6 },
-      android: { elevation: 1 },
-    }),
   },
   cardDefault: {
     backgroundColor: "#FFFFFF",

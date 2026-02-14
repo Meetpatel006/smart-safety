@@ -104,6 +104,7 @@ export default function DashboardScreen({ navigation }: any) {
         startDate,
         returnDate: endDate,
         touristId: state.user?.touristId || "unknown",
+        initialItinerary: groupData.itinerary || [],
       });
     }
   };

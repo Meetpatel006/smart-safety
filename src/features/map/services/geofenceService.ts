@@ -46,30 +46,41 @@ const TRANSITION_COOLDOWN_MS = 10_000
 // Track current primary fence for consumers that need risk context
 let currentPrimary: GeoFence | null = null
 
-export async function loadFences(userLat?: number, userLng?: number): Promise<GeoFence[]> {
+export async function loadFences(userLat?: number, userLng?: number, userId?: string): Promise<GeoFence[]> {
   try {
-    // Try cached fences first for faster startup
-    const cached = await loadCachedFences()
-    if (cached && cached.length > 0) {
-      fences = cached
-      states = {}
-      fences.forEach(f => { states[f.id] = 'outside' })
-      // Still try to refresh from server in background
-      refreshFromServer(userLat, userLng)
-      return fences
+    console.log('🔍 loadFences called with userId:', userId)
+    
+    // If userId is provided, skip cache and fetch fresh from server
+    // This ensures user gets their personal itinerary geofences immediately
+    const shouldBypassCache = !!userId
+    
+    if (!shouldBypassCache) {
+      // Try cached fences first for faster startup (only when no userId)
+      const cached = await loadCachedFences()
+      if (cached && cached.length > 0) {
+        fences = cached
+        states = {}
+        fences.forEach(f => { states[f.id] = 'outside' })
+        // Still try to refresh from server in background
+        console.log('📦 Using cached fences, refreshing from server in background')
+        refreshFromServer(userLat, userLng, userId)
+        return fences
+      }
+    } else {
+      console.log('⏩ Bypassing cache to fetch fresh data with userId:', userId)
     }
 
     // Try server API first
     try {
-      console.log('Fetching geofences from server...')
-      const serverFences = await fetchDynamicGeofences(userLat, userLng)
+      console.log('🌐 Fetching geofences from server with userId:', userId)
+      const serverFences = await fetchDynamicGeofences(userLat, userLng, 5000, userId)
       if (serverFences && serverFences.length > 0) {
         fences = serverFences
         states = {}
         fences.forEach(f => { states[f.id] = 'outside' })
         // Cache for offline use
         try { await saveFences(fences) } catch (e) { /* ignore */ }
-        console.log(`Loaded ${fences.length} geofences from server`)
+        console.log(`✅ Loaded ${fences.length} geofences from server`)
         return fences
       }
     } catch (serverError) {
@@ -109,9 +120,9 @@ export async function loadFences(userLat?: number, userLng?: number): Promise<Ge
 }
 
 // Background refresh from server (non-blocking)
-async function refreshFromServer(userLat?: number, userLng?: number) {
+async function refreshFromServer(userLat?: number, userLng?: number, userId?: string) {
   try {
-    const serverFences = await fetchDynamicGeofences(userLat, userLng)
+    const serverFences = await fetchDynamicGeofences(userLat, userLng, 5000, userId)
     if (serverFences && serverFences.length > 0) {
       fences = serverFences
       states = {}

@@ -205,7 +205,51 @@ function MainTabs() {
           ),
         }}
       />
-      {isTourAdmin ? (
+      <Tab.Screen
+        name="Itinerary"
+        component={ItineraryScreen}
+        options={{
+          tabBarIcon: ({ focused, color }) => (
+            <View
+              style={{
+                alignItems: "center",
+                justifyContent: "center",
+                height: 60,
+              }}
+            >
+              <ItineraryIcon
+                color={focused ? activeColor : inactiveColor}
+                size={26}
+                filled={focused}
+              />
+              {focused && (
+                <>
+                  <Text
+                    style={{
+                      color: activeColor,
+                      fontSize: 10,
+                      marginTop: 2,
+                      fontWeight: "600",
+                    }}
+                  >
+                    Itinerary
+                  </Text>
+                  <View
+                    style={{
+                      width: 6,
+                      height: 6,
+                      borderRadius: 3,
+                      backgroundColor: activeColor,
+                      marginTop: 3,
+                    }}
+                  />
+                </>
+              )}
+            </View>
+          ),
+        }}
+      />
+      {isTourAdmin && (
         <Tab.Screen
           name="People"
           component={PeopleScreen}
@@ -234,51 +278,6 @@ function MainTabs() {
                       }}
                     >
                       People
-                    </Text>
-                    <View
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: activeColor,
-                        marginTop: 3,
-                      }}
-                    />
-                  </>
-                )}
-              </View>
-            ),
-          }}
-        />
-      ) : (
-        <Tab.Screen
-          name="Itinerary"
-          component={ItineraryScreen}
-          options={{
-            tabBarIcon: ({ focused, color }) => (
-              <View
-                style={{
-                  alignItems: "center",
-                  justifyContent: "center",
-                  height: 60,
-                }}
-              >
-                <ItineraryIcon
-                  color={focused ? activeColor : inactiveColor}
-                  size={26}
-                  filled={focused}
-                />
-                {focused && (
-                  <>
-                    <Text
-                      style={{
-                        color: activeColor,
-                        fontSize: 10,
-                        marginTop: 2,
-                        fontWeight: "600",
-                      }}
-                    >
-                      Itinerary
                     </Text>
                     <View
                       style={{

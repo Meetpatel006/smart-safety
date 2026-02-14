@@ -384,22 +384,22 @@ export async function fetchWeatherWithFailover(
   try {
     console.log('[WeatherAPI] Attempting Open-Meteo (primary)...');
     const result = await fetchOpenMeteo(latitude, longitude);
-    console.log('[WeatherAPI] ✅ Success with Open-Meteo');
+    console.log('[WeatherAPI] Success with Open-Meteo');
     return result;
   } catch (error: any) {
     errors.push({ provider: 'Open-Meteo', error });
-    console.warn('[WeatherAPI] ⚠️ Open-Meteo failed, trying backup...');
+    console.warn('[WeatherAPI] Open-Meteo failed, trying backup...');
   }
 
   // Try WeatherAPI.com second (Backup)
   try {
     console.log('[WeatherAPI] Attempting WeatherAPI.com (backup)...');
     const result = await fetchWeatherAPI(latitude, longitude);
-    console.log('[WeatherAPI] ✅ Success with WeatherAPI.com');
+    console.log('[WeatherAPI] Success with WeatherAPI.com');
     return result;
   } catch (error: any) {
     errors.push({ provider: 'WeatherAPI.com', error });
-    console.warn('[WeatherAPI] ⚠️ WeatherAPI.com failed.');
+    console.warn('[WeatherAPI] WeatherAPI.com failed.');
   }
 
   // OpenWeatherMap disabled - API key invalid
@@ -414,7 +414,7 @@ export async function fetchWeatherWithFailover(
   // }
 
   // All providers failed
-  console.error('[WeatherAPI] ❌ All weather providers failed:', errors);
+  console.error('[WeatherAPI] All weather providers failed:', errors);
   
   const errorMessages = errors.map(e => `${e.provider}: ${e.error.message}`).join('; ');
   throw new Error(`All weather providers failed: ${errorMessages}`);

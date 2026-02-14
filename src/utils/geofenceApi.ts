@@ -74,6 +74,30 @@ export interface AllZonesStyledResponse {
   geofences: GeofenceDestination[]
 }
 
+function getDateKeyInTimezone(input: Date, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  }).formatToParts(input)
+
+  const year = parts.find(p => p.type === 'year')?.value || '0000'
+  const month = parts.find(p => p.type === 'month')?.value || '01'
+  const day = parts.find(p => p.type === 'day')?.value || '01'
+  return `${year}-${month}-${day}`
+}
+
+function isScheduledForToday(scheduledDate: any, timeZone: string): boolean {
+  if (!scheduledDate) return false
+  const parsed = new Date(scheduledDate)
+  if (Number.isNaN(parsed.getTime())) return false
+
+  const todayKey = getDateKeyInTimezone(new Date(), timeZone)
+  const scheduledKey = getDateKeyInTimezone(parsed, timeZone)
+  return scheduledKey === todayKey
+}
+
 /**
  * Convert backend DangerZone to app GeoFence format
  */
@@ -129,7 +153,7 @@ function riskGridToGeoFence(grid: RiskGrid): GeoFence {
 /**
  * Convert backend GeofenceDestination to app GeoFence format
  */
-function geofenceDestinationToGeoFence(fence: GeofenceDestination): GeoFence {
+function geofenceDestinationToGeoFence(fence: any): GeoFence {
   const id = fence._id || `geofence-${Date.now()}-${Math.random()}`
   
   return {
@@ -138,14 +162,23 @@ function geofenceDestinationToGeoFence(fence: GeofenceDestination): GeoFence {
     type: fence.type || 'circle',
     coords: fence.coords,
     radiusKm: fence.radiusKm,
-    category: 'Tourist Destination',
+    category: fence.sourceType === 'itinerary' ? 'Itinerary Geofence' : 'Tourist Destination',
     riskLevel: 'Low',
-    source: 'server',
+    source: fence.sourceType || 'server',
     metadata: {
       destination: fence.destination,
       alertMessage: fence.alertMessage,
       isActive: fence.isActive,
-      polygonCoords: fence.polygonCoords
+      polygonCoords: fence.polygonCoords,
+      // Preserve itinerary-specific fields
+      sourceType: fence.sourceType,
+      ownerId: fence.ownerId,
+      ownerType: fence.ownerType,
+      dayNumber: fence.dayNumber,
+      scheduledDate: fence.scheduledDate,
+      activityNodeName: fence.activityNodeName,
+      activityNodeType: fence.activityNodeType,
+      expiresAt: fence.expiresAt
     },
     visualStyle: fence.visualStyle
   }
@@ -153,16 +186,24 @@ function geofenceDestinationToGeoFence(fence: GeofenceDestination): GeoFence {
 
 /**
  * Fetch all zones with styling from server
+ * @param lat - User latitude (optional, not used in current implementation)
+ * @param lng - User longitude (optional, not used in current implementation)
+ * @param radius - Radius in meters (optional, not used in current implementation)
+ * @param userId - User ID to fetch personal itinerary geofences (optional)
  * @returns Array of GeoFence objects (merged from all three zone types)
  */
 export async function fetchDynamicGeofences(
   lat?: number,
   lng?: number,
-  radius: number = 5000
+  radius: number = 5000,
+  userId?: string
 ): Promise<GeoFence[]> {
   try {
-    // Build URL for new styled zones endpoint
-    const url = `${SERVER_URL}/api/geofence/all-zones-styled`
+    // Build URL for new styled zones endpoint with optional userId query parameter
+    let url = `${SERVER_URL}/api/geofence/all-zones-styled`
+    if (userId) {
+      url += `?userId=${encodeURIComponent(userId)}`
+    }
 
     console.log('Fetching styled geofences from:', url)
 
@@ -198,13 +239,37 @@ export async function fetchDynamicGeofences(
       ? data.geofences.filter(fence => fence && fence.name).map(geofenceDestinationToGeoFence)
       : []
 
-    // Merge all zones with priority order (danger zones first, then grids, then geofences)
-    const allZones = [...dangerZones, ...riskGrids, ...geofences]
+    // Day-wise filtering for itinerary geofences (show only current day in IST)
+    const itineraryGeofences = geofences.filter((f: any) => f?.metadata?.sourceType === 'itinerary')
+    const staticGeofences = geofences.filter((f: any) => f?.metadata?.sourceType !== 'itinerary')
+    const todayItineraryGeofences = itineraryGeofences.filter((f: any) =>
+      isScheduledForToday(f?.metadata?.scheduledDate, 'Asia/Kolkata')
+    )
 
+    // Keep itinerary fences without a scheduled date as fallback to avoid accidental hiding
+    const undatedItineraryGeofences = itineraryGeofences.filter((f: any) => !f?.metadata?.scheduledDate)
+    const filteredGeofences = [...staticGeofences, ...todayItineraryGeofences, ...undatedItineraryGeofences]
+
+    // Merge all zones with priority order (danger zones first, then grids, then geofences)
+    const allZones = [...dangerZones, ...riskGrids, ...filteredGeofences]
+
+    // Log itinerary geofences separately for debugging
+    const itineraryGeofencesFromApi = data.geofences?.filter((f: any) => f.sourceType === 'itinerary') || []
+    
     console.log(`Loaded ${allZones.length} total zones from server:`)
     console.log(`  - ${dangerZones.length} danger zones`)
     console.log(`  - ${riskGrids.length} risk grids`)
-    console.log(`  - ${geofences.length} geofences`)
+    console.log(`  - ${filteredGeofences.length} geofences (after day-wise filtering)`)
+    if (itineraryGeofencesFromApi.length > 0) {
+      console.log(`  - ${itineraryGeofencesFromApi.length} itinerary geofences from API`)
+      console.log(`  - ${todayItineraryGeofences.length} itinerary geofences for today`)
+      // Group by day for better visibility
+      const byDay: Record<number, number> = {}
+      itineraryGeofencesFromApi.forEach((f: any) => {
+        byDay[f.dayNumber] = (byDay[f.dayNumber] || 0) + 1
+      })
+      console.log(`    API breakdown by day:`, byDay)
+    }
 
     return allZones
   } catch (error: any) {

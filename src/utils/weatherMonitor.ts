@@ -69,11 +69,11 @@ export function logProviderHealth(): void {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   
   metrics.forEach((metric, index) => {
-    const statusEmoji = 
-      metric.status === 'healthy' ? '✅' :
-      metric.status === 'degraded' ? '⚠️' : '❌';
-    
-    console.log(`${statusEmoji} ${metric.name}`);
+    const statusTag =
+      metric.status === 'healthy' ? 'OK' :
+      metric.status === 'degraded' ? 'WARN' : 'DOWN';
+
+    console.log(`[${statusTag}] ${metric.name}`);
     console.log(`   Status: ${metric.status.toUpperCase()}`);
     console.log(`   Error Rate: ${metric.errorRate}%`);
     console.log(`   Consecutive Errors: ${metric.consecutiveErrors}`);
@@ -196,14 +196,14 @@ export function getPrometheusMetrics(): string {
 export function logProviderHealthRN(): string {
   const metrics = getProviderHealth();
   
-  let output = '\n━━━ WEATHER PROVIDER HEALTH ━━━\n\n';
+  let output = '\n--- WEATHER PROVIDER HEALTH ---\n\n';
   
   metrics.forEach(metric => {
-    const statusEmoji = 
-      metric.status === 'healthy' ? '✅' :
-      metric.status === 'degraded' ? '⚠️' : '❌';
-    
-    output += `${statusEmoji} ${metric.name}\n`;
+    const statusTag =
+      metric.status === 'healthy' ? 'OK' :
+      metric.status === 'degraded' ? 'WARN' : 'DOWN';
+
+    output += `[${statusTag}] ${metric.name}\n`;
     output += `  Status: ${metric.status.toUpperCase()}\n`;
     output += `  Error Rate: ${metric.errorRate}%\n`;
     output += `  Consecutive Errors: ${metric.consecutiveErrors}\n`;

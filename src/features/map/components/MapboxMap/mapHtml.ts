@@ -57,6 +57,78 @@ export const generateMapHTML = (accessToken?: string): string => {
             100% { transform: scale(2.5); opacity: 0; }
           }
 
+                    /* Waypoint markers for itinerary steps */
+                    .wp-marker {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        width: 32px;
+                        height: 32px;
+                        transform: translateZ(0);
+                    }
+
+                    .wp-pin {
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 999px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #fff;
+                        font-weight: 700;
+                        font-size: 12px;
+                        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.24);
+                        border: 2px solid #fff;
+                    }
+
+                    .wp-start { background: #16a34a; }
+                    .wp-end { background: #dc2626; }
+                    .wp-stop {
+                        background: #2563eb;
+                        color: #ffffff;
+                    }
+
+                    .lucide-pin-marker {
+                        width: 34px;
+                        height: 34px;
+                        position: relative;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                    }
+
+                    .lucide-pin-marker svg {
+                        width: 34px;
+                        height: 34px;
+                    }
+
+                    .lucide-pin-text {
+                        position: absolute;
+                        top: 9px;
+                        left: 50%;
+                        transform: translateX(-50%);
+                        font-size: 10px;
+                        font-weight: 700;
+                        color: #ffffff;
+                        line-height: 1;
+                        pointer-events: none;
+                    }
+
+                    .destination-marker-fallback {
+                        width: 30px;
+                        height: 30px;
+                        border-radius: 999px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        color: #fff;
+                        background: #dc2626;
+                        border: 2px solid #fff;
+                        font-weight: 700;
+                        font-size: 12px;
+                        box-shadow: 0 2px 6px rgba(15, 23, 42, 0.24);
+                    }
+
           /* Legend Styles */
           /* Legend styles removed - now using React Native bottom sheet */
 
@@ -259,6 +331,9 @@ export const generateMapHTML = (accessToken?: string): string => {
            let userMarker = null;
            let userMarkerEl = null;
            let destinationMarker = null;
+           let waypointMarkers = [];
+           let currentWaypoints = [];
+           let userAccuracySourceId = 'user-accuracy';
 
            // Store route data to handle clicks
            let currentRoutesData = [];
@@ -294,6 +369,37 @@ export const generateMapHTML = (accessToken?: string): string => {
 
               // Setup Route Handlers
               setupRouteLayers();
+
+                            // Accuracy source/layer for user location
+                            if (!map.getSource(userAccuracySourceId)) {
+                                map.addSource(userAccuracySourceId, {
+                                    type: 'geojson',
+                                    data: { type: 'FeatureCollection', features: [] }
+                                });
+                            }
+                            if (!map.getLayer('user-accuracy-fill')) {
+                                map.addLayer({
+                                    id: 'user-accuracy-fill',
+                                    type: 'fill',
+                                    source: userAccuracySourceId,
+                                    paint: {
+                                        'fill-color': '#60a5fa',
+                                        'fill-opacity': 0.18
+                                    }
+                                });
+                            }
+                            if (!map.getLayer('user-accuracy-line')) {
+                                map.addLayer({
+                                    id: 'user-accuracy-line',
+                                    type: 'line',
+                                    source: userAccuracySourceId,
+                                    paint: {
+                                        'line-color': '#3b82f6',
+                                        'line-width': 1.5,
+                                        'line-opacity': 0.45,
+                                    }
+                                });
+                            }
           });
 
           // Create SVG patterns for different fill styles
@@ -688,13 +794,17 @@ export const generateMapHTML = (accessToken?: string): string => {
           
           // Create geofence popup content
           function createGeofencePopup(zone) {
+              const isItinerary = zone.sourceType === 'itinerary' || !!zone.activityNodeName;
+              const zoneTypeLabel = isItinerary ? 'Itinerary Safe Zone' : 'Geofence';
               return \`
                   <div style="min-width: 200px;">
                       <div style="font-weight: 600; font-size: 14px; margin-bottom: 8px; color: #333;">🛡️ \${zone.name || 'Geofence'}</div>
-                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> Geofence</div>
+                      <div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Type:</strong> \${zoneTypeLabel}</div>
                       \${zone.destination ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Destination:</strong> ' + zone.destination + '</div>' : ''}
+                      \${zone.activityNodeName ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Activity:</strong> ' + zone.activityNodeName + '</div>' : ''}
+                      \${zone.dayNumber ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Day:</strong> ' + zone.dayNumber + '</div>' : ''}
                       \${zone.alertMessage ? '<div style="font-size: 12px; color: #666; margin: 4px 0;"><strong>Alert:</strong> ' + zone.alertMessage + '</div>' : ''}
-                      <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; background: #dbeafe; color: #1e40af;">Safe Zone</div>
+                      <div style="display: inline-block; padding: 4px 10px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-top: 8px; \${isItinerary ? 'background: #dcfce7; color: #166534;' : 'background: #dbeafe; color: #1e40af;'}">\${isItinerary ? 'Itinerary Zone' : 'Safe Zone'}</div>
                   </div>
               \`;
           }
@@ -781,6 +891,7 @@ export const generateMapHTML = (accessToken?: string): string => {
                                 
                                 if (currentRoutesData.length > 0) {
                                     renderRoutes(currentRoutesData, 0, 'driving');
+                                    renderWaypoints(currentWaypoints);
                                 }
                                 
                                 if (userLocation) {
@@ -793,9 +904,13 @@ export const generateMapHTML = (accessToken?: string): string => {
                         // Handle both old single route format and new multi-route format
                         if (data.route) {
                            // Single route legacy support
-                           renderRoutes([data.route], 0, 'driving');
+                                    currentWaypoints = data.waypoints || [];
+                                    renderRoutes([data.route], 0, 'driving');
+                                    renderWaypoints(currentWaypoints);
                         } else if (data.routes) {
-                           renderRoutes(data.routes, data.selectedIndex || 0, data.profile || 'driving');
+                                    currentWaypoints = data.waypoints || [];
+                                    renderRoutes(data.routes, data.selectedIndex || 0, data.profile || 'driving');
+                                    renderWaypoints(currentWaypoints);
                         }
                         break;
                     case 'clearRoute':
@@ -840,11 +955,16 @@ export const generateMapHTML = (accessToken?: string): string => {
               // Center on the selected route
               const selectedFeature = features[selectedIndex] || features[0];
               const bbox = turf.bbox(selectedFeature);
-              map.fitBounds(bbox, { padding: 100 });
+              map.fitBounds(bbox, {
+                  padding: { top: 130, right: 90, bottom: 170, left: 110 },
+                  duration: 700
+              });
 
-              // Add Destination Marker at end of selected route
-              const endCoord = selectedFeature.geometry.coordinates[selectedFeature.geometry.coordinates.length - 1];
-              addDestinationMarker(endCoord);
+                            // Add Destination Marker at end of selected route only if no explicit waypoints/end marker
+                            if (!currentWaypoints || currentWaypoints.length === 0) {
+                                const endCoord = selectedFeature.geometry.coordinates[selectedFeature.geometry.coordinates.length - 1];
+                                addDestinationMarker(endCoord);
+                            }
 
               // 2. Add Sources/Layers
               // We use one source
@@ -858,7 +978,7 @@ export const generateMapHTML = (accessToken?: string): string => {
                   });
               }
 
-              // LAYER 1: Inactive Routes (Grey, thinner)
+              // LAYER 1: Inactive routes (muted so active day route is clearly readable)
               if (!map.getLayer('route-inactive')) {
                   map.addLayer({
                       id: 'route-inactive',
@@ -870,9 +990,14 @@ export const generateMapHTML = (accessToken?: string): string => {
                           'line-cap': 'round'
                       },
                       paint: {
-                          'line-color': '#9ca3af', // gray-400
-                          'line-width': 5,
-                          'line-opacity': 0.8
+                          'line-color': '#cbd5e1',
+                          'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            8, 3,
+                            12, 4,
+                            16, 5
+                          ],
+                          'line-opacity': 0.55
                       }
                   });
               }
@@ -893,9 +1018,29 @@ export const generateMapHTML = (accessToken?: string): string => {
                   });
               }
 
-              // LAYER 2: Active Route Casing (White border)
-              const dashArray = profile === 'walking' ? [2, 1] : [1, 0]; // [1,0] is solid
+              // LAYER 2: Active route glow (subtle, improves contrast without clutter)
+              if (!map.getLayer('route-active-glow')) {
+                  map.addLayer({
+                      id: 'route-active-glow',
+                      type: 'line',
+                      source: sourceId,
+                      filter: ['==', 'isActive', true],
+                      layout: { 'line-join': 'round', 'line-cap': 'round' },
+                      paint: {
+                          'line-color': '#38bdf8',
+                          'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            8, 10,
+                            12, 13,
+                            16, 17
+                          ],
+                          'line-opacity': 0.2,
+                          'line-blur': 1.6
+                      }
+                  });
+              }
 
+              // LAYER 3: Active route casing (clean edge)
               if (!map.getLayer('route-active-casing')) {
                   map.addLayer({
                       id: 'route-active-casing',
@@ -905,13 +1050,18 @@ export const generateMapHTML = (accessToken?: string): string => {
                       layout: { 'line-join': 'round', 'line-cap': 'round' },
                       paint: {
                           'line-color': '#ffffff',
-                          'line-width': 8,
-                          'line-opacity': 0.8
+                          'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            8, 6,
+                            12, 8,
+                            16, 10
+                          ],
+                          'line-opacity': 0.96
                       }
                   });
               }
 
-              // LAYER 3: Active Route Line (Blue)
+              // LAYER 4: Active route line
               if (!map.getLayer('route-active-line')) {
                   map.addLayer({
                       id: 'route-active-line',
@@ -920,21 +1070,24 @@ export const generateMapHTML = (accessToken?: string): string => {
                       filter: ['==', 'isActive', true],
                       layout: { 'line-join': 'round', 'line-cap': 'round' },
                       paint: {
-                          'line-color': '#3b82f6', // blue-500
-                          'line-width': 5,
-                          'line-opacity': 0.9,
-                          'line-dasharray': profile === 'walking' ? [2, 2] : [1, 0]
+                          'line-color': profile === 'walking' ? '#0ea5e9' : '#2563eb',
+                          'line-width': [
+                            'interpolate', ['linear'], ['zoom'],
+                            8, 3.5,
+                            12, 5,
+                            16, 6
+                          ],
+                          'line-opacity': 0.98,
+                          'line-dasharray': profile === 'walking' ? [1, 1.8] : [1, 0]
                       }
                   });
               } else {
-                 // Update paint property for dash array dynamic change
-                 map.setPaintProperty('route-active-line', 'line-dasharray', profile === 'walking' ? [2, 2] : [1, 0]);
+                 // Keep style in sync when profile changes
+                 map.setPaintProperty('route-active-line', 'line-color', profile === 'walking' ? '#0ea5e9' : '#2563eb');
+                 map.setPaintProperty('route-active-line', 'line-dasharray', profile === 'walking' ? [1, 1.8] : [1, 0]);
               }
 
-              // LAYER 4: Arrows (Symbol)
-              // We need an arrow icon available in the sprite or an image
-              // Since we didn't confirm sprite, we can use a built-in symbol or simple line pattern if tricky.
-              // For now, let's try 'triangle-15' which is standard or skip if unavailable.
+              // LAYER 5: Direction arrows
               if (!map.getLayer('route-arrows')) {
                   map.addLayer({
                       id: 'route-arrows',
@@ -943,19 +1096,59 @@ export const generateMapHTML = (accessToken?: string): string => {
                       filter: ['==', 'isActive', true],
                       layout: {
                           'symbol-placement': 'line',
-                          'symbol-spacing': 100,
-                          'text-field': '▶', // Simple unicode arrow backup
-                          'text-size': 20,
+                          'symbol-spacing': 72,
+                          'text-field': '➤',
+                          'text-size': 13,
                           'text-keep-upright': false,
                           'text-rotation-alignment': 'map'
                       },
                       paint: {
-                          'text-color': '#2563eb', // Darker blue
+                          'text-color': '#1d4ed8',
                           'text-halo-color': '#ffffff',
-                          'text-halo-width': 2
+                          'text-halo-width': 1.5
                       }
                   });
               }
+          }
+
+          function renderWaypoints(waypoints) {
+              // Clear previous markers
+              waypointMarkers.forEach(m => m.remove());
+              waypointMarkers = [];
+
+              if (!Array.isArray(waypoints) || waypoints.length === 0) return;
+
+              waypoints.forEach((wp) => {
+                  if (!Number.isFinite(wp?.longitude) || !Number.isFinite(wp?.latitude)) return;
+
+                  let el;
+                  let markerOptions = { anchor: 'center' };
+                  if (wp.kind === 'start' || wp.kind === 'end') {
+                      el = createLucidePinMarker(wp.kind, wp.kind === 'start' ? 'S' : 'E');
+                      markerOptions = { anchor: 'bottom', offset: [0, 2] };
+                  } else {
+                      el = document.createElement('div');
+                      el.className = 'wp-marker';
+
+                      const pin = document.createElement('div');
+                      pin.className = 'wp-pin wp-stop';
+                      pin.textContent = wp.label || '';
+
+                      el.appendChild(pin);
+                  }
+
+                  const marker = new mapboxgl.Marker({ element: el, ...markerOptions })
+                    .setLngLat([wp.longitude, wp.latitude])
+                    .addTo(map);
+
+                  waypointMarkers.push(marker);
+              });
+
+                            // If waypoints include an explicit end, drop destinationMarker to avoid duplicate red pins
+                            if (waypoints.some(wp => wp.kind === 'end') && destinationMarker) {
+                                destinationMarker.remove();
+                                destinationMarker = null;
+                            }
           }
 
           function clearRoutes() {
@@ -967,23 +1160,29 @@ export const generateMapHTML = (accessToken?: string): string => {
                   destinationMarker.remove();
                   destinationMarker = null;
               }
+              waypointMarkers.forEach(m => m.remove());
+              waypointMarkers = [];
+          }
+
+          function createLucidePinMarker(kind, text) {
+             const color = kind === 'start' ? '#16a34a' : '#dc2626';
+             const el = document.createElement('div');
+             el.className = 'lucide-pin-marker';
+             el.innerHTML =
+               '<svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">' +
+                 '<path d="M20 10c0 6-8 12-8 12S4 16 4 10a8 8 0 1 1 16 0Z" stroke="' + color + '" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="' + color + '"/>' +
+                 '<circle cx="12" cy="10" r="3" fill="#ffffff"/>' +
+               '</svg>' +
+               '<span class="lucide-pin-text">' + (text || '') + '</span>';
+             return el;
           }
           
           function addDestinationMarker(lngLat) {
              if (destinationMarker) destinationMarker.remove();
              
-             // Create a Red Pin DOM element
-             const el = document.createElement('div');
-             el.className = 'destination-marker';
-             el.style.width = '24px';
-             el.style.height = '24px';
-             el.style.backgroundColor = '#ef4444'; // Red-500
-             el.style.borderRadius = '50% 50% 0 50%';
-             el.style.transform = 'rotate(45deg)';
-             el.style.border = '2px solid white';
-             el.style.boxShadow = '1px 1px 4px rgba(0,0,0,0.4)';
+             const el = createLucidePinMarker('end', 'E');
              
-             destinationMarker = new mapboxgl.Marker(el)
+             destinationMarker = new mapboxgl.Marker({ element: el, anchor: 'bottom', offset: [0, 2] })
                 .setLngLat(lngLat)
                 .addTo(map);
           }
@@ -1017,6 +1216,18 @@ export const generateMapHTML = (accessToken?: string): string => {
               if (isFirstLoad) {
                 map.flyTo({ center: [lng, lat], zoom: zoom || 14 });
               }
+
+                            // Update accuracy ring if we have accuracy in meters
+                            try {
+                                const accMeters = Number.isFinite(accuracy) ? Math.max(accuracy, 10) : 50;
+                                const circle = turf.circle([lng, lat], accMeters / 1000, { steps: 64, units: 'kilometers' });
+                                const src = map.getSource(userAccuracySourceId);
+                                if (src) {
+                                    src.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', geometry: circle.geometry, properties: {} }] });
+                                }
+                            } catch (e) {
+                                console.warn('accuracy ring update failed', e);
+                            }
           }
 
           // --- GEOFENCE FUNCTIONS (Kept from original logic) ---
@@ -1037,13 +1248,17 @@ export const generateMapHTML = (accessToken?: string): string => {
                    f.category === 'Risk Grid'
                );
                const geofencesDestinations = fences.filter(f => 
-                   f.visualStyle?.zoneType === 'geofence' || 
-                   f.category === 'Tourist Destination'
+                   f.visualStyle?.zoneType === 'geofence' ||
+                   f.visualStyle?.zoneType === 'itinerary_geofence' ||
+                   f.category === 'Tourist Destination' ||
+                   f.category === 'Itinerary Geofence' ||
+                   f.metadata?.sourceType === 'itinerary'
                );
                const otherZones = fences.filter(f => 
                    !f.visualStyle?.zoneType && 
                    f.category !== 'Risk Grid' && 
                    f.category !== 'Tourist Destination' &&
+                   f.category !== 'Itinerary Geofence' &&
                    (!f.category || !f.category.toLowerCase().includes('danger'))
                );
                
@@ -1181,6 +1396,10 @@ export const generateMapHTML = (accessToken?: string): string => {
                                riskLevel: fence.riskLevel,
                                destination: metadata.destination,
                                alertMessage: metadata.alertMessage,
+                               sourceType: metadata.sourceType,
+                               dayNumber: metadata.dayNumber,
+                               scheduledDate: metadata.scheduledDate,
+                               activityNodeName: metadata.activityNodeName,
                                centerLat: center[0],
                                centerLng: center[1]
                            }

@@ -80,6 +80,7 @@ export default function ItineraryScreen({ navigation }: any) {
         startDate,
         returnDate: endDate,
         touristId: state.user?.touristId || 'unknown',
+        initialItinerary: groupData.itinerary || [],
       })
     }
   }

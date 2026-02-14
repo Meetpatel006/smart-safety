@@ -90,8 +90,8 @@ const styles = StyleSheet.create({
         position: 'absolute',
         right: 14,
         bottom: 100,
-        zIndex: 999,
-        elevation: 999,
+        zIndex: 10,
+        elevation: 10,
         gap: 14,
     },
     buttonGroup: {

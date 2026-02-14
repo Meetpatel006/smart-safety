@@ -303,16 +303,26 @@ export default function PanicActions({
           ...state.contacts.map((c) => c.phone),
         ].filter(Boolean);
         if (recipients.length) {
+          const message = buildSmsMessage(label);
+          console.log('[PanicActions] Sending SOS SMS', {
+            recipientsCount: recipients.length,
+            firstRecipient: recipients[0],
+          });
           const smsRes = await sendSMS({
             recipients,
-            message: buildSmsMessage(label),
+            message,
           });
-          if (!smsRes.ok)
+          console.log('[PanicActions] SMS send result', smsRes);
+          if (!smsRes.ok) {
+            console.log('[PanicActions] SMS send failed, queueing for retry');
             await queueSMS({
-              payload: { recipients, message: buildSmsMessage(label) },
+              payload: { recipients, message },
             });
+          }
         }
-      } catch (e) {}
+      } catch (e) {
+        console.warn('[PanicActions] SMS send threw', e);
+      }
 
       setSnack({ visible: true, msg: "Alert sent: " + label });
       if (onSOSTriggered) onSOSTriggered();

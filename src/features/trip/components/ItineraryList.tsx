@@ -242,31 +242,53 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       return start;
     };
 
-    const isUpcoming = (dateString: string) => {
-      if (!dateString) return false;
-      const tripDate = new Date(dateString);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      return tripDate >= today;
+    const getTripDateRange = (trip: { date?: string; dayWiseItinerary?: any[] }) => {
+      const startDate = trip.date ? new Date(trip.date) : null;
+      const endDate = trip.dayWiseItinerary && trip.dayWiseItinerary.length > 0
+        ? new Date(trip.dayWiseItinerary[trip.dayWiseItinerary.length - 1].date)
+        : startDate;
+
+      return { startDate, endDate };
     };
 
-    const isPast = (dateString: string) => {
-      if (!dateString) return false;
-      const tripDate = new Date(dateString);
+    const isUpcoming = (trip: { date?: string; dayWiseItinerary?: any[] }) => {
+      const { startDate, endDate } = getTripDateRange(trip);
+      if (!startDate) return false;
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      return tripDate < today;
+
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
+
+      const end = endDate ? new Date(endDate) : start;
+      end.setHours(23, 59, 59, 999);
+
+      return today <= end;
     };
 
-    const getStatus = (dateString: string): "upcoming" | "completed" => {
-      return isUpcoming(dateString) ? "upcoming" : "completed";
+    const isPast = (trip: { date?: string; dayWiseItinerary?: any[] }) => {
+      const { endDate } = getTripDateRange(trip);
+      if (!endDate) return false;
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+
+      return end < today;
+    };
+
+    const getStatus = (trip: { date?: string; dayWiseItinerary?: any[] }): "upcoming" | "completed" => {
+      return isUpcoming(trip) ? "upcoming" : "completed";
     };
 
     // Filter trips based on active filter
     const filteredTrips = state.trips.filter((trip) => {
       if (filter === "all") return true;
-      if (filter === "upcoming") return isUpcoming(trip.date);
-      if (filter === "completed") return isPast(trip.date);
+      if (filter === "upcoming") return isUpcoming(trip);
+      if (filter === "completed") return isPast(trip);
       return true;
     });
 
@@ -292,7 +314,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
         }>;
       }>;
     }) => {
-      const status = getStatus(trip.date);
+      const status = getStatus(trip);
       const imageUrl = getImageForDestination(trip.title);
 
       return (
@@ -345,7 +367,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
               <View style={styles.progressHeader}>
                 <Text style={styles.progressLabel}>PROGRESS</Text>
                 <Text style={styles.daysLeft}>
-                  {isUpcoming(trip.date) ? "Upcoming" : "Completed"}
+                  {isUpcoming(trip) ? "Upcoming" : "Completed"}
                 </Text>
               </View>
               <Text style={styles.progressText}>
@@ -355,7 +377,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                 <View
                   style={[
                     styles.progressFill,
-                    { width: isPast(trip.date) ? "100%" : "70%" },
+                    { width: isPast(trip) ? "100%" : "70%" },
                   ]}
                 />
               </View>
@@ -697,10 +719,10 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
             contentContainerStyle={styles.listContent}
           >
             {filteredTrips
-              .filter((t) => isUpcoming(t.date))
+              .filter((t) => isUpcoming(t))
               .map(renderTripCard)}
 
-            {filteredTrips.some((t) => !isUpcoming(t.date)) && (
+            {filteredTrips.some((t) => !isUpcoming(t)) && (
               <View style={styles.historySection}>
                 <TouchableOpacity
                   style={styles.historyHeader}
@@ -708,7 +730,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
                 >
                   <Text style={styles.historyTitle}>
                     Past Trips (
-                    {filteredTrips.filter((t) => !isUpcoming(t.date)).length})
+                    {filteredTrips.filter((t) => !isUpcoming(t)).length})
                   </Text>
                   <MaterialCommunityIcons
                     name={showHistory ? "chevron-down" : "chevron-right"}
@@ -719,7 +741,7 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
 
                 {showHistory &&
                   filteredTrips
-                    .filter((t) => !isUpcoming(t.date))
+                    .filter((t) => !isUpcoming(t))
                     .map((trip) => (
                       <View key={trip.id} style={styles.historyCard}>
                         <Image

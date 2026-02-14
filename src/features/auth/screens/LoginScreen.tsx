@@ -89,14 +89,21 @@ export default function LoginScreen({ navigation, route }: any) {
         >
           {/* Header Section */}
           <View style={styles.header}>
-            <Text style={styles.title}>Welcome Back</Text>
-            <Text style={styles.subtitle}>Welcome Back to smart safety app</Text>
+            <Text style={styles.title}>Welcome back</Text>
+            {role && (
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>
+                  {role === 'solo' ? 'Solo Traveler' : role === 'group-member' ? 'Group Member' : role === 'tour-admin' ? 'Tour Admin' : role}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.subtitle}>Sign in to continue to Smart Safety.</Text>
           </View>
 
           {/* Form Section */}
           <View style={styles.formContainer}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>E-mail</Text>
+              <Text style={styles.label}>Email</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
                   ref={emailInputRef}
@@ -175,23 +182,7 @@ export default function LoginScreen({ navigation, route }: any) {
               </TouchableOpacity>
             )}
 
-            {/* Group Member Login Link */}
-            <TouchableOpacity 
-              onPress={() => navigation.navigate("LoginWithCodes", { role: "group-member" })} 
-              disabled={loading}
-              style={styles.groupMemberLink}
-            >
-              <MaterialCommunityIcons name="account-group" size={16} color="#2853AF" />
-              <Text style={styles.groupMemberLinkText}>Group Member? Login with Codes</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              onPress={() => navigation.navigate("Onboarding")}
-              disabled={loading}
-              style={styles.onboardingLink}
-            >
-              <Text style={styles.onboardingLinkText}>View onboarding</Text>
-            </TouchableOpacity>
+            {/* Removed group-member and onboarding quick links per UX request */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -206,7 +197,7 @@ const styles = StyleSheet.create({
   },
   backButton: {
     position: 'absolute',
-    top: 35,
+    top: 67,
     left: 30,
     zIndex: 10,
   },
@@ -228,7 +219,7 @@ const styles = StyleSheet.create({
     lineHeight: 32,
     letterSpacing: 0.5,
     color: '#171725',
-    marginBottom: 8,
+    marginBottom: 12,
     textAlign: 'center',
   },
   subtitle: {
@@ -239,6 +230,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     color: '#434E58',
     textAlign: 'center',
+    marginTop: 6,
   },
   formContainer: {
     width: '100%',
@@ -318,6 +310,23 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: 0.5,
     color: '#2853AF',
+    textAlign: 'center',
+  },
+  roleBadge: {
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#EEF6FF',
+    borderWidth: 1,
+    borderColor: '#D3EFFF',
+  },
+  roleBadgeText: {
+    color: '#0C87DE',
+    fontWeight: '700',
+    fontSize: 12,
     textAlign: 'center',
   },
 })

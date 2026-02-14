@@ -213,6 +213,13 @@ export const generateMapHTML = (tileConfig: TileServerConfig): string => {
                   }
                   
                   console.log('Rendering ' + fences.length + ' geofences on map using Turf.js');
+                  
+                  // Log itinerary geofences for debugging
+                  const itineraryFences = fences.filter(f => f.category === 'Itinerary Geofence' || (f.visualStyle && f.visualStyle.color === 'green'));
+                  if (itineraryFences.length > 0) {
+                      console.log('Found ' + itineraryFences.length + ' itinerary geofences to render with green color');
+                  }
+                  
                   let renderedCount = 0;
 
                   fences.forEach(fence => {
@@ -421,7 +428,44 @@ export const generateMapHTML = (tileConfig: TileServerConfig): string => {
               let weight = 2;
               let opacity = 0.9;
               
-              // Determine color by riskLevel
+              // PRIORITY 1: Check if backend provided visualStyle with color (for itinerary geofences)
+              if (fence.visualStyle && fence.visualStyle.color) {
+                  const styleColor = String(fence.visualStyle.color).toLowerCase();
+                  // Map color names to hex codes
+                  const colorMap = {
+                      'green': '#4caf50',
+                      'blue': '#2196f3',
+                      'red': '#f44336',
+                      'orange': '#ff9800',
+                      'yellow': '#ffeb3b',
+                      'purple': '#9c27b0',
+                      'pink': '#e91e63',
+                      'gray': '#9e9e9e',
+                      'grey': '#9e9e9e'
+                  };
+                  
+                  color = colorMap[styleColor] || fence.visualStyle.color; // Use hex if provided directly
+                  
+                  // Apply other visualStyle properties if provided
+                  if (fence.visualStyle.fillOpacity !== undefined) {
+                      fillOpacity = fence.visualStyle.fillOpacity;
+                  }
+                  if (fence.visualStyle.borderWidth !== undefined) {
+                      weight = fence.visualStyle.borderWidth;
+                  }
+                  
+                  console.log('Applied visualStyle color for:', fence.name, '-> color:', color);
+                  
+                  return {
+                      color: color,
+                      fillColor: color,
+                      fillOpacity: fillOpacity,
+                      weight: weight,
+                      opacity: opacity
+                  };
+              }
+              
+              // PRIORITY 2: Determine color by riskLevel (for danger zones)
               if (fence.riskLevel) {
                   const rl = String(fence.riskLevel).toLowerCase();
                   if (rl.includes('very') && rl.includes('high')) {
@@ -439,7 +483,7 @@ export const generateMapHTML = (tileConfig: TileServerConfig): string => {
                   }
               }
               
-              // Adjust styling based on category
+              // PRIORITY 3: Adjust styling based on category
               if (fence.category) {
                   const cat = String(fence.category).toLowerCase();
                   if (cat.includes('nuclear')) {

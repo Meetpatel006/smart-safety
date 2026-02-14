@@ -152,7 +152,8 @@ export default function OnboardingPage2({ isActive = false }: { isActive?: boole
 
 const styles = StyleSheet.create({
   container: {
-    paddingTop: 70,
+    flex: 1,
+    justifyContent: "center",
     paddingHorizontal: 20,
     alignItems: "center",
   },

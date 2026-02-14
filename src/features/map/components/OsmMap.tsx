@@ -95,7 +95,17 @@ export default function OsmMap({
 
   const loadAllFencesWithoutFiltering = async () => {
     try {
-      const data = require('../../../../assets/geofences-output.json');
+      // Import geofenceService to get fences loaded from API
+      const geofenceService = require('../services/geofenceService').default;
+      
+      // Get fences from geofenceService (which loads from API with userId)
+      let data = geofenceService.getFences();
+      
+      // If no fences loaded yet, fallback to local JSON
+      if (!data || data.length === 0) {
+        data = require('../../../../assets/geofences-output.json');
+      }
+      
       const fencesWithDistance = data.map((f: GeoFence) => ({
         ...f,
         distanceToUser: undefined
@@ -110,7 +120,17 @@ export default function OsmMap({
 
   const loadAndFilterFences = async (userLat: number, userLng: number) => {
     try {
-      const data = require('../../../../assets/geofences-output.json');
+      // Import geofenceService to get fences loaded from API
+      const geofenceService = require('../services/geofenceService').default;
+      
+      // Get fences from geofenceService (which loads from API with userId)
+      let data = geofenceService.getFences();
+      
+      // If no fences loaded yet, fallback to local JSON
+      if (!data || data.length === 0) {
+        data = require('../../../../assets/geofences-output.json');
+      }
+      
       const nearby = filterFencesByDistance(data, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
       setGeoFencesToSend(nearby);
       console.log(`Loaded ${data.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);

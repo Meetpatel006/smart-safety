@@ -90,8 +90,9 @@ export default function OnboardingPage1({ isActive = false }: { isActive?: boole
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
     alignItems: "center",
-    paddingTop: 112,
+    justifyContent: "center",
     paddingHorizontal: 16,
   },
   illustrationWrapper: {

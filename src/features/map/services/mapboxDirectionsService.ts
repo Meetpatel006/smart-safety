@@ -153,6 +153,86 @@ export async function fetchDirections(
 }
 
 /**
+ * Fetch directions for multiple waypoints (2+ coordinates)
+ */
+export async function fetchDirectionsForWaypoints(
+  coordinates: RouteCoordinate[],
+  profile: RoutingProfile = 'driving',
+  options: {
+    alternatives?: boolean;
+    steps?: boolean;
+    geometries?: 'geojson' | 'polyline' | 'polyline6';
+    overview?: 'full' | 'simplified' | 'false';
+    annotations?: string[];
+  } = {}
+): Promise<DirectionsResponse> {
+  if (!MAPBOX_ACCESS_TOKEN || !MAPBOX_ACCESS_TOKEN.startsWith('pk.')) {
+    throw new Error('Invalid or missing Mapbox access token');
+  }
+
+  if (!Array.isArray(coordinates) || coordinates.length < 2) {
+    throw new Error('At least 2 coordinates are required for directions');
+  }
+
+  const {
+    alternatives = false,
+    steps = true,
+    geometries = 'geojson',
+    overview = 'full',
+    annotations = ['distance', 'duration']
+  } = options;
+
+  const coordinatesParam = formatCoordinates(coordinates);
+  const profileString = getProfileString(profile);
+
+  const params = new URLSearchParams({
+    access_token: MAPBOX_ACCESS_TOKEN,
+    alternatives: alternatives.toString(),
+    steps: steps.toString(),
+    geometries,
+    overview,
+    annotations: annotations.join(','),
+    language: 'en'
+  });
+
+  const url = `https://api.mapbox.com/directions/v5/${profileString}/${coordinatesParam}?${params}`;
+
+  try {
+    console.log('[DirectionsAPI] Fetching waypoint route:', { count: coordinates.length, profile });
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[DirectionsAPI] Error:', response.status, errorText);
+
+      try {
+        const errorJson = JSON.parse(errorText);
+        throw new Error(errorJson.message || `Directions API error: ${response.status}`);
+      } catch (e) {
+        throw new Error(`Directions API error: ${response.status}`);
+      }
+    }
+
+    const data: DirectionsResponse = await response.json();
+
+    if (data.code !== 'Ok') {
+      throw new Error(JSON.stringify({ code: data.code, message: (data as any).message || 'Unknown error' }));
+    }
+
+    if (!data.routes || data.routes.length === 0) {
+      throw new Error('No routes found');
+    }
+
+    console.log('[DirectionsAPI] Found', data.routes.length, 'route(s)');
+    return data;
+  } catch (error) {
+    console.error('[DirectionsAPI] Fetch error:', error);
+    throw error;
+  }
+}
+
+/**
  * Calculate route summary information
  */
 export function getRouteSummary(route: Route) {

@@ -10,7 +10,12 @@ import { usePathDeviation } from '../../../context/PathDeviationContext'
 import { reverseGeocode } from '../../map/components/MapboxMap/geoUtils'
 import { loadFences } from '../../map/services/geofenceService'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
-import { Route, RoutingProfile } from '../../map/services/mapboxDirectionsService'
+import {
+  Route,
+  RouteCoordinate,
+  RoutingProfile,
+  fetchDirectionsForWaypoints,
+} from '../../map/services/mapboxDirectionsService'
 
 // Import map components
 import MapContainer from '../../map/components/MapboxMap/MapContainer'
@@ -60,8 +65,14 @@ export default function EmergencyScreen({ navigation }: any) {
   const [selectedRouteIndex, setSelectedRouteIndex] = useState(0)
   const [currentProfile, setCurrentProfile] = useState<RoutingProfile>('driving')
   const [isDirectionsSheetVisible, setIsDirectionsSheetVisible] = useState(false)
+  const [itineraryRoute, setItineraryRoute] = useState<Route | null>(null)
+  const [itineraryWaypoints, setItineraryWaypoints] = useState<any[]>([])
+
+  const itineraryRouteKeyRef = React.useRef<string | null>(null)
+  const itineraryProfile: RoutingProfile = 'driving'
 
   const currentRoute = allRoutes[selectedRouteIndex] || null
+  const activeTrip = React.useMemo(() => selectActiveTrip(state.trips), [state.trips])
 
   // Geofences
   const [geoFences, setGeoFences] = useState<GeoFence[]>([])
@@ -87,9 +98,10 @@ export default function EmergencyScreen({ navigation }: any) {
     const loadGeoFencesFromService = async () => {
       setLoadingGeofences(true)
       try {
-        const fences = await loadFences()
+        const userId = state.user?.touristId
+        const fences = await loadFences(undefined, undefined, userId)
         setGeoFences(fences)
-        console.log('Loaded geofences:', fences.length)
+        console.log('Loaded geofences:', fences.length, 'for user:', userId)
       } catch (err) {
         console.warn('Failed to load geofences:', err)
         setGeoFences([])
@@ -134,21 +146,222 @@ export default function EmergencyScreen({ navigation }: any) {
 
   // Update map when routes change
   useEffect(() => {
-    if (webViewRef.current && mapReady) {
-      if (allRoutes.length > 0) {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'setRoute',
-          routes: allRoutes,
-          selectedIndex: selectedRouteIndex,
-          profile: currentProfile
-        }))
-      } else {
-        webViewRef.current.postMessage(JSON.stringify({
-          type: 'clearRoute'
-        }))
+    if (!webViewRef.current || !mapReady) return
+
+    if (directionsMode && allRoutes.length > 0) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'setRoute',
+        routes: allRoutes,
+        selectedIndex: selectedRouteIndex,
+        profile: currentProfile
+      }))
+      return
+    }
+
+    if (itineraryRoute) {
+      webViewRef.current.postMessage(JSON.stringify({
+        type: 'setRoute',
+        routes: [itineraryRoute],
+        selectedIndex: 0,
+        profile: itineraryProfile,
+        waypoints: itineraryWaypoints,
+      }))
+      return
+    }
+
+    webViewRef.current.postMessage(JSON.stringify({
+      type: 'clearRoute'
+    }))
+  }, [allRoutes, selectedRouteIndex, currentProfile, itineraryRoute, itineraryWaypoints, itineraryProfile, directionsMode, mapReady])
+
+  function getCurrentDayIndex(tripStartDate: string, totalDays: number): number {
+    const tripStart = new Date(tripStartDate)
+    const today = new Date()
+
+    tripStart.setHours(0, 0, 0, 0)
+    today.setHours(0, 0, 0, 0)
+
+    const daysDiff = Math.floor((today.getTime() - tripStart.getTime()) / (1000 * 60 * 60 * 24))
+
+    return Math.max(0, Math.min(daysDiff, totalDays - 1))
+  }
+
+  function selectActiveTrip(trips: any[]) {
+    const tripsWithDays = (trips || []).filter((trip) => Array.isArray(trip?.dayWiseItinerary) && trip.dayWiseItinerary.length > 0)
+    if (tripsWithDays.length === 0) return null
+
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    for (const trip of tripsWithDays) {
+      const totalDays = trip.dayWiseItinerary.length
+      const start = new Date(trip.date)
+      start.setHours(0, 0, 0, 0)
+      const end = new Date(start)
+      end.setDate(start.getDate() + totalDays - 1)
+
+      if (today >= start && today <= end) {
+        return trip
       }
     }
-  }, [allRoutes, selectedRouteIndex, currentProfile, mapReady])
+
+    return tripsWithDays[0]
+  }
+
+  const extractDayCoordinates = (nodes: any[]): RouteCoordinate[] => {
+    return (nodes || [])
+      .map((node) => {
+        const locationCoords = Array.isArray(node?.location?.coordinates)
+          ? node.location.coordinates
+          : Array.isArray(node?.coordinates)
+            ? node.coordinates
+            : null
+
+        const latitude =
+          typeof node?.lat === 'number'
+            ? node.lat
+            : typeof node?.latitude === 'number'
+              ? node.latitude
+              : locationCoords && typeof locationCoords[1] === 'number'
+                ? locationCoords[1]
+                : null
+
+        const longitude =
+          typeof node?.lng === 'number'
+            ? node.lng
+            : typeof node?.longitude === 'number'
+              ? node.longitude
+              : locationCoords && typeof locationCoords[0] === 'number'
+                ? locationCoords[0]
+                : null
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+        return { latitude, longitude }
+      })
+      .filter((coord): coord is RouteCoordinate => !!coord)
+  }
+
+  const extractDayWaypoints = (nodes: any[]) => {
+    let stopCounter = 1
+    return (nodes || [])
+      .map((node) => {
+        const locationCoords = Array.isArray(node?.location?.coordinates)
+          ? node.location.coordinates
+          : Array.isArray(node?.coordinates)
+            ? node.coordinates
+            : null
+
+        const latitude =
+          typeof node?.lat === 'number'
+            ? node.lat
+            : typeof node?.latitude === 'number'
+              ? node.latitude
+              : locationCoords && typeof locationCoords[1] === 'number'
+                ? locationCoords[1]
+                : null
+
+        const longitude =
+          typeof node?.lng === 'number'
+            ? node.lng
+            : typeof node?.longitude === 'number'
+              ? node.longitude
+              : locationCoords && typeof locationCoords[0] === 'number'
+                ? locationCoords[0]
+                : null
+
+        if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+        const kind: 'start' | 'end' | 'stop' = node?.type === 'start'
+          ? 'start'
+          : node?.type === 'end'
+            ? 'end'
+            : 'stop'
+
+        const label = kind === 'start'
+          ? 'Start'
+          : kind === 'end'
+            ? 'End'
+            : `${stopCounter++}`
+
+        return {
+          latitude,
+          longitude,
+          label,
+          kind,
+          name: node?.name || '',
+        }
+      })
+      .filter(Boolean)
+  }
+
+  useEffect(() => {
+    if (!mapReady || directionsMode) return
+
+    if (!activeTrip || !Array.isArray(activeTrip.dayWiseItinerary)) {
+      setItineraryRoute(null)
+      itineraryRouteKeyRef.current = null
+      return
+    }
+
+    const totalDays = activeTrip.dayWiseItinerary.length
+    const dayIndex = getCurrentDayIndex(activeTrip.date, totalDays)
+    const day = activeTrip.dayWiseItinerary[dayIndex]
+    const coordinates = extractDayCoordinates(day?.nodes)
+    const waypoints = extractDayWaypoints(day?.nodes)
+
+    if (coordinates.length < 2) {
+      setItineraryRoute(null)
+      itineraryRouteKeyRef.current = null
+      setItineraryWaypoints([])
+      return
+    }
+
+    const routeKey = `${activeTrip.id}:${dayIndex}:${coordinates
+      .map((coord) => `${coord.longitude.toFixed(5)},${coord.latitude.toFixed(5)}`)
+      .join('|')}`
+
+    if (routeKey === itineraryRouteKeyRef.current) return
+
+    itineraryRouteKeyRef.current = routeKey
+    let cancelled = false
+
+    const loadRoute = async () => {
+      try {
+        const response = await fetchDirectionsForWaypoints(
+          coordinates,
+          itineraryProfile,
+          { alternatives: false, steps: true, geometries: 'geojson', overview: 'full' }
+        )
+
+        if (!cancelled) {
+          setItineraryRoute(response.routes?.[0] || null)
+          setItineraryWaypoints(waypoints)
+
+          if (webViewRef.current) {
+            webViewRef.current.postMessage(JSON.stringify({
+              type: 'setRoute',
+              routes: response.routes || [],
+              selectedIndex: 0,
+              profile: itineraryProfile,
+              waypoints,
+            }))
+          }
+        }
+      } catch (error) {
+        console.warn('[ItineraryRoute] Failed to load route:', error)
+        if (!cancelled) {
+          setItineraryRoute(null)
+        }
+      }
+    }
+
+    loadRoute()
+
+    return () => {
+      cancelled = true
+    }
+  }, [mapReady, directionsMode, activeTrip, itineraryProfile])
 
   // Calculate legend statistics whenever geofences change
   useEffect(() => {
@@ -166,7 +379,10 @@ export default function EmergencyScreen({ navigation }: any) {
 
     const geofences = geoFences.filter(f =>
       f.visualStyle?.zoneType === 'geofence' ||
-      f.category === 'Tourist Destination'
+      f.visualStyle?.zoneType === 'itinerary_geofence' ||
+      f.category === 'Tourist Destination' ||
+      f.category === 'Itinerary Geofence' ||
+      f.metadata?.sourceType === 'itinerary'
     ).length
 
     setDangerZoneCount(danger)
@@ -180,11 +396,12 @@ export default function EmergencyScreen({ navigation }: any) {
       setIsBackgroundRefreshing(true)
       const userLat = currentLocation?.coords.latitude
       const userLng = currentLocation?.coords.longitude
+      const userId = state.user?.touristId
 
-      const fences = await loadFences(userLat, userLng)
+      const fences = await loadFences(userLat, userLng, userId)
       setGeoFences(fences)
 
-      console.log(`[Auto-Refresh] Refreshed ${fences.length} geofences`)
+      console.log(`[Auto-Refresh] Refreshed ${fences.length} geofences for user: ${userId}`)
     } catch (err) {
       console.warn('Failed to refresh geofences:', err)
       // Don't show error to user - fail silently for background refresh
@@ -277,7 +494,7 @@ export default function EmergencyScreen({ navigation }: any) {
           console.error('Map error:', message.message)
           break
         case 'routeSelected':
-          if (message.index !== undefined) {
+          if (directionsMode && message.index !== undefined) {
             setSelectedRouteIndex(message.index)
           }
           break
@@ -441,7 +658,6 @@ export default function EmergencyScreen({ navigation }: any) {
         }}
       />
 
-      {/* Bottom Sheet */}
       <MapBottomSheet
         isExpanded={isBottomSheetExpanded && !directionsMode}
         onToggle={() => {
