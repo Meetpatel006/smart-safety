@@ -8,7 +8,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons"
 import { BlurView } from "expo-blur"
 import { getGroupDashboard } from "../../../utils/api"
 
-export type FilterType = "all" | "upcoming" | "completed"
+export type FilterType = "current" | "upcoming" | "completed"
 
 import CreateGroupItineraryModal from "../components/CreateGroupItineraryModal"
 import EditGroupItineraryModal from "../components/EditGroupItineraryModal"
@@ -17,7 +17,7 @@ export default function ItineraryScreen({ navigation }: any) {
   const { state, updateTripsFromBackend } = useApp()
   const theme = useTheme()
   const itineraryListRef = useRef<{ openNew: () => void } | null>(null)
-  const [activeFilter, setActiveFilter] = useState<FilterType>("all")
+  const [activeFilter, setActiveFilter] = useState<FilterType>("current")
   const [loadingTrips, setLoadingTrips] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -86,7 +86,7 @@ export default function ItineraryScreen({ navigation }: any) {
   }
 
   const filters: { key: FilterType; label: string; icon: string }[] = [
-    { key: "all", label: "All", icon: "view-grid" },
+    { key: "current", label: "Current", icon: "calendar-today" },
     { key: "upcoming", label: "Upcoming", icon: "clock-outline" },
     { key: "completed", label: "Completed", icon: "check-circle-outline" },
   ]

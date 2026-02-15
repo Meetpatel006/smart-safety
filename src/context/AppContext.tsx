@@ -35,12 +35,16 @@ import {
   createGroup as apiCreateGroup,
 } from "../utils/api";
 import * as Location from "expo-location";
-import * as Notifications from "expo-notifications";
 import { Buffer } from "buffer";
 import {
   SafetyEvent,
   sendSafetyLocationUpdate,
 } from "../services/safetyLocationService";
+import {
+  getNotificationPermissionStatus,
+  requestNotificationPermissionStatus,
+  scheduleNotification,
+} from "../utils/notificationsCompat";
 
 const decodeBase64 = (str: string): string => {
   return Buffer.from(str, "base64").toString("binary");
@@ -664,10 +668,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     const hasNotificationPermission = async (): Promise<boolean> => {
       try {
-        const current = await Notifications.getPermissionsAsync();
-        if (current.status === "granted") return true;
-        const requested = await Notifications.requestPermissionsAsync();
-        return requested.status === "granted";
+        const current = await getNotificationPermissionStatus();
+        if (current === "granted") return true;
+        const requested = await requestNotificationPermissionStatus();
+        return requested === "granted";
       } catch (error) {
         console.warn(
           "[SafetyTracking] Notification permission check failed:",
@@ -743,7 +747,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             continue;
           }
 
-          await Notifications.scheduleNotificationAsync({
+          await scheduleNotification({
             content: {
               title: getSafetyNotificationTitle(event),
               body: event.message,

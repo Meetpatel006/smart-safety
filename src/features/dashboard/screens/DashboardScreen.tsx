@@ -15,20 +15,14 @@ import touristSocket, {
   TouristAlert,
   SafetyScoreAlert,
 } from "../../../services/touristSocketService";
-import * as Notifications from "expo-notifications";
 import * as Haptics from "expo-haptics";
-import { Audio } from "expo-av";
+import {
+  configureNotificationHandler,
+  scheduleNotification,
+} from "../../../utils/notificationsCompat";
 
 // Configure notifications for critical alerts
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    priority: Notifications.AndroidNotificationPriority.MAX,
-  }),
-});
+configureNotificationHandler();
 
 export default function DashboardScreen({ navigation }: any) {
   const { state } = useApp();
@@ -185,7 +179,7 @@ export default function DashboardScreen({ navigation }: any) {
 
   useEffect(() => {
     const initializeSocket = async () => {
-      const touristId = state.user?.touristId || state.user?.id || "guest";
+      const touristId = state.user?.touristId || "guest";
 
       let coords = { lat: 0, lng: 0 };
       try {
@@ -248,7 +242,7 @@ export default function DashboardScreen({ navigation }: any) {
 
     // Function to send notification
     const sendNotification = async () => {
-      await Notifications.scheduleNotificationAsync({
+      await scheduleNotification({
         content: {
           title: `🚨 ${alertData.title}`,
           body: alertData.message,
@@ -292,7 +286,7 @@ export default function DashboardScreen({ navigation }: any) {
     }
 
     // Show notification
-    await Notifications.scheduleNotificationAsync({
+    await scheduleNotification({
       content: {
         title:
           alertData.changeType === "significant_drop"

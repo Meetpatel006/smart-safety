@@ -1,6 +1,5 @@
 import * as SMS from 'expo-sms'
-import SendSMS from 'react-native-sms'
-import { PermissionsAndroid, Platform } from 'react-native'
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native'
 
 export type SmsPayload = {
   recipients: string[]
@@ -15,6 +14,10 @@ async function requestAndroidSendPermission() {
 
   const result = await PermissionsAndroid.request(permission)
   return result === PermissionsAndroid.RESULTS.GRANTED
+}
+
+type DirectSmsModuleType = {
+  sendSms: (recipients: string[], message: string) => Promise<any>
 }
 
 // Attempt to send SMS. On Android, send directly without opening the SMS app.
@@ -37,37 +40,20 @@ export async function sendSMS(payload: SmsPayload): Promise<{ ok: boolean; resul
         recipients: payload.recipients.length,
       })
 
-      const result = await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('sendSMS timed out after 8s'))
-        }, 8000)
+      const directSmsModule = NativeModules.DirectSmsModule as DirectSmsModuleType | undefined
+      if (!directSmsModule?.sendSms) {
+        console.warn('[sms] DirectSmsModule unavailable. Rebuild Android app (expo run:android) to enable auto-send.')
+        return { ok: false, result: { reason: 'direct_module_unavailable' } }
+      }
 
-        try {
-          SendSMS.send(
-            {
-              body: payload.message,
-              recipients: payload.recipients,
-              successTypes: ['sent', 'queued'],
-              allowAndroidSendWithoutPrompt: true,
-            },
-            (completed, cancelled, error) => {
-              clearTimeout(timeout)
-              if (error) return reject(new Error(`sendSMS failed: ${String(error)}`))
-              if (cancelled) return reject(new Error('sendSMS cancelled'))
-              return resolve({ completed, cancelled })
-            },
-          )
-        } catch (err) {
-          clearTimeout(timeout)
-          reject(err)
-        }
-      }).catch((err) => {
-        console.warn('[sms] Android direct send error', err)
-        return Promise.reject(err)
-      })
-
-      console.log('[sms] Android send result', result)
-      return { ok: true, result: { channel: 'android-direct', ...result } }
+      try {
+        const result = await directSmsModule.sendSms(payload.recipients, payload.message)
+        console.log('[sms] Android native direct send result', result)
+        return { ok: true, result }
+      } catch (err) {
+        console.warn('[sms] Android native direct send failed', err)
+        return { ok: false, result: { reason: 'direct_send_failed' } }
+      }
     }
 
     if (Platform.OS === 'web') {

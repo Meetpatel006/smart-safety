@@ -1,27 +1,26 @@
 import { View, ScrollView, StyleSheet, TouchableOpacity, StatusBar, Modal } from "react-native"
-import { Text, Switch, Menu, Button, IconButton } from "react-native-paper"
+import { Text, Switch, Button, IconButton } from "react-native-paper"
 import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../../../context/AppContext"
-import { Ionicons, MaterialIcons, MaterialCommunityIcons, FontAwesome } from "@expo/vector-icons"
-import { useState, useEffect, useRef } from "react"
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
+import { useState, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
+import { readJSON, writeJSON } from "../../../utils/storage"
 import SafetyScoreCard from "../../dashboard/components/SafetyScoreCard"
 import { Alert } from "react-native"
 
 export default function SettingsScreen() {
-  const { state, logout, setLanguage, acknowledgeHighRisk } = useApp()
+  const { state, logout } = useApp()
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
   const [sound, setSound] = useState(true)
   const [vibration, setVibration] = useState(true)
-  const [languageMenuVisible, setLanguageMenuVisible] = useState(false)
-  const isLanguageMenuDismissed = useRef(false)
   const [muteAllAlerts, setMuteAllAlerts] = useState(false)
-  const [suppressMinutes, setSuppressMinutes] = useState<string>("15")
   const [showQR, setShowQR] = useState(false)
+  const [soloUser, setSoloUser] = useState<boolean | null>(null)
 
   useEffect(() => {
     getAlertConfig().then(cfg => {
@@ -31,12 +30,17 @@ export default function SettingsScreen() {
     getAlertState().then(s => {
       if (s) {
         setMuteAllAlerts(s.muted)
-        if (s.suppressionUntil && s.suppressionUntil > Date.now()) {
-          const remaining = Math.ceil((s.suppressionUntil - Date.now()) / 60000)
-          setSuppressMinutes(String(Math.max(1, remaining)))
-        }
       }
     })
+    ;(async () => {
+      try {
+        const val = await readJSON<boolean>('pathDeviationSoloUser', false)
+        setSoloUser(!!val)
+      } catch (e) {
+        console.warn('Failed reading pathDeviationSoloUser', e)
+        setSoloUser(false)
+      }
+    })()
   }, [])
 
   const toggleSound = (v: boolean) => {
@@ -54,39 +58,18 @@ export default function SettingsScreen() {
     await setGlobalMute(v)
   }
 
-  const getLanguageDisplay = () => {
-    switch (state.language) {
-      case 'en': return 'English'
-      case 'hi': return 'हिंदी'
-      default: return 'English'
-    }
-  }
-
-  const openLanguageMenu = () => {
-    if (isLanguageMenuDismissed.current) {
-      isLanguageMenuDismissed.current = false
-      return
-    }
-    if (languageMenuVisible) return
-    setLanguageMenuVisible(true)
-  }
-
-  const closeLanguageMenu = () => {
-    isLanguageMenuDismissed.current = true
-    setLanguageMenuVisible(false)
-    setTimeout(() => {
-      isLanguageMenuDismissed.current = false
-    }, 200)
-  }
-
-  const menuItems = [
-    {
-      section: "Account",
-      items: [
-        { icon: "person-outline", label: "Personal Information", color: "#3B82F6", onPress: () => navigation.navigate('PersonalInfo') },
-        { icon: "notifications-outline", label: "Notifications", color: "#F59E0B", onPress: () => { } },
-      ]
-    },
+  const menuItems: Array<{
+    section: string;
+    items: Array<{
+      icon: string;
+      label: string;
+      color: string;
+      isToggle: boolean;
+      value?: boolean;
+      onToggle?: (v: boolean) => void;
+      onPress?: () => void;
+    }>;
+  }> = [
     {
       section: "Preferences",
       items: [
@@ -106,22 +89,6 @@ export default function SettingsScreen() {
           value: vibration,
           onToggle: toggleVibration
         },
-        {
-          icon: "language",
-          label: "Language",
-          color: "#06B6D4",
-          value: getLanguageDisplay(),
-          isMenu: true,
-          onPress: openLanguageMenu
-        },
-      ]
-    },
-    {
-      section: "Support",
-      items: [
-        { icon: "help-circle-outline", label: "Help Center", color: "#14B8A6", onPress: () => navigation.navigate('HelpCenter') },
-        { icon: "mail-outline", label: "Contact Us", color: "#6366F1", onPress: () => { } },
-        { icon: "document-text-outline", label: "Terms of Service", color: "#64748B", onPress: () => { } },
       ]
     },
   ]
@@ -168,7 +135,7 @@ export default function SettingsScreen() {
 
 
         {/* Menu Sections */}
-        {menuItems.map((section, sectionIndex) => (
+        {menuItems.map(section => (
           <View key={section.section} style={styles.section}>
             <Text style={styles.sectionTitle}>{section.section}</Text>
             <View style={styles.sectionCard}>
@@ -188,43 +155,6 @@ export default function SettingsScreen() {
                         color="#3B82F6"
                       />
                     </View>
-                  ) : item.isMenu ? (
-                    <Menu
-                      visible={languageMenuVisible}
-                      onDismiss={closeLanguageMenu}
-                      anchor={
-                        <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
-                          <View style={styles.menuItemLeft}>
-                            <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
-                              <MaterialIcons name={item.icon as any} size={18} color={item.color} />
-                            </View>
-                            <Text style={styles.menuItemText}>{item.label}</Text>
-                          </View>
-                          <View style={styles.menuItemRight}>
-                            <Text style={styles.menuItemValue}>{item.value}</Text>
-                            <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-                          </View>
-                        </TouchableOpacity>
-                      }
-                    >
-                      <Menu.Item
-                        onPress={() => {
-                          setLanguageMenuVisible(false)
-                          setTimeout(() => setLanguage('en'), 200)
-                        }}
-                        title="English"
-                        leadingIcon="check"
-                        disabled={state.language === 'en'}
-                      />
-                      <Menu.Item
-                        onPress={() => {
-                          setLanguageMenuVisible(false)
-                          setTimeout(() => setLanguage('hi'), 200)
-                        }}
-                        title="हिंदी (Hindi)"
-                        disabled={state.language === 'hi'}
-                      />
-                    </Menu>
                   ) : (
                     <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
                       <View style={styles.menuItemLeft}>
@@ -288,6 +218,33 @@ export default function SettingsScreen() {
                     <MaterialCommunityIcons name="bug-outline" size={18} color="#F97316" />
                   </View>
                   <Text style={styles.menuItemText}>View SOS Queue</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+              </TouchableOpacity>
+              <View style={styles.menuDivider} />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={async () => {
+                  try {
+                    const newVal = !soloUser
+                    await writeJSON('pathDeviationSoloUser', !!newVal)
+                    setSoloUser(!!newVal)
+                    Alert.alert('Path Deviation (Solo User)', `Solo user is now ${newVal ? 'ENABLED' : 'DISABLED'}`)
+                  } catch (e) {
+                    console.warn('Failed toggling pathDeviationSoloUser', e)
+                    Alert.alert('Error', 'Failed to toggle solo user')
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.menuItemLeft}>
+                  <View style={[styles.menuIcon, { backgroundColor: "#6EE7B720" }]}>
+                    <Ionicons name="person-outline" size={18} color="#10B981" />
+                  </View>
+                  <View>
+                    <Text style={styles.menuItemText}>Toggle PathDeviation Solo User</Text>
+                    <Text style={styles.menuItemSubtext}>{soloUser === null ? 'Loading…' : soloUser ? 'Currently: SOLO' : 'Currently: NORMAL'}</Text>
+                  </View>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
               </TouchableOpacity>
@@ -532,15 +489,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#9CA3AF',
     marginTop: 2,
-  },
-  menuItemRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  menuItemValue: {
-    fontSize: 14,
-    color: '#6B7280',
   },
   menuDivider: {
     height: 1,

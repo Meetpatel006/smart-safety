@@ -9,22 +9,15 @@ import ToastListener from './src/components/ToastListener'
 import { StatusBar } from "expo-status-bar"
 import { useEffect, useState } from "react"
 import * as SplashScreen from "expo-splash-screen"
-import * as Notifications from 'expo-notifications'
 import { View, Text, ActivityIndicator } from "react-native"
 import React from "react"
+import { configureNotificationHandler } from "./src/utils/notificationsCompat"
 
 // Prevent the splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync()
 
 // Notification handler: allow notifications to show with sound
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-  shouldShowBanner: true, // Show banner on iOS
-  shouldShowList: true, // Show in notification list
-  shouldPlaySound: true, // Play notification sound
-  shouldSetBadge: true, // Update app icon badge
-  }),
-})
+configureNotificationHandler()
 
 const navTheme = {
   ...NavDefaultTheme,

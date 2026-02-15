@@ -6,7 +6,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Alert, Vibration, AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
-import { Audio } from 'expo-av';
 import type { WebView } from 'react-native-webview';
 import { useApp } from './AppContext';
 import { sendSMS } from '../utils/sms';
@@ -86,6 +85,7 @@ interface PathDeviationContextType {
 }
 
 const PathDeviationContext = createContext<PathDeviationContextType | null>(null);
+const OFF_ROUTE_SMS_COOLDOWN_MS = 5 * 60 * 1000;
 
 export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { state } = useApp();
@@ -127,7 +127,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Refs
   const gpsIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastGPSPointRef = useRef<GPSPoint | null>(null);
-  const soundRef = useRef<Audio.Sound | null>(null);
   const destinationRef = useRef<{ lat: number; lng: number } | null>(null);
   const originRef = useRef<{ lat: number; lng: number } | null>(null);
   const mapRef = useRef<React.RefObject<WebView> | null>(null);
@@ -144,6 +143,8 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   const simulationIndexRef = useRef<number>(0); // Current index in route coordinates
   const routeCoordinatesRef = useRef<[number, number][]>([]); // Route coordinates for simulation [lng, lat]
   const appStateRef = useRef(state);
+  const lastOffRouteSmsAtRef = useRef<number>(0);
+  const wasOffRouteRef = useRef<boolean>(false);
 
   useEffect(() => {
     appStateRef.current = state;
@@ -177,55 +178,120 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, []);
 
-  const sendDeviationSmsToContacts = useCallback(async (deviation: DeviationStatus) => {
+  const buildDeviationSmsMessage = useCallback((deviation: DeviationStatus) => {
     const currentState = appStateRef.current;
-    if (currentState.user?.role !== 'solo') return;
-
-    const contacts = currentState.contacts || [];
-    const recipients = contacts
-      .map((contact) => contact.phone)
-      .filter((phone) => typeof phone === 'string' && phone.trim().length > 0);
-
-    if (recipients.length === 0) return;
-
     const gpsPoint = lastGPSPointRef.current;
-    const locationUrl = gpsPoint
-      ? `https://www.google.com/maps?q=${gpsPoint.lat},${gpsPoint.lng}`
-      : null;
+    const coords = gpsPoint ? `${gpsPoint.lat.toFixed(6)},${gpsPoint.lng.toFixed(6)}` : null;
+    const travelerName = currentState.user?.name || 'Unknown Tourist';
+    const travelerPhone = currentState.user?.phone || '';
+    const mapLink = coords ? `https://maps.google.com/?q=${coords}` : null;
 
-    const travelerName = currentState.user?.name || 'Traveler';
-    const details = `Severity: ${deviation.severity}. Spatial: ${deviation.spatial}. Temporal: ${deviation.temporal}. Directional: ${deviation.directional}.`;
-    const message = `Safety alert: ${travelerName} has a path deviation. ${details}${locationUrl ? ` Location: ${locationUrl}` : ''}`;
-
-    const payload = { recipients, message };
-    const result = await sendSMS(payload);
-    if (!result.ok) {
-      await queueSMS({ payload });
-    }
+    const parts: string[] = [];
+    parts.push('Path Deviation Alert: OFF_ROUTE');
+    parts.push(`Name: ${travelerName}`);
+    if (travelerPhone) parts.push(`Phone: ${travelerPhone}`);
+    parts.push(`Severity: ${deviation.severity}`);
+    parts.push(`Spatial: ${deviation.spatial}`);
+    parts.push(`Temporal: ${deviation.temporal}`);
+    parts.push(`Directional: ${deviation.directional}`);
+    if (mapLink) parts.push(`Map: ${mapLink}`);
+    return parts.join('\n');
   }, []);
+
+  const sendDeviationSmsToContacts = useCallback(async (deviation: DeviationStatus): Promise<boolean> => {
+    const currentState = appStateRef.current;
+    if (currentState.user?.role !== 'solo') {
+      console.log('[PathDeviation] Skipping deviation SMS: user is not solo');
+      return false;
+    }
+
+    const emergencyContact = (currentState.user as any)?.emergencyContact;
+    const phoneCandidates = Array.isArray(emergencyContact)
+      ? emergencyContact.map((c: any) => c?.phone || c?.mobile || c?.number)
+      : [emergencyContact?.phone || emergencyContact?.mobile || emergencyContact?.number];
+    const primaryRecipient = phoneCandidates.find(
+      (phone: unknown): phone is string => typeof phone === 'string' && phone.trim().length > 0,
+    )?.trim();
+
+    if (!primaryRecipient) {
+      console.warn('[PathDeviation] Skipping deviation SMS: no emergency contact phone for solo user');
+      return false;
+    }
+
+    const recipients = Array.from(
+      new Set(
+        [currentState.authorityPhone, primaryRecipient]
+          .filter((phone): phone is string => typeof phone === 'string' && phone.trim().length > 0)
+          .map((phone) => phone.trim()),
+      ),
+    );
+    if (!recipients.length) {
+      console.warn('[PathDeviation] Skipping deviation SMS: no valid recipients');
+      return false;
+    }
+
+    const message = buildDeviationSmsMessage(deviation);
+    const payload = { recipients, message };
+
+    if (currentState.offline) {
+      try {
+        await queueSMS({ payload });
+        console.log('[PathDeviation] Offline: deviation SMS queued for retry');
+      } catch (error) {
+        console.warn('[PathDeviation] Failed queueing deviation SMS:', error);
+        return false;
+      }
+      return true;
+    }
+
+    try {
+      console.log('[PathDeviation] Sending deviation SMS', {
+        recipientsCount: recipients.length,
+        firstRecipient: recipients[0],
+      });
+      const smsRes = await sendSMS(payload);
+      console.log('[PathDeviation] SMS send result', smsRes);
+      if (!smsRes.ok) {
+        console.log('[PathDeviation] SMS send failed, queueing for retry');
+        await queueSMS({ payload });
+      }
+    } catch (error) {
+      console.warn('[PathDeviation] SMS send threw, queueing for retry', error);
+      try {
+        await queueSMS({ payload });
+      } catch (queueError) {
+        console.warn('[PathDeviation] Failed queueing deviation SMS:', queueError);
+        return false;
+      }
+    }
+    return true;
+  }, [buildDeviationSmsMessage]);
 
   /**
-   * Load alert sound
+   * Handle alerts based on deviation severity
    */
-  useEffect(() => {
-    (async () => {
-      try {
-        const { sound } = await Audio.Sound.createAsync(
-          require('@/assets/sounds/alert.mp3'), // You'll need to add this sound file
-          { shouldPlay: false }
-        );
-        soundRef.current = sound;
-      } catch (error) {
-        console.log('[PathDeviation] Could not load alert sound:', error);
-      }
-    })();
+  const handleDeviationAlerts = async (deviation: DeviationStatus) => {
+    // Skip if alerts are muted
+    if (alertsMuted) {
+      return;
+    }
 
-    return () => {
-      if (soundRef.current) {
-        soundRef.current.unloadAsync();
-      }
-    };
-  }, []);
+    // Vibration for moderate+ deviations
+    if (deviation.severity === 'moderate' || deviation.severity === 'concerning') {
+      Vibration.vibrate([0, 200, 100, 200]);
+    } else if (deviation.severity === 'major') {
+      Vibration.vibrate([0, 500, 200, 500, 200, 500]);
+    }
+
+    // System alert for major deviations
+    if (deviation.severity === 'major') {
+      Alert.alert(
+        '⚠️ Major Route Deviation',
+        'You are significantly off route. Please check your navigation.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
   /**
    * Setup WebSocket event listeners
@@ -271,12 +337,30 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Trigger alerts based on severity
         handleDeviationAlerts(message.deviation);
-
-        // Send solo user notifications to emergency contacts
-        sendDeviationSmsToContacts(message.deviation).catch((error) => {
-          console.warn('[PathDeviation] Failed sending deviation SMS:', error);
-        });
       }
+
+      // Send solo user emergency-contact SMS only when truly off route.
+      const isOffRoute = message.deviation.spatial === 'OFF_ROUTE';
+      if (isOffRoute) {
+        const now = Date.now();
+        const enteredOffRoute = !wasOffRouteRef.current;
+        const cooldownElapsed = now - lastOffRouteSmsAtRef.current >= OFF_ROUTE_SMS_COOLDOWN_MS;
+
+        if (enteredOffRoute || cooldownElapsed) {
+          sendDeviationSmsToContacts(message.deviation)
+            .then((sentOrQueued) => {
+              if (sentOrQueued) {
+                lastOffRouteSmsAtRef.current = now;
+              }
+            })
+            .catch((error) => {
+              console.warn('[PathDeviation] Failed sending deviation SMS:', error);
+            });
+        } else {
+          console.log('[PathDeviation] Skipping deviation SMS: OFF_ROUTE cooldown active');
+        }
+      }
+      wasOffRouteRef.current = isOffRoute;
     };
 
     const handleError = (data: any) => {
@@ -329,41 +413,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       timestamp: new Date(),
       deviation,
     };
-  };
-
-  /**
-   * Handle alerts based on deviation severity
-   */
-  const handleDeviationAlerts = async (deviation: DeviationStatus) => {
-    // Skip if alerts are muted
-    if (alertsMuted) {
-      return;
-    }
-
-    // Vibration for moderate+ deviations
-    if (deviation.severity === 'moderate' || deviation.severity === 'concerning') {
-      Vibration.vibrate([0, 200, 100, 200]);
-    } else if (deviation.severity === 'major') {
-      Vibration.vibrate([0, 500, 200, 500, 200, 500]);
-    }
-
-    // Sound alert for major deviations
-    if (deviation.severity === 'major' && soundRef.current) {
-      try {
-        await soundRef.current.replayAsync();
-      } catch (error) {
-        console.log('[PathDeviation] Could not play alert sound:', error);
-      }
-    }
-
-    // System alert for major deviations
-    if (deviation.severity === 'major') {
-      Alert.alert(
-        '⚠️ Major Route Deviation',
-        'You are significantly off route. Please check your navigation.',
-        [{ text: 'OK' }]
-      );
-    }
   };
 
   /**
@@ -425,6 +474,8 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       }
       setDistanceTraveled(0);
       setCurrentSpeed(0);
+      wasOffRouteRef.current = false;
+      lastOffRouteSmsAtRef.current = 0;
       
       // Connect to WebSocket for real-time updates
       pathDeviationWebSocket.connect(response.journey_id);
@@ -759,6 +810,8 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       totalRouteDistanceRef.current = 0;
       totalRouteDurationRef.current = 0;
       distanceTraveledRef.current = 0;
+      wasOffRouteRef.current = false;
+      lastOffRouteSmsAtRef.current = 0;
       
       console.log('[PathDeviation] Journey stopped successfully');
     } catch (error) {

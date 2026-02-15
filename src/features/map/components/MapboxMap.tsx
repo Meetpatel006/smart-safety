@@ -86,7 +86,7 @@ export default function MapboxMap({
   const webViewRef = useRef<WebView>(null);
 
   // Connect map to path deviation tracking
-  const { setMapRef } = usePathDeviation();
+  const { setMapRef, isTracking, recenterMap } = usePathDeviation();
 
   // Set map reference for path deviation tracking AFTER map is ready
   useEffect(() => {
@@ -468,7 +468,13 @@ export default function MapboxMap({
           )}
 
           <RightActionButtons
-            onCompassPress={getCurrentLocation}
+            onCompassPress={() => {
+              if (isTracking) {
+                recenterMap();
+                return;
+              }
+              getCurrentLocation();
+            }}
             onLayersPress={() => setShowStyleSelector(!showStyleSelector)}
             onSOSPress={() => {
               setShowStyleSelector(false);
