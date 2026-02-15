@@ -609,7 +609,7 @@ export const sendWelcomeEmailsToAll = async (token) => {
     const res = await handleResponse(response);
     return res;
   } catch (e) {
-    console.error("API: sendWelcomeEmailsToAll error", { error: e?.message || e });
+    // Error will be handled and displayed via dialog in the component
     throw e;
   }
 };

@@ -1,9 +1,9 @@
+import React, { useState, useEffect } from "react"
 import { View, StyleSheet, TouchableOpacity, StatusBar, RefreshControl, Alert } from "react-native"
 import { Text } from "react-native-paper"
 import PeopleList from "../components/PeopleList"
 import { useApp } from "../../../context/AppContext"
-import { useState, useEffect } from "react"
-import { MaterialCommunityIcons } from "@expo/vector-icons"
+import { Users, CheckCircle, XCircle, Mail, Plus } from "lucide-react-native"
 import { getAllMembers, sendWelcomeEmailsToAll } from "../../../utils/api"
 import PeopleSkeleton from "../components/PeopleSkeleton"
 
@@ -76,8 +76,15 @@ export default function PeopleScreen({ navigation }: any) {
                 Alert.alert("Error", response.message || "Failed to send emails")
               }
             } catch (err: any) {
-              console.error("Error sending emails:", err)
-              Alert.alert("Error", err.message || "Failed to send welcome emails")
+              // Differentiate between informational messages and actual errors
+              const errorMsg = err.message || "Failed to send welcome emails. Please try again."
+              const isInfoMessage = errorMsg.toLowerCase().includes("already received")
+              
+              Alert.alert(
+                isInfoMessage ? "Information" : "Email Sending Failed",
+                errorMsg,
+                [{ text: "OK" }]
+              )
             } finally {
               setSendingEmails(false)
             }
@@ -108,11 +115,23 @@ export default function PeopleScreen({ navigation }: any) {
     return unsubscribe;
   }, [navigation, state.token]);
 
-  const filters: { key: FilterType; label: string; icon: string }[] = [
-    { key: "all", label: "All", icon: "account-group" },
-    { key: "active", label: "Active", icon: "check-circle-outline" },
-    { key: "offline", label: "Offline", icon: "close-circle-outline" },
+  const filters: { key: FilterType; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "active", label: "Active" },
+    { key: "offline", label: "Offline" },
   ]
+
+  const renderFilterIcon = (filterKey: FilterType, isActive: boolean) => {
+    const color = isActive ? "#FFFFFF" : "#64748B"
+    switch (filterKey) {
+      case "all":
+        return <Users size={16} color={color} />
+      case "active":
+        return <CheckCircle size={16} color={color} />
+      case "offline":
+        return <XCircle size={16} color={color} />
+    }
+  }
 
   return (
     <View style={styles.container}>
@@ -137,11 +156,7 @@ export default function PeopleScreen({ navigation }: any) {
               style={[styles.emailButton, sendingEmails && styles.emailButtonDisabled]}
               activeOpacity={0.7}
             >
-              <MaterialCommunityIcons 
-                name={sendingEmails ? "email-sync-outline" : "email-outline"} 
-                size={18} 
-                color="#FFFFFF" 
-              />
+              {sendingEmails ? <Mail size={18} color="#FFFFFF" /> : <Mail size={18} color="#FFFFFF" />}
               <Text style={styles.emailButtonText}>
                 {sendingEmails ? 'Sending...' : 'Send Welcome'}
               </Text>
@@ -160,11 +175,7 @@ export default function PeopleScreen({ navigation }: any) {
                 activeFilter === filter.key && styles.filterPillActive,
               ]}
             >
-              <MaterialCommunityIcons
-                name={filter.icon as any}
-                size={16}
-                color={activeFilter === filter.key ? "#FFFFFF" : "#64748B"}
-              />
+              {renderFilterIcon(filter.key, activeFilter === filter.key)}
               <Text
                 style={[
                   styles.filterText,
@@ -202,7 +213,7 @@ export default function PeopleScreen({ navigation }: any) {
         onPress={() => navigation.navigate('AddPerson')}
         activeOpacity={0.9}
       >
-        <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
+        <Plus size={28} color="#FFFFFF" />
       </TouchableOpacity>
     </View>
   )

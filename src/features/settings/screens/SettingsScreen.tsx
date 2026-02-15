@@ -1,15 +1,14 @@
 import { View, ScrollView, StyleSheet, TouchableOpacity, StatusBar, Modal } from "react-native"
-import { Text, Switch, Button, IconButton } from "react-native-paper"
+import { Text, Switch, Button } from "react-native-paper"
 import QRCode from "react-native-qrcode-svg"
 import { useApp } from "../../../context/AppContext"
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons"
+import { CheckCircle2, Edit, QrCode, Volume2, Smartphone, BellOff, ChevronRight, Bug, LogOut, X } from "lucide-react-native"
 import { useState, useEffect } from "react"
 import { useNavigation } from "@react-navigation/native"
 import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
-import { readJSON, writeJSON } from "../../../utils/storage"
 import SafetyScoreCard from "../../dashboard/components/SafetyScoreCard"
 import { Alert } from "react-native"
 
@@ -20,7 +19,6 @@ export default function SettingsScreen() {
   const [vibration, setVibration] = useState(true)
   const [muteAllAlerts, setMuteAllAlerts] = useState(false)
   const [showQR, setShowQR] = useState(false)
-  const [soloUser, setSoloUser] = useState<boolean | null>(null)
 
   useEffect(() => {
     getAlertConfig().then(cfg => {
@@ -32,15 +30,6 @@ export default function SettingsScreen() {
         setMuteAllAlerts(s.muted)
       }
     })
-    ;(async () => {
-      try {
-        const val = await readJSON<boolean>('pathDeviationSoloUser', false)
-        setSoloUser(!!val)
-      } catch (e) {
-        console.warn('Failed reading pathDeviationSoloUser', e)
-        setSoloUser(false)
-      }
-    })()
   }, [])
 
   const toggleSound = (v: boolean) => {
@@ -61,7 +50,7 @@ export default function SettingsScreen() {
   const menuItems: Array<{
     section: string;
     items: Array<{
-      icon: string;
+      icon: React.ReactNode;
       label: string;
       color: string;
       isToggle: boolean;
@@ -74,7 +63,7 @@ export default function SettingsScreen() {
       section: "Preferences",
       items: [
         {
-          icon: "volume-high-outline",
+          icon: <Volume2 size={18} color="#8B5CF6" />,
           label: "Sound",
           color: "#8B5CF6",
           isToggle: true,
@@ -82,7 +71,7 @@ export default function SettingsScreen() {
           onToggle: toggleSound
         },
         {
-          icon: "phone-portrait-outline",
+          icon: <Smartphone size={18} color="#EC4899" />,
           label: "Vibration",
           color: "#EC4899",
           isToggle: true,
@@ -109,7 +98,7 @@ export default function SettingsScreen() {
                 <Text style={styles.avatarText}>{state.user?.name?.charAt(0) || "U"}</Text>
               </View>
               <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#fff" />
+                <CheckCircle2 size={14} color="#fff" />
               </View>
             </View>
             <View style={styles.profileInfo}>
@@ -120,12 +109,12 @@ export default function SettingsScreen() {
 
           <View style={styles.profileActions}>
             <TouchableOpacity style={styles.actionButton} onPress={() => navigation.navigate('PersonalInfo')}>
-              <Ionicons name="create-outline" size={18} color="#3B82F6" />
+              <Edit size={18} color="#3B82F6" />
               <Text style={styles.actionButtonText}>Edit Profile</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
             <TouchableOpacity style={styles.actionButton} onPress={() => setShowQR(true)}>
-              <Ionicons name="qr-code-outline" size={18} color="#3B82F6" />
+              <QrCode size={18} color="#3B82F6" />
               <Text style={styles.actionButtonText}>My QR</Text>
             </TouchableOpacity>
           </View>
@@ -145,7 +134,7 @@ export default function SettingsScreen() {
                     <View style={styles.menuItem}>
                       <View style={styles.menuItemLeft}>
                         <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
-                          <Ionicons name={item.icon as any} size={18} color={item.color} />
+                          {item.icon}
                         </View>
                         <Text style={styles.menuItemText}>{item.label}</Text>
                       </View>
@@ -159,11 +148,11 @@ export default function SettingsScreen() {
                     <TouchableOpacity style={styles.menuItem} onPress={item.onPress} activeOpacity={0.7}>
                       <View style={styles.menuItemLeft}>
                         <View style={[styles.menuIcon, { backgroundColor: item.color + "20" }]}>
-                          <Ionicons name={item.icon as any} size={18} color={item.color} />
+                          {item.icon}
                         </View>
                         <Text style={styles.menuItemText}>{item.label}</Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                      <ChevronRight size={18} color="#9CA3AF" />
                     </TouchableOpacity>
                   )}
                   {itemIndex < section.items.length - 1 && <View style={styles.menuDivider} />}
@@ -180,7 +169,7 @@ export default function SettingsScreen() {
             <View style={styles.menuItem}>
               <View style={styles.menuItemLeft}>
                 <View style={[styles.menuIcon, { backgroundColor: "#FEE2E220" }]}>
-                  <Ionicons name="notifications-off-outline" size={18} color="#EF4444" />
+                  <BellOff size={18} color="#EF4444" />
                 </View>
                 <View>
                   <Text style={styles.menuItemText}>Mute High-Risk Alerts</Text>
@@ -215,38 +204,11 @@ export default function SettingsScreen() {
               >
                 <View style={styles.menuItemLeft}>
                   <View style={[styles.menuIcon, { backgroundColor: "#F9731620" }]}>
-                    <MaterialCommunityIcons name="bug-outline" size={18} color="#F97316" />
+                    <Bug size={18} color="#F97316" />
                   </View>
                   <Text style={styles.menuItemText}>View SOS Queue</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
-              </TouchableOpacity>
-              <View style={styles.menuDivider} />
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={async () => {
-                  try {
-                    const newVal = !soloUser
-                    await writeJSON('pathDeviationSoloUser', !!newVal)
-                    setSoloUser(!!newVal)
-                    Alert.alert('Path Deviation (Solo User)', `Solo user is now ${newVal ? 'ENABLED' : 'DISABLED'}`)
-                  } catch (e) {
-                    console.warn('Failed toggling pathDeviationSoloUser', e)
-                    Alert.alert('Error', 'Failed to toggle solo user')
-                  }
-                }}
-                activeOpacity={0.7}
-              >
-                <View style={styles.menuItemLeft}>
-                  <View style={[styles.menuIcon, { backgroundColor: "#6EE7B720" }]}>
-                    <Ionicons name="person-outline" size={18} color="#10B981" />
-                  </View>
-                  <View>
-                    <Text style={styles.menuItemText}>Toggle PathDeviation Solo User</Text>
-                    <Text style={styles.menuItemSubtext}>{soloUser === null ? 'Loading…' : soloUser ? 'Currently: SOLO' : 'Currently: NORMAL'}</Text>
-                  </View>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#9CA3AF" />
+                <ChevronRight size={18} color="#9CA3AF" />
               </TouchableOpacity>
             </View>
           </View>
@@ -255,7 +217,7 @@ export default function SettingsScreen() {
         {/* Footer Actions */}
         <View style={styles.footer}>
           <TouchableOpacity style={styles.logoutButton} onPress={logout} activeOpacity={0.7}>
-            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
+            <LogOut size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
 
@@ -278,11 +240,9 @@ export default function SettingsScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>My QR Code</Text>
-              <IconButton
-                icon="close"
-                size={24}
-                onPress={() => setShowQR(false)}
-              />
+              <TouchableOpacity onPress={() => setShowQR(false)} style={styles.closeButton}>
+                <X size={24} color="#1f2937" />
+              </TouchableOpacity>
             </View>
 
             <View style={styles.qrContainer}>

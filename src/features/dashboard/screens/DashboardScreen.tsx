@@ -336,13 +336,7 @@ export default function DashboardScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
-          <Avatar.Text
-            size={48}
-            label={getUserInitials()}
-            style={[styles.avatar, { backgroundColor: getAvatarColor() }]}
-            labelStyle={styles.avatarLabel}
-          />
-          <View style={styles.headerContent}>
+          <View style={styles.headerContentFull}>
             <Text style={styles.greetingText}>{getGreeting()},</Text>
             <Text style={styles.userName}>{getUserName()}</Text>
             <View style={styles.locationRow}>
@@ -484,6 +478,10 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     flex: 1,
+  },
+  headerContentFull: {
+    flex: 1,
+    marginLeft: 0,
   },
   greetingText: {
     fontSize: 13,
