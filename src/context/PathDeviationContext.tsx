@@ -115,13 +115,11 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   // Sync deviationScenario state with ref for use in interval callback
   useEffect(() => {
     deviationScenarioRef.current = deviationScenario;
-    console.log('[PathDeviation] Deviation scenario changed to:', deviationScenario);
   }, [deviationScenario]);
 
   // Sync simulationSpeed with ref
   useEffect(() => {
     simulationSpeedRef.current = simulationSpeed;
-    console.log('[PathDeviation] Simulation speed changed to:', simulationSpeed);
   }, [simulationSpeed]);
 
   // Refs
@@ -155,7 +153,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    */
   const setMapRef = useCallback((ref: React.RefObject<WebView> | null) => {
     mapRef.current = ref;
-    console.log('[PathDeviation] Map ref set:', ref ? 'valid ref object' : 'null', ref?.current ? 'with WebView' : 'without WebView');
   }, []);
 
   /**
@@ -164,17 +161,9 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   const sendToMap = useCallback((message: any) => {
     if (mapRef.current && mapRef.current.current) {
       mapRef.current.current.postMessage(JSON.stringify(message));
-      // Debug log for simulation tracking
-      if (message.type === 'updateUserTracking' || message.type === 'startTracking') {
-        console.log('[PathDeviation] Sent to map:', message.type, message.lat?.toFixed(4), message.lng?.toFixed(4));
-      }
     } else {
-      // More detailed debug info
-      console.warn('[PathDeviation] Map ref not available:', {
-        type: message.type,
-        hasMapRef: !!mapRef.current,
-        hasWebView: !!(mapRef.current && mapRef.current.current)
-      });
+      // Map ref not available
+      console.warn('[PathDeviation] Map ref not available for:', message.type);
     }
   }, []);
 
@@ -201,7 +190,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
   const sendDeviationSmsToContacts = useCallback(async (deviation: DeviationStatus): Promise<boolean> => {
     const currentState = appStateRef.current;
     if (currentState.user?.role !== 'solo') {
-      console.log('[PathDeviation] Skipping deviation SMS: user is not solo');
       return false;
     }
 
@@ -236,7 +224,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     if (currentState.offline) {
       try {
         await queueSMS({ payload });
-        console.log('[PathDeviation] Offline: deviation SMS queued for retry');
       } catch (error) {
         console.warn('[PathDeviation] Failed queueing deviation SMS:', error);
         return false;
@@ -245,14 +232,8 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     }
 
     try {
-      console.log('[PathDeviation] Sending deviation SMS', {
-        recipientsCount: recipients.length,
-        firstRecipient: recipients[0],
-      });
       const smsRes = await sendSMS(payload);
-      console.log('[PathDeviation] SMS send result', smsRes);
       if (!smsRes.ok) {
-        console.log('[PathDeviation] SMS send failed, queueing for retry');
         await queueSMS({ payload });
       }
     } catch (error) {
@@ -298,17 +279,14 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    */
   useEffect(() => {
     const handleConnected = () => {
-      console.log('[PathDeviation] WebSocket connected');
       setIsConnected(true);
     };
 
     const handleDisconnected = () => {
-      console.log('[PathDeviation] WebSocket disconnected');
       setIsConnected(false);
     };
 
     const handleDeviationUpdate = (message: DeviationUpdateMessage) => {
-      console.log('[PathDeviation] Deviation update:', message.deviation);
       
       setDeviationStatus(message.deviation);
       
@@ -357,7 +335,7 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
               console.warn('[PathDeviation] Failed sending deviation SMS:', error);
             });
         } else {
-          console.log('[PathDeviation] Skipping deviation SMS: OFF_ROUTE cooldown active');
+          // OFF_ROUTE cooldown active
         }
       }
       wasOffRouteRef.current = isOffRoute;
@@ -420,8 +398,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    */
   const startJourney = useCallback(async (config: JourneyConfig, route?: Route) => {
     try {
-      console.log('[PathDeviation] Starting journey with config:', config);
-      
       // Store route steps if provided
       if (route) {
         const allSteps: RouteStep[] = [];
@@ -434,7 +410,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
         // Store route coordinates for GPS simulation
         if (route.geometry && route.geometry.coordinates) {
           routeCoordinatesRef.current = route.geometry.coordinates;
-          console.log('[PathDeviation] Stored route coordinates for simulation:', route.geometry.coordinates.length, 'points');
         }
         
         // Store total route distance and duration for accurate ETA calculation
@@ -443,12 +418,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
         
         // Initialize distance remaining with actual route distance
         setDistanceRemaining(route.distance);
-        
-        console.log('[PathDeviation] Loaded route:', {
-          distance: route.distance,
-          duration: route.duration,
-          steps: allSteps.length
-        });
       }
       
       // Start journey on backend
@@ -482,8 +451,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       
       // Start GPS tracking
       startGPSTracking(response.journey_id);
-      
-      console.log('[PathDeviation] Journey started successfully:', response.journey_id);
     } catch (error) {
       console.error('[PathDeviation] Error starting journey:', error);
       Alert.alert(
@@ -499,8 +466,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    * Start GPS tracking
    */
   const startGPSTracking = useCallback((journeyId: string) => {
-    console.log('[PathDeviation] Starting GPS tracking for journey:', journeyId);
-    
     // Clear any existing interval
     if (gpsIntervalRef.current) {
       clearInterval(gpsIntervalRef.current);
@@ -516,7 +481,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     gpsIntervalRef.current = setInterval(async () => {
       // Check if tracking is still active (prevents updates after journey stops)
       if (!isTrackingActiveRef.current) {
-        console.log('[PathDeviation] GPS update skipped - tracking no longer active');
         return;
       }
 
@@ -545,30 +509,21 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
                 longitude: location.coords.longitude + (0.003 * deviationFactor), // ~300m offset at peak
               }
             };
-            console.log('[PathDeviation] SCENARIO: Deviation applied', { 
-              deviationFactor,
-              originalLat: location.coords.latitude,
-              modifiedLat: modifiedLocation.coords.latitude,
-              offset: 0.004 * deviationFactor
-            });
             break;
             
           case 'stop':
             // Simulate extended stop with very low or zero speed
             modifiedSpeed = Math.random() < 0.7 ? 0 : 0.5; // 70% chance of 0, 30% chance of 0.5 m/s
-            console.log('[PathDeviation] SCENARIO: Stop applied', { modifiedSpeed });
             break;
             
           case 'slow':
             // Simulate slow traffic (15-30 km/h = 4.17-8.33 m/s)
             modifiedSpeed = (15 + Math.random() * 15) / 3.6; // Convert km/h to m/s
-            console.log('[PathDeviation] SCENARIO: Slow traffic applied', { speedKmh: modifiedSpeed * 3.6 });
             break;
             
           case 'fast':
             // Simulate highway speed (90-120 km/h = 25-33.33 m/s)
             modifiedSpeed = (90 + Math.random() * 30) / 3.6; // Convert km/h to m/s
-            console.log('[PathDeviation] SCENARIO: Fast speed applied', { speedKmh: modifiedSpeed * 3.6 });
             break;
             
           case 'normal':
@@ -590,13 +545,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
         const speedKmh = (location.coords.speed || 0) * 3.6;
         setCurrentSpeed(speedKmh);
 
-        console.log('[PathDeviation] GPS Update:', {
-          speed: location.coords.speed,
-          speedKmh,
-          lat: gpsPoint.lat,
-          lng: gpsPoint.lng
-        });
-
         // Calculate distance traveled (only if actually moving, not GPS drift)
         // Minimum movement threshold: 5 meters (to filter GPS noise)
         const MIN_MOVEMENT_METERS = 5;
@@ -616,10 +564,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
             newDistanceTraveled += distance;
             distanceTraveledRef.current = newDistanceTraveled;
             setDistanceTraveled(newDistanceTraveled);
-            console.log('[PathDeviation] Distance traveled updated:', {
-              segmentDistance: distance,
-              totalDistanceTraveled: newDistanceTraveled
-            });
           }
         }
 
@@ -648,45 +592,23 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
           const MIN_SPEED_THRESHOLD_KMH = 5;
           const isMoving = speedKmh >= MIN_SPEED_THRESHOLD_KMH;
 
-          console.log('[PathDeviation] ETA Calculation:', {
-            remainingDist,
-            speedKmh,
-            isMoving,
-            distanceTraveled: newDistanceTraveled,
-            totalRouteDistance: totalRouteDistanceRef.current,
-            totalRouteDuration: totalRouteDurationRef.current,
-            usingRouteDistance: totalRouteDistanceRef.current > 0
-          });
-
           // Calculate estimated time remaining (in seconds)
           if (isMoving) {
             // Use actual speed: time (seconds) = distance (meters) / speed (m/s)
             const speedMps = speedKmh / 3.6;
             const timeRemaining = remainingDist / speedMps;
             setEstimatedTimeRemaining(Math.round(timeRemaining));
-            console.log('[PathDeviation] Using speed-based ETA:', {
-              speedKmh,
-              timeRemaining: Math.round(timeRemaining)
-            });
           } else if (totalRouteDurationRef.current > 0 && totalRouteDistanceRef.current > 0) {
             // User is stationary or moving very slowly (GPS drift)
             // Use route's estimated duration based on progress
             const progressPercentage = Math.min(1, newDistanceTraveled / totalRouteDistanceRef.current);
             const remainingDuration = totalRouteDurationRef.current * (1 - progressPercentage);
             setEstimatedTimeRemaining(Math.round(remainingDuration));
-            console.log('[PathDeviation] Using route-based ETA (stationary/slow):', {
-              progressPercentage: (progressPercentage * 100).toFixed(1) + '%',
-              remainingDuration: Math.round(remainingDuration),
-              formattedTime: `${Math.floor(remainingDuration / 3600)}h ${Math.floor((remainingDuration % 3600) / 60)}m`
-            });
           } else {
             // Fallback: estimate based on average speed (30 km/h for driving)
             const avgSpeedMps = 30 / 3.6;
             const timeRemaining = remainingDist / avgSpeedMps;
             setEstimatedTimeRemaining(Math.round(timeRemaining));
-            console.log('[PathDeviation] Using fallback ETA (30 km/h avg):', {
-              timeRemaining: Math.round(timeRemaining)
-            });
           }
         }
 
@@ -703,7 +625,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
             // Update step index if changed
             if (instruction.stepIndex !== currentStepIndexRef.current) {
               currentStepIndexRef.current = instruction.stepIndex;
-              console.log('[PathDeviation] Advanced to step', instruction.stepIndex, ':', instruction.instruction);
             }
             setCurrentInstruction(instruction);
           }
@@ -711,7 +632,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
 
         // Check if tracking is still active before sending to backend
         if (!isTrackingActiveRef.current) {
-          console.log('[PathDeviation] Skipping backend update - tracking stopped');
           return;
         }
 
@@ -738,7 +658,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
           );
 
           if (distance < 50) {
-            console.log('[PathDeviation] Destination reached!');
             stopJourney();
           }
         }
@@ -771,8 +690,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    */
   const stopJourney = useCallback(async () => {
     try {
-      console.log('[PathDeviation] Stopping journey');
-      
       // Set tracking inactive FIRST to prevent any in-flight GPS updates
       isTrackingActiveRef.current = false;
       
@@ -812,8 +729,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       distanceTraveledRef.current = 0;
       wasOffRouteRef.current = false;
       lastOffRouteSmsAtRef.current = 0;
-      
-      console.log('[PathDeviation] Journey stopped successfully');
     } catch (error) {
       console.error('[PathDeviation] Error stopping journey:', error);
     }
@@ -838,18 +753,13 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    */
   const recenterMap = useCallback(() => {
     sendToMap({ type: 'recenterOnUser' });
-    console.log('[PathDeviation] Re-centering map on user');
   }, [sendToMap]);
 
   /**
    * Toggle mute/unmute alerts
    */
   const toggleMuteAlerts = useCallback(() => {
-    setAlertsMuted(prev => {
-      const newValue = !prev;
-      console.log('[PathDeviation] Alerts', newValue ? 'muted' : 'unmuted');
-      return newValue;
-    });
+    setAlertsMuted(prev => !prev);
   }, []);
 
   /**
@@ -919,14 +829,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     const baseInterval = Math.max(100, 500 / Math.sqrt(currentSpeed));
     const pointsPerUpdate = Math.max(1, Math.floor(currentSpeed / 5));
 
-    console.log('[Simulation] Starting simulation:', {
-      speed: currentSpeed,
-      interval: baseInterval,
-      pointsPerUpdate,
-      totalPoints: coordinates.length,
-      scenario: deviationScenarioRef.current
-    });
-
     setIsSimulating(true);
     simulationIndexRef.current = 0;
     setSimulationProgress(0);
@@ -946,7 +848,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
 
       // Check if we've reached the end
       if (currentIndex >= coords.length) {
-        console.log('[Simulation] Reached end of route');
         stopSimulation();
         return;
       }
@@ -963,11 +864,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
           const deviationFactor = Math.sin((progress - 0.3) / 0.4 * Math.PI);
           lat += 0.004 * deviationFactor; // ~400m offset at peak
           lng += 0.003 * deviationFactor; // ~300m offset at peak
-          console.log('[Simulation] DEVIATION applied:', {
-            progress: (progress * 100).toFixed(1) + '%',
-            deviationFactor: deviationFactor.toFixed(3),
-            offsetLat: (0.004 * deviationFactor).toFixed(6)
-          });
         }
       }
 
@@ -1043,14 +939,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
           speed: gpsPoint.speed,
         });
 
-        console.log(`[Simulation] Point ${currentIndex}/${coords.length}:`, {
-          lat: lat.toFixed(6),
-          lng: lng.toFixed(6),
-          speedKmh: simulatedSpeedKmh.toFixed(1),
-          scenario,
-          progress: progressPercent.toFixed(1) + '%'
-        });
-
       } catch (error) {
         console.error('[Simulation] Error sending GPS point:', error);
       }
@@ -1066,8 +954,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
    * Stop GPS simulation
    */
   const stopSimulation = useCallback(() => {
-    console.log('[Simulation] Stopping simulation');
-    
     if (simulationIntervalRef.current) {
       clearInterval(simulationIntervalRef.current);
       simulationIntervalRef.current = null;
@@ -1078,7 +964,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Restart real GPS tracking if journey is still active
     if (journeyId && isTrackingActiveRef.current) {
-      console.log('[Simulation] Restarting real GPS tracking');
       startGPSTracking(journeyId);
     }
   }, [journeyId, startGPSTracking]);
@@ -1101,7 +986,6 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     const handleAppStateChange = (nextState: AppStateStatus) => {
       if (nextState === 'active') {
         if (journeyId && isTrackingActiveRef.current && !pathDeviationWebSocket.isConnected()) {
-          console.log('[PathDeviation] App active: reconnecting WebSocket');
           pathDeviationWebSocket.connect(journeyId);
         }
       }

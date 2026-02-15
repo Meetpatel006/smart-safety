@@ -45,7 +45,7 @@ export default function DashboardScreen({ navigation }: any) {
             setGroupData(data.data);
           }
         } catch (e) {
-          console.log("Failed to fetch group dashboard", e);
+          console.error("Failed to fetch group dashboard:", e);
         }
       }
     };
@@ -58,7 +58,6 @@ export default function DashboardScreen({ navigation }: any) {
       try {
         const { status } = await Location.requestForegroundPermissionsAsync();
         if (status !== "granted") {
-          console.log("Location permission denied");
           return;
         }
 
@@ -172,7 +171,7 @@ export default function DashboardScreen({ navigation }: any) {
         return { lat: loc.coords.latitude, lng: loc.coords.longitude };
       }
     } catch (e) {
-      console.log("Error getting location for update", e);
+      console.error("Error getting location:", e);
     }
     return null;
   };
@@ -189,7 +188,7 @@ export default function DashboardScreen({ navigation }: any) {
           coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
         }
       } catch (e) {
-        console.log("Error getting location", e);
+        console.error("Error getting location:", e);
       }
 
       touristSocket.connect(touristId, coords);
@@ -275,8 +274,6 @@ export default function DashboardScreen({ navigation }: any) {
   };
 
   const handleSafetyScoreAlert = async (alertData: SafetyScoreAlert) => {
-    console.log("⚠️ Safety score alert:", alertData);
-
     // Haptic feedback for critical changes
     if (
       alertData.changeType === "critical_threshold" ||
@@ -307,7 +304,7 @@ export default function DashboardScreen({ navigation }: any) {
           { text: "Dismiss", style: "cancel" },
           {
             text: "View Details",
-            onPress: () => console.log("View safety details"),
+            onPress: () => {},
           },
         ],
       );

@@ -283,7 +283,6 @@ export const getGroupDashboard = async (token) => {
 
 export const getSoloItinerary = async (token) => {
   try {
-    console.log('[API] Fetching solo itinerary from /api/itinerary');
     const response = await fetch(`${SERVER_URL}/api/itinerary`, {
       method: "GET",
       headers: {
@@ -292,7 +291,6 @@ export const getSoloItinerary = async (token) => {
       },
     });
     const res = await handleResponse(response);
-    console.log('[API] getSoloItinerary response:', res);
     return res;
   } catch (e) {
     console.error("API: getSoloItinerary error", { error: e?.message || e });
@@ -302,8 +300,6 @@ export const getSoloItinerary = async (token) => {
 
 export const updateSoloItinerary = async (token, itinerary) => {
   try {
-    console.log('[API] Updating solo itinerary via PUT /api/itinerary');
-    console.log('[API] Itinerary payload:', JSON.stringify(itinerary, null, 2));
     const response = await fetch(`${SERVER_URL}/api/itinerary`, {
       method: "PUT",
       headers: {
@@ -313,7 +309,6 @@ export const updateSoloItinerary = async (token, itinerary) => {
       body: JSON.stringify({ itinerary }),
     });
     const res = await handleResponse(response);
-    console.log('[API] updateSoloItinerary response:', res);
     return res;
   } catch (e) {
     console.error("API: updateSoloItinerary error", { error: e?.message || e });

@@ -140,10 +140,6 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
 
     // Check if user is a group member (read-only access)
     const isGroupMember = state.user?.role === 'group-member';
-    
-    // Debug log
-    console.log('[ItineraryList] User data:', JSON.stringify(state.user, null, 2));
-    console.log('[ItineraryList] User role:', state.user?.role, 'isGroupMember:', isGroupMember);
 
       useImperativeHandle(ref, () => ({
       openNew: () => {
@@ -159,8 +155,6 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
     }));
 
       const openEdit = (trip: TripItem) => {
-        console.log('[ItineraryList] openEdit called', { id: trip.id, title: trip.title, date: trip.date, hasDayWise: !!trip.dayWiseItinerary });
-
         if (state.user?.role === 'tour-admin') {
           const itinerary = Array.isArray(trip.dayWiseItinerary) ? trip.dayWiseItinerary : [];
           const range = getTripDateRange(trip);
@@ -362,9 +356,6 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
       if (filter === "completed") return isPast(trip);
       return true;
     });
-
-    // Log for debugging
-    console.log('ItineraryList: Total trips=', state.trips?.length || 0, 'Filtered=', filteredTrips.length, 'Filter=', filter, 'Loading=', loading);
 
     const renderTripCard = (trip: TripItem) => {
       const status = getStatus(trip);

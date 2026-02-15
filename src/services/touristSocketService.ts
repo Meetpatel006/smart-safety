@@ -79,13 +79,10 @@ class TouristSocketService {
    */
   connect(touristId: string, initialLocation: LocationCoords) {
     if (this.socket && this.isConnected) {
-      console.log("Socket already connected");
       return;
     }
 
     this.touristId = touristId;
-
-    console.log(`Attempting to connect to ${SOCKET_URL} as ${touristId}`);
 
     // Create socket connection
     // Start with polling for better compatibility, then upgrade to websocket
@@ -100,14 +97,9 @@ class TouristSocketService {
 
     // Handle connection event
     this.socket.on("connect", () => {
-      console.log("✅ Connected to backend:", this.socket?.id);
-      console.log(
-        `✅ Socket transport: ${this.socket?.io.engine.transport.name}`,
-      );
       this.isConnected = true;
 
       // Register as tourist
-      console.log(`📤 Sending registration for tourist: ${this.touristId}`);
       this.socket?.emit("registerTourist", {
         role: "tourist",
         touristId: this.touristId,
@@ -115,16 +107,9 @@ class TouristSocketService {
       });
     });
 
-    // Debug: Log all incoming events
-    if (this.socket.onAny) {
-      this.socket.onAny((eventName, ...args) => {
-        console.log(`📡 Socket event received: ${eventName}`, args);
-      });
-    }
-
     // Handle registration confirmation
     this.socket.on("registrationConfirmed", (data: any) => {
-      console.log("✅ Registration confirmed:", data?.message);
+      // Registration confirmed silently
     });
 
     // Handle connection errors
@@ -134,18 +119,10 @@ class TouristSocketService {
       this.isConnected = false;
 
       // Provide helpful debugging info
-      console.log(
-        `💡 Troubleshooting: Ensure backend is running at ${SOCKET_URL}`,
-      );
-      console.log(
-        `💡 For physical device, use your computer's local IP instead of localhost`,
-      );
-      console.log(`💡 For Android emulator, use 10.0.2.2 instead of localhost`);
     });
 
     // Handle disconnection
     this.socket.on("disconnect", (reason: any) => {
-      console.log("🔌 Disconnected:", reason);
       this.isConnected = false;
 
       // Auto-reconnect if server disconnected
@@ -166,7 +143,6 @@ class TouristSocketService {
 
     this.socket?.off("authorityAlert");
     this.socket?.on("authorityAlert", (alertData: TouristAlert) => {
-      console.log("🚨 Authority alert received:", alertData);
       callback(alertData);
     });
   }
@@ -185,27 +161,18 @@ class TouristSocketService {
       return () => {};
     }
 
-    // Define the wrapper function to log and call callback
+    // Define the wrapper function to call callback
     const listener = (data: SafetyScoreData) => {
-      console.log("📊 ===== SAFETY SCORE UPDATE RECEIVED =====");
-      console.log(
-        "📊 Safety score update received from backend:",
-        data.safetyScore,
-      );
-      // console.log("📊 Full data:", JSON.stringify(data, null, 2));
       callback(data);
-      console.log("📊 ===== CALLBACK COMPLETE =====");
     };
 
     // Add new listener (supports multiple listeners now)
     this.socket.on("safetyScoreUpdate", listener);
-    console.log("✅ Safety score update listener registered");
 
     // Return cleanup function
     return () => {
       if (this.socket) {
         this.socket.off("safetyScoreUpdate", listener);
-        console.log("✅ Safety score update listener removed");
       }
     };
   }
@@ -221,12 +188,6 @@ class TouristSocketService {
 
     this.socket?.off("safetyScoreAlert");
     this.socket?.on("safetyScoreAlert", (alert: SafetyScoreAlert) => {
-      console.log(
-        "⚠️ Safety score alert:",
-        alert.previousScore,
-        "→",
-        alert.newScore,
-      );
       callback(alert);
     });
   }
@@ -265,11 +226,8 @@ class TouristSocketService {
       const coords = await getLocationFunc();
       if (coords) {
         this.updateLocation(coords);
-        console.log("📍 Periodic location update sent");
       }
     }, 45000); // 45 seconds
-
-    console.log("✅ Started periodic location updates (45s interval)");
   }
 
   /**
@@ -279,7 +237,6 @@ class TouristSocketService {
     if (this.locationUpdateInterval) {
       clearInterval(this.locationUpdateInterval);
       this.locationUpdateInterval = null;
-      console.log("🛑 Stopped periodic location updates");
     }
   }
 
@@ -292,7 +249,6 @@ class TouristSocketService {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
-      console.log("Socket disconnected");
     }
   }
 

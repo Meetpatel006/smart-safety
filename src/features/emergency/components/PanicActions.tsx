@@ -294,7 +294,6 @@ export default function PanicActions({
         },
       };
 
-      console.log("[PanicActions] Triggering SOS:", label);
       await triggerSOS(currentToken, sosData);
 
       try {
@@ -304,20 +303,25 @@ export default function PanicActions({
         ].filter(Boolean);
         if (recipients.length) {
           const message = buildSmsMessage(label);
-          console.log('[PanicActions] Sending SOS SMS', {
-            recipientsCount: recipients.length,
-            firstRecipient: recipients[0],
-          });
           const smsRes = await sendSMS({
             recipients,
             message,
           });
-          console.log('[PanicActions] SMS send result', smsRes);
           if (!smsRes.ok) {
-            console.log('[PanicActions] SMS send failed, queueing for retry');
             await queueSMS({
               payload: { recipients, message },
             });
+            if (smsRes.reason === 'permission_denied' || smsRes.reason === 'permission_never_ask_again') {
+              setSnack({
+                visible: true,
+                msg: 'SMS permission blocked. Enable SMS in App Settings to auto-send SOS messages.',
+              });
+            } else if (smsRes.reason === 'direct_module_unavailable') {
+              setSnack({
+                visible: true,
+                msg: 'Android build update required. Reinstall dev build to enable auto SMS.',
+              });
+            }
           }
         }
       } catch (e) {

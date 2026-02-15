@@ -45,6 +45,7 @@ import {
   requestNotificationPermissionStatus,
   scheduleNotification,
 } from "../utils/notificationsCompat";
+import * as Sentry from "@sentry/react-native";
 
 const decodeBase64 = (str: string): string => {
   return Buffer.from(str, "base64").toString("binary");
@@ -440,11 +441,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   token: parsed.token,
                   trips,
                 }));
-                try {
-                  console.log("Hydration fetched itinerary:", {
-                    count: itinerary.length,
-                  });
-                } catch (e) {}
+                
+                // Set Sentry user context for error tracking
+                Sentry.setUser({
+                  id: userData.touristId,
+                  email: userData.email,
+                  username: userData.name,
+                  phone: userData.phone,
+                  role: userData.role,
+                });
               }
             }
           } catch (e: any) {
@@ -920,12 +925,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             trips,
             contacts: contactsFromApi || s.contacts,
           }));
-          try {
-            console.log("Built trips from API:", {
-              count: trips.length,
-              trips,
-            });
-          } catch (e) {}
+          
+          // Set Sentry user context for error tracking
+          Sentry.setUser({
+            id: userData.touristId,
+            email: userData.email,
+            username: userData.name,
+            phone: userData.phone,
+            role: userData.role,
+          });
+          
           return { ok: true, message: "Login successful" };
         } catch (error: any) {
           // Check if this is a group member trying to login with email/password
@@ -1004,6 +1013,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             trips,
             contacts: contactsFromApi || s.contacts,
           }));
+          
+          // Set Sentry user context for error tracking
+          Sentry.setUser({
+            id: userData.touristId,
+            email: userData.email,
+            username: userData.name,
+            phone: userData.phone,
+            role: userData.role,
+          });
           
           try {
             console.log("✅ 3-code login successful");
@@ -1133,6 +1151,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       async logout() {
         await remove(STORAGE_KEY);
         setState(defaultState);
+        // Clear Sentry user context on logout
+        Sentry.setUser(null);
       },
       async updateProfile(patch) {
         setState((s) => ({
@@ -1189,83 +1209,65 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           }
 
           const userRole = state.user?.role;
-          console.log('[AppContext] updateTripsFromBackend for role:', userRole);
 
           // Solo travelers fetch from /api/itinerary
           if (userRole === 'solo') {
-            console.log('[AppContext] Fetching solo itinerary...');
             const { getSoloItinerary } = await import("../utils/api");
             const data = await getSoloItinerary(state.token);
-            
-            console.log('[AppContext] Solo itinerary response:', data);
             
             // Response structure: { success: true, data: [...dayWiseItinerary] }
             const itineraryData = data?.data || [];
             
             if (Array.isArray(itineraryData) && itineraryData.length > 0) {
-              console.log('[AppContext] Converting solo itinerary to trips:', itineraryData);
               const trips = itineraryToTrips(itineraryData);
-              console.log('[AppContext] Converted trips:', trips);
               setState((s) => ({ ...s, trips }));
-              console.log("Solo trips updated from backend:", trips.length);
               
               // Refresh geofences after solo itinerary update
               try {
                 const userId = state.user?.touristId;
                 if (userId) {
                   await geofenceService.loadFences(undefined, undefined, userId);
-                  console.log('Geofences refreshed after solo itinerary update');
                 }
               } catch (geoErr) {
-                console.warn('Failed to refresh geofences after solo itinerary update:', geoErr);
+                console.warn('Failed to refresh geofences:', geoErr);
               }
             } else {
-              console.log('[AppContext] No solo itinerary found');
               setState((s) => ({ ...s, trips: [] }));
             }
           } else {
             // Group members/admins fetch from group dashboard
-            console.log('[AppContext] Fetching group dashboard...');
             const { getGroupDashboard } = await import("../utils/api");
             let groupItinerary: any[] | null = null;
             try {
               const data = await getGroupDashboard(state.token);
-              console.log('[AppContext] Group dashboard response:', data);
               const groupData = data?.data || data;
               if (groupData && Array.isArray(groupData.itinerary) && groupData.itinerary.length > 0) {
                 groupItinerary = groupData.itinerary;
               }
             } catch (dashErr: any) {
-              console.warn('[AppContext] Group dashboard failed, will use user itinerary:', dashErr?.message);
+              console.warn('Group dashboard fetch failed:', dashErr?.message);
             }
 
             if (groupItinerary && groupItinerary.length > 0) {
-              console.log('[AppContext] Found group itinerary:', groupItinerary.length, 'days');
               const trips = itineraryToTrips(groupItinerary);
-              console.log('[AppContext] Converted trips:', trips);
               setState((s) => ({ ...s, trips }));
-              console.log("Group trips updated from backend:", trips.length);
               
               // Refresh geofences after group itinerary fetch
               try {
                 const userId = state.user?.touristId;
                 if (userId) {
                   await geofenceService.loadFences(undefined, undefined, userId);
-                  console.log('Geofences refreshed after group itinerary fetch');
                 }
               } catch (geoErr) {
-                console.warn('Failed to refresh geofences after group itinerary fetch:', geoErr);
+                console.warn('Failed to refresh geofences:', geoErr);
               }
             } else {
               // Fallback: use the user's own dayWiseItinerary
               const fallbackItinerary = state.user?.dayWiseItinerary || [];
               if (Array.isArray(fallbackItinerary) && fallbackItinerary.length > 0) {
-                console.log('[AppContext] Using user dayWiseItinerary as fallback:', fallbackItinerary.length, 'days');
                 const trips = itineraryToTrips(fallbackItinerary);
                 setState((s) => ({ ...s, trips }));
-                console.log("User trips updated from backend:", trips.length);
               } else {
-                console.log('[AppContext] No itinerary found anywhere');
                 setState((s) => ({ ...s, trips: [] }));
               }
             }

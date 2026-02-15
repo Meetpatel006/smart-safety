@@ -22,6 +22,7 @@
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
     "@rnmapbox/maps": "^10.1.43",
+    "@sentry/react-native": "^8.0.0",
     "expo": "~54.0.32",
     "expo-av": "^16.0.8",
     "expo-blur": "~15.0.8",

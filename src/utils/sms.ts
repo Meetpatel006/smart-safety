@@ -6,71 +6,99 @@ export type SmsPayload = {
   message: string
 }
 
-async function requestAndroidSendPermission() {
-  if (Platform.OS !== 'android') return true
+type AndroidSmsPermissionStatus = 'granted' | 'denied' | 'never_ask_again'
+
+async function requestAndroidSendPermission(): Promise<AndroidSmsPermissionStatus> {
+  if (Platform.OS !== 'android') return 'granted'
   const permission = PermissionsAndroid.PERMISSIONS.SEND_SMS
   const hasPermission = await PermissionsAndroid.check(permission)
-  if (hasPermission) return true
+  if (hasPermission) return 'granted'
 
   const result = await PermissionsAndroid.request(permission)
-  return result === PermissionsAndroid.RESULTS.GRANTED
+  if (result === PermissionsAndroid.RESULTS.GRANTED) return 'granted'
+  if (result === PermissionsAndroid.RESULTS.NEVER_ASK_AGAIN) return 'never_ask_again'
+  return 'denied'
 }
 
 type DirectSmsModuleType = {
   sendSms: (recipients: string[], message: string) => Promise<any>
 }
 
+async function openSmsComposerFallback(
+  payload: SmsPayload,
+  fallbackReason: string,
+): Promise<{ ok: boolean; result?: any; reason?: string }> {
+  try {
+    const isAvailable = await SMS.isAvailableAsync()
+    if (!isAvailable) {
+      return { ok: false, reason: 'sms_unavailable' }
+    }
+
+    const res = await SMS.sendSMSAsync(payload.recipients, payload.message)
+    const channelResult = {
+      channel: 'android-composer-fallback',
+      fallbackReason,
+      ...res,
+    }
+
+    if (res?.result === 'cancelled') {
+      return { ok: false, reason: 'composer_cancelled', result: channelResult }
+    }
+    return { ok: true, result: channelResult }
+  } catch (e) {
+    console.warn('[sms] openSmsComposerFallback failed', e)
+    return { ok: false, reason: 'composer_fallback_failed' }
+  }
+}
+
 // Attempt to send SMS. On Android, send directly without opening the SMS app.
 // On other platforms, fall back to expo-sms which may open the composer.
-export async function sendSMS(payload: SmsPayload): Promise<{ ok: boolean; result?: any }> {
+export async function sendSMS(
+  payload: SmsPayload,
+): Promise<{ ok: boolean; result?: any; reason?: string }> {
   try {
     if (!Array.isArray(payload.recipients) || payload.recipients.length === 0) {
-      console.log('[sms] No recipients provided, skipping send')
-      return { ok: false }
+      return { ok: false, reason: 'no_recipients' }
     }
 
     if (Platform.OS === 'android') {
-      const permitted = await requestAndroidSendPermission()
-      if (!permitted) {
-        console.log('[sms] SEND_SMS permission denied')
-        return { ok: false }
+      const permissionStatus = await requestAndroidSendPermission()
+      if (permissionStatus !== 'granted') {
+        const reason =
+          permissionStatus === 'never_ask_again'
+            ? 'permission_never_ask_again'
+            : 'permission_denied'
+        console.warn('[sms] SEND_SMS not granted, opening composer fallback', { reason })
+        return await openSmsComposerFallback(payload, reason)
       }
-
-      console.log('[sms] Android direct send starting', {
-        recipients: payload.recipients.length,
-      })
 
       const directSmsModule = NativeModules.DirectSmsModule as DirectSmsModuleType | undefined
       if (!directSmsModule?.sendSms) {
-        console.warn('[sms] DirectSmsModule unavailable. Rebuild Android app (expo run:android) to enable auto-send.')
-        return { ok: false, result: { reason: 'direct_module_unavailable' } }
+        console.warn('[sms] DirectSmsModule unavailable, opening composer fallback')
+        return await openSmsComposerFallback(payload, 'direct_module_unavailable')
       }
 
       try {
         const result = await directSmsModule.sendSms(payload.recipients, payload.message)
-        console.log('[sms] Android native direct send result', result)
         return { ok: true, result }
       } catch (err) {
         console.warn('[sms] Android native direct send failed', err)
-        return { ok: false, result: { reason: 'direct_send_failed' } }
+        return await openSmsComposerFallback(payload, 'direct_send_failed')
       }
     }
 
     if (Platform.OS === 'web') {
-      console.log('[sms] Web platform, SMS not supported')
-      return { ok: false }
+      return { ok: false, reason: 'web_unsupported' }
     }
     const isAvailable = await SMS.isAvailableAsync()
     if (!isAvailable) {
-      console.log('[sms] expo-sms not available on device')
-      return { ok: false }
+      return { ok: false, reason: 'sms_unavailable' }
     }
     const res = await SMS.sendSMSAsync(payload.recipients, payload.message)
-    console.log('[sms] Expo send result', res)
     return { ok: true, result: { channel: 'expo-fallback', ...res } }
   } catch (e) {
     console.warn('sendSMS failed', e)
-    return { ok: false }
+    return { ok: false, reason: 'unexpected_error' }
   }
 }
 

@@ -19,26 +19,19 @@ export default function PeopleScreen({ navigation }: any) {
 
   const fetchPeople = async () => {
     if (!state.token) {
-      console.log('[PeopleScreen] No token available, skipping fetch');
       return;
     }
     
     try {
-      console.log('[PeopleScreen] Fetching people from getAllMembers API');
       setLoading(true);
       const response = await getAllMembers(state.token);
-      console.log('[PeopleScreen] getAllMembers response:', JSON.stringify(response, null, 2));
       
       if (response?.members) {
-        console.log('[PeopleScreen] Found members:', response.members.length);
         setPeople(response.members);
       } else {
-        console.log('[PeopleScreen] No members found in response');
         setPeople([]);
       }
-    } catch (err: any) {
-      console.error('[PeopleScreen] Error fetching people:', err?.message || err);
-      console.error('[PeopleScreen] Error stack:', err?.stack);
+    } catch (err: any) {      // On error, reset people to an empty list
       setPeople([]);
     } finally {
       setLoading(false);
@@ -101,14 +94,12 @@ export default function PeopleScreen({ navigation }: any) {
   }
 
   useEffect(() => {
-    console.log('[PeopleScreen] Component mounted, token:', !!state.token);
     fetchPeople();
   }, [state.token]);
 
   // Refetch when screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('[PeopleScreen] Screen focused, refetching people');
       fetchPeople();
     });
 

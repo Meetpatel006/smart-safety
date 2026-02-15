@@ -85,7 +85,6 @@ export default function EmergencyScreen({ navigation }: any) {
   // Set map reference for path deviation tracking AFTER map is ready
   useEffect(() => {
     if (mapReady && webViewRef.current) {
-      console.log('[EmergencyScreen] Setting map ref for path deviation tracking')
       setMapRef(webViewRef)
     }
     return () => {
@@ -101,7 +100,6 @@ export default function EmergencyScreen({ navigation }: any) {
         const userId = state.user?.touristId
         const fences = await loadFences(undefined, undefined, userId)
         setGeoFences(fences)
-        console.log('Loaded geofences:', fences.length, 'for user:', userId)
       } catch (err) {
         console.warn('Failed to load geofences:', err)
         setGeoFences([])
@@ -415,8 +413,6 @@ export default function EmergencyScreen({ navigation }: any) {
 
       const fences = await loadFences(userLat, userLng, userId)
       setGeoFences(fences)
-
-      console.log(`[Auto-Refresh] Refreshed ${fences.length} geofences for user: ${userId}`)
     } catch (err) {
       console.warn('Failed to refresh geofences:', err)
       // Don't show error to user - fail silently for background refresh
@@ -428,13 +424,11 @@ export default function EmergencyScreen({ navigation }: any) {
   // Set up auto-refresh polling
   useEffect(() => {
     const intervalId = setInterval(() => {
-      console.log('[Auto-Refresh] Timer triggered')
       refreshGeofences()
     }, REFRESH_INTERVAL_MS)
 
     // Cleanup interval on unmount
     return () => {
-      console.log('[Auto-Refresh] Stopping polling')
       clearInterval(intervalId)
     }
   }, [currentLocation]) // Re-create interval if location changes
@@ -515,7 +509,6 @@ export default function EmergencyScreen({ navigation }: any) {
         case 'mapClick':
           // Handle map click - currently we don't create geofences on click
           // but we could implement custom geofence creation functionality here if needed
-          console.log('Map clicked at:', message.lat, message.lng);
           break
         case 'error':
           console.error('Map error:', message.message)
@@ -559,7 +552,6 @@ export default function EmergencyScreen({ navigation }: any) {
   }
 
   const handleIncidentSubmitted = () => {
-    console.log('[Incident] Submitted, refreshing map immediately')
     refreshGeofences()
   }
 

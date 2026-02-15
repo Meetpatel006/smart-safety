@@ -43,10 +43,7 @@ export default function LegendBottomSheet({
   // Animation - slide up/down
   const translateY = useSharedValue(EXPANDED_HEIGHT);
 
-  console.log('[LegendBottomSheet] Component rendered, isExpanded:', isExpanded, 'counts:', { dangerZoneCount, riskGridCount, geofenceCount });
-
   useEffect(() => {
-    console.log('[LegendBottomSheet] isExpanded changed to:', isExpanded);
     translateY.value = withTiming(isExpanded ? 0 : EXPANDED_HEIGHT, {
       duration: 300,
       easing: Easing.out(Easing.ease),

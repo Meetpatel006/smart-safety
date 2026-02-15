@@ -27,16 +27,11 @@ export default function ItineraryScreen({ navigation }: any) {
 
   // Fetch trips for solo users
   useEffect(() => {
-    console.log('ItineraryScreen: Fetching trips...', 'token=', !!state.token, 'existing trips=', state.trips?.length);
     if (state.token) {
-      console.log('ItineraryScreen: Fetching trips for user...');
       setLoadingTrips(true);
       updateTripsFromBackend()
-        .then(() => {
-          console.log('ItineraryScreen: Trips fetched successfully, current count=', state.trips?.length);
-        })
         .catch((err) => {
-          console.log("Error fetching user trips", err);
+          console.error("Failed to fetch trips:", err);
         })
         .finally(() => {
           setLoadingTrips(false);
@@ -51,19 +46,17 @@ export default function ItineraryScreen({ navigation }: any) {
             }
           })
           .catch((err) => {
-            console.log("Error fetching group data", err);
+            console.error("Failed to fetch group data:", err);
           });
       }
     }
   }, [state.token]);
 
   const handleCreateGroupItinerary = () => {
-    console.log("➕ Opening Create Group Itinerary modal");
     setShowCreateModal(true);
   }
 
   const handleGroupCreated = () => {
-    console.log("✅ Group created successfully!");
     setShowCreateModal(false);
   }
 
