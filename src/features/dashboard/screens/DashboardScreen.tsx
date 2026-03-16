@@ -15,6 +15,11 @@ import touristSocket, {
   TouristAlert,
   SafetyScoreAlert,
 } from "../../../services/touristSocketService";
+import {
+  drainPendingTouristLocations,
+  startTouristBackgroundTrackingAsync,
+  stopTouristBackgroundTrackingAsync,
+} from "../../../services/backgroundLocation";
 import * as Haptics from "expo-haptics";
 import {
   configureNotificationHandler,
@@ -196,6 +201,26 @@ export default function DashboardScreen({ navigation }: any) {
 
       touristSocket.connect(touristId, coords);
 
+      // Keep location tracking alive while app is backgrounded.
+      try {
+        await startTouristBackgroundTrackingAsync(touristId);
+      } catch (e) {
+        console.warn("[Dashboard] Background location tracking not started:", e);
+      }
+
+      // Flush any queued background locations once the socket is available.
+      try {
+        const pending = await drainPendingTouristLocations();
+        if (pending.length) {
+          for (const p of pending) {
+            touristSocket.updateLocation(p);
+          }
+          touristSocket.requestSafetyScoreUpdate();
+        }
+      } catch (e) {
+        // best-effort
+      }
+
       // Start real-time location tracking for safety score updates
       try {
         const { status } = await Location.getForegroundPermissionsAsync();
@@ -260,6 +285,8 @@ export default function DashboardScreen({ navigation }: any) {
       if (statusInterval) {
         clearInterval(statusInterval);
       }
+      // Stop background tracking when leaving the dashboard/logging out.
+      stopTouristBackgroundTrackingAsync().catch(() => {});
       touristSocket.disconnect();
     };
   }, [state.user?.touristId]);

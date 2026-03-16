@@ -26,6 +26,10 @@ import {
   CurrentInstruction 
 } from '../services/turnByTurnService';
 import { RouteStep, Route } from '../features/map/services/mapboxDirectionsService';
+import {
+  startJourneyBackgroundTrackingAsync,
+  stopJourneyBackgroundTrackingAsync,
+} from '../services/backgroundLocation';
 
 export interface DeviationAlert {
   id: string;
@@ -448,6 +452,14 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
       
       // Connect to WebSocket for real-time updates
       pathDeviationWebSocket.connect(response.journey_id);
+
+      // Start background location task so tracking continues when the app is backgrounded.
+      // If the user denies "Always" permission, foreground tracking still works.
+      try {
+        await startJourneyBackgroundTrackingAsync(response.journey_id);
+      } catch (e) {
+        console.warn("[PathDeviation] Background journey tracking not started:", e);
+      }
       
       // Start GPS tracking
       startGPSTracking(response.journey_id);
@@ -692,6 +704,12 @@ export const PathDeviationProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       // Set tracking inactive FIRST to prevent any in-flight GPS updates
       isTrackingActiveRef.current = false;
+
+      try {
+        await stopJourneyBackgroundTrackingAsync();
+      } catch (e) {
+        // best-effort
+      }
       
       // Stop GPS tracking
       if (gpsIntervalRef.current) {

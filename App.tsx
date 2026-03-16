@@ -9,10 +9,14 @@ import ToastListener from './src/components/ToastListener'
 import { StatusBar } from "expo-status-bar"
 import { useEffect, useState } from "react"
 import * as SplashScreen from "expo-splash-screen"
-import { View, Text, ActivityIndicator } from "react-native"
+import { View, Text, ActivityIndicator, AppState } from "react-native"
 import React from "react"
 import { configureNotificationHandler } from "./src/utils/notificationsCompat"
 import * as Sentry from "@sentry/react-native"
+
+// Ensure background tasks are defined at startup.
+import "./src/services/backgroundLocation";
+import { setAppStateForBackgroundTasks } from "./src/services/backgroundLocation";
 
 Sentry.init({
   dsn: "https://f11af5eb8d307747f6863fc91cfaf82a@o4510890860740608.ingest.us.sentry.io/4510890863558656",
@@ -155,6 +159,18 @@ class ErrorBoundary extends React.Component<
 
 function AppContent() {
   const [appIsReady, setAppIsReady] = useState(false)
+
+  useEffect(() => {
+    const normalize = (s: string) =>
+      s === "active" || s === "background" || s === "inactive" ? s : "inactive";
+
+    setAppStateForBackgroundTasks(normalize(AppState.currentState));
+    const sub = AppState.addEventListener("change", (next) => {
+      // Keep background tasks aware of foreground/background to avoid duplicate sends.
+      setAppStateForBackgroundTasks(normalize(next));
+    });
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     async function prepare() {
