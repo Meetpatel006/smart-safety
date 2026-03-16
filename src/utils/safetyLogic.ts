@@ -50,11 +50,14 @@ export interface SafetyScoreInput {
 
 export interface SafetyScoreResult {
   score: number // 0 to 100
-  status: string
+  status?: string
   geoScore?: number
   weatherScore?: number
   geoLabel?: string
   weatherCategory?: string
+  nearestThreat?: string
+  weatherCondition?: string
+  geofenceScore?: number
 }
 
 // Compute safety score using real API predictions

@@ -4,10 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  Dimensions,
-  Linking,
   Share,
-  Alert as RNAlert,
 } from 'react-native';
 import Animated, {
   useSharedValue,
@@ -18,8 +15,6 @@ import Animated, {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Route, RoutingProfile, getRouteSummary } from '../../../services/mapboxDirectionsService';
 import { usePathDeviation } from '../../../../../context/PathDeviationContext';
-
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface DirectionsBottomSheetProps {
   route: Route | null;
@@ -35,13 +30,8 @@ export default function DirectionsBottomSheet({
   onVisibilityChange,
 }: DirectionsBottomSheetProps) {
   const translateY = useSharedValue(300);
-  
-  // Path deviation context
-  // NOTE: startJourney commented out (path deviation disabled)
-  const { 
-    // startJourney, 
-    isTracking, 
-  } = usePathDeviation();
+
+  const { isTracking } = usePathDeviation();
 
   useEffect(() => {
     // Hide bottom sheet when tracking starts
@@ -63,42 +53,6 @@ export default function DirectionsBottomSheet({
   if (!route) return null;
 
   const routeSummary = getRouteSummary(route);
-
-  // PATH DEVIATION: Handler commented out - Start button disabled for all users
-  /* const handleStartNavigation = async () => {
-    try {
-      const coords = route.geometry.coordinates;
-      const origin = coords[0]; // [lng, lat]
-      const dest = coords[coords.length - 1]; // [lng, lat]
-
-      // Start path deviation tracking with full route for turn-by-turn
-      console.log('[DirectionsBottomSheet] Starting path deviation tracking');
-      await startJourney(
-        {
-          origin: { lat: origin[1], lng: origin[0] },
-          destination: { lat: dest[1], lng: dest[0] },
-          travelMode: profile === 'driving' ? 'driving' : profile === 'walking' ? 'walking' : 'cycling',
-        },
-        route // Pass full route for turn-by-turn instructions
-      );
-      
-      console.log('[DirectionsBottomSheet] Navigation started successfully - tracking in progress');
-      
-      // Show success message
-      RNAlert.alert(
-        '🚀 Navigation Started',
-        'Path deviation tracking is now active. Follow the route on the map.',
-        [{ text: 'OK' }]
-      );
-    } catch (err) {
-      console.error('[DirectionsBottomSheet] Error starting navigation:', err);
-      RNAlert.alert(
-        'Navigation Error',
-        'Could not start path deviation tracking. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  }; */
 
   const isEcoFriendly = profile === 'walking' || profile === 'cycling';
 
@@ -139,12 +93,6 @@ export default function DirectionsBottomSheet({
         </Text>
 
         <View style={styles.actionGrid}>
-          {/* PATH DEVIATION: Commented out for all users (solo, tour admin, group members) */}
-          {/* <TouchableOpacity style={styles.actionBtnPrimary} onPress={handleStartNavigation}>
-            <MaterialCommunityIcons name="navigation" size={20} color="white" />
-            <Text style={styles.actionBtnTextPrimary}>Start</Text>
-          </TouchableOpacity> */}
-
           <TouchableOpacity
             style={styles.actionBtnSecondary}
             onPress={async () => {
@@ -249,21 +197,6 @@ const styles = StyleSheet.create({
   actionGrid: {
     flexDirection: 'row',
     gap: 12,
-  },
-  actionBtnPrimary: {
-    flex: 1,
-    backgroundColor: '#3b82f6',
-    height: 48,
-    borderRadius: 24,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  actionBtnTextPrimary: {
-    color: 'white',
-    fontWeight: '600',
-    fontSize: 16,
   },
   actionBtnSecondary: {
     flex: 1,

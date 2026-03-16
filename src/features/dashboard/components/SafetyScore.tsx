@@ -1,183 +1,22 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import { Text } from "react-native-paper";
-import {
-  computeSafetyScore,
-  SafetyScoreResult,
-} from "../../../utils/safetyLogic";
 import { useApp } from "../../../context/AppContext";
-import { useLocation } from "../../../context/LocationContext";
-import * as Location from "expo-location";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import touristSocket, {
-  SafetyScoreData,
-} from "../../../services/touristSocketService";
 
 export default function SafetyScore() {
-  const { state, setComputedSafetyScore } = useApp();
-  const { currentLocation, setCurrentLocation } = useLocation();
-  const [combinedResult, setCombinedResult] =
-    useState<SafetyScoreResult | null>(null);
-  const [combinedLoading, setCombinedLoading] = useState(false);
-  const [combinedError, setCombinedError] = useState<string | null>(null);
-  const [locationLoading, setLocationLoading] = useState(false);
+  const { state } = useApp();
   const [lastUpdateTime, setLastUpdateTime] = useState<Date | null>(null);
-  const [isUsingSocketData, setIsUsingSocketData] = useState(false);
+  const score = state.computedSafetyScore ?? state.user?.safetyScore ?? null;
 
-  const getCurrentLocation = async () => {
-    try {
-      setLocationLoading(true);
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") {
-        throw new Error("Location permission denied");
-      }
-      const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
-      });
-      setCurrentLocation(location);
-      return location;
-    } catch (error: any) {
-      setCombinedError(`Location error: ${error.message}`);
-      return null;
-    } finally {
-      setLocationLoading(false);
-    }
-  };
-
-  // Listen for socket-based safety score updates
   useEffect(() => {
-    let mounted = true;
-    let retryCount = 0;
-    const maxRetries = 30; // Increased retries to 30s
-    let cleanupFunction: (() => void) | null = null;
-
-    // Try to set up listener with retries until socket is initialized
-    const setupListener = () => {
-      // Check if socket is initialized (meaning connect() has been called)
-      // We don't need to wait for full connection (handshake), just for the socket object to exist
-      // This allows us to catch events that might come immediately after connection
-      if (!touristSocket.isInitialized()) {
-        retryCount++;
-        if (retryCount < maxRetries) {
-          setTimeout(setupListener, 500);
-        } else {
-          console.warn(
-            "Failed to set up listener after",
-            maxRetries,
-            "attempts",
-          );
-        }
-        return;
-      }
-
-      // Set up socket listener for backend safety score updates
-      // Store the cleanup function
-      cleanupFunction = touristSocket.onSafetyScoreUpdate(
-        (data: SafetyScoreData) => {
-          if (!mounted) return;
-
-          // Format nearest threat info
-          let threatInfo = "No immediate threats detected";
-          if (data.nearestThreat && typeof data.nearestThreat === "object") {
-            const threat = data.nearestThreat;
-            const distanceKm = (threat.distance / 1000).toFixed(2);
-            threatInfo = `${threat.name} (${threat.severity}) - ${distanceKm}km away`;
-          } else if (typeof data.nearestThreat === "string") {
-            threatInfo = data.nearestThreat;
-          }
-
-          // Always use socket data and update state immediately
-          setIsUsingSocketData(true);
-          setLastUpdateTime(new Date(data.timestamp));
-
-          // Convert socket data to our component format
-          const result: SafetyScoreResult = {
-            score: data.safetyScore,
-            nearestThreat: threatInfo,
-            weatherCondition: data.description || "",
-            geofenceScore: data.geofenceScore || data.safetyScore,
-            weatherScore: data.weatherScore || data.safetyScore,
-          };
-
-          // Force immediate update
-          setCombinedResult(result);
-          setCombinedLoading(false);
-          setCombinedError(null);
-          setComputedSafetyScore(data.safetyScore);
-        },
-      );
-    };
-
-    // Start trying to set up listener
-    setupListener();
-
-    return () => {
-      mounted = false;
-      if (cleanupFunction) {
-        cleanupFunction();
-      }
-    };
-  }, []); // Run only once on mount
-
-  // Fallback: Fetch safety score manually if not using socket data
-  // COMMENTED OUT as per requirement to only show backend socket data
-  /*
-  useEffect(() => {
-    let mounted = true;
-    const loc = currentLocation;
-
-    // Only fetch manually if we haven't received socket data yet
-    if (isUsingSocketData) {
-      return;
+    if (score !== null) {
+      setLastUpdateTime(new Date());
     }
+  }, [score]);
 
-    const fetchSafetyScore = async () => {
-      if (!loc || !loc.coords) {
-        const newLocation = await getCurrentLocation();
-        if (!newLocation || !mounted) return;
-        await performSafetyScoreFetch(newLocation, mounted);
-      } else {
-        await performSafetyScoreFetch(loc, mounted);
-      }
-    };
-
-    const performSafetyScoreFetch = async (
-      location: Location.LocationObject,
-      isMounted: boolean,
-    ) => {
-      setCombinedLoading(true);
-      setCombinedError(null);
-      try {
-        const result = await computeSafetyScore({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
-        if (isMounted) {
-          setCombinedResult(result);
-          if (
-            typeof result?.score === "number" &&
-            result.score !== state.computedSafetyScore
-          ) {
-            setComputedSafetyScore(result.score);
-          }
-        }
-      } catch (error: any) {
-        if (isMounted)
-          setCombinedError(error?.message || "Failed to fetch safety score");
-      } finally {
-        if (isMounted) setCombinedLoading(false);
-      }
-    };
-
-    fetchSafetyScore();
-    return () => {
-      mounted = false;
-    };
-  }, [currentLocation, isUsingSocketData]);
-  */
-
-  const displayScore = combinedResult?.score ?? 0;
-  const isLoading = locationLoading || combinedLoading;
+  const displayScore = score ?? 0;
+  const isLoading = score === null;
 
   // Badge and color based on score
   const getScoreInfo = (score: number) => {
@@ -193,9 +32,6 @@ export default function SafetyScore() {
   const scoreInfo = getScoreInfo(displayScore);
 
   const getDescription = (score: number) => {
-    if (combinedResult?.weatherCondition) {
-      return combinedResult.weatherCondition;
-    }
     if (score >= 80)
       return "Very Safe Area • Low crime rate reported recently.";
     if (score >= 60) return "Generally Safe • Some caution advised.";
@@ -255,20 +91,6 @@ export default function SafetyScore() {
           <Text style={styles.lastUpdate}>{formatLastUpdate()}</Text>
         )}
 
-        {/* Nearest Threat Info */}
-        {combinedResult?.nearestThreat && !isLoading && (
-          <View style={styles.threatInfo}>
-            <MaterialCommunityIcons
-              name="information"
-              size={14}
-              color="#6B7280"
-            />
-            <Text style={styles.threatText}>
-              {combinedResult.nearestThreat}
-            </Text>
-          </View>
-        )}
-
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
           <View style={styles.progressTrack}>
@@ -283,8 +105,6 @@ export default function SafetyScore() {
             />
           </View>
         </View>
-
-        {combinedError && <Text style={styles.errorText}>{combinedError}</Text>}
       </View>
     </View>
   );
@@ -370,31 +190,10 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 6,
   },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 12,
-    marginTop: 8,
-  },
   lastUpdate: {
     fontSize: 11,
     color: "#9CA3AF",
     marginTop: 4,
     fontWeight: "500",
-  },
-  threatInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginTop: 8,
-    marginBottom: 16, // Added spacing between address/threat info and progress bar
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: "#F3F4F6",
-  },
-  threatText: {
-    fontSize: 12,
-    color: "#6B7280",
-    flex: 1,
-    lineHeight: 16,
   },
 });

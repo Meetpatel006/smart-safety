@@ -826,18 +826,23 @@ export const generateMapHTML = (accessToken?: string): string => {
                           minute: '2-digit'
                       });
                       
-                      // Calculate severity percentage
+                      // Calculate severity percentage and treat it as Safety Score per requirement
                       let severityPercent;
                       if (reason.type === 'sos_alert') {
                           severityPercent = reason.severity || 0;
                       } else {
+                          // reason.severity (0-1) -> percentage (0-100)
                           severityPercent = ((reason.severity || 0) * 100).toFixed(0);
                       }
+
+                      // Treat severity value directly as Safety Score based on user requirement
+                      // User expects 100 -> Green, 40 -> Orange, 0 -> Red
+                      const safetyScoreDisplay = Number(severityPercent);
                       
-                      // Color based on severity
-                      let severityColor = '#4ade80';
-                      if (severityPercent > 70) severityColor = '#ef4444';
-                      else if (severityPercent > 40) severityColor = '#f97316';
+                      // Color based on Safety Score (High = Green, Low = Red)
+                      let severityColor = '#ef4444'; // default red (low safety)
+                      if (safetyScoreDisplay >= 70) severityColor = '#22c55e'; // Green
+                      else if (safetyScoreDisplay >= 40) severityColor = '#f97316'; // Orange
                       
                       html += \`
                           <div style="background: #f9fafb; padding: 8px; margin-bottom: 6px; border-radius: 6px; border-left: 3px solid \${severityColor};">
@@ -848,7 +853,7 @@ export const generateMapHTML = (accessToken?: string): string => {
                                       \${reason.eventType ? '<div style="font-size: 10px; color: #9ca3af; margin-top: 2px;">Type: ' + reason.eventType + '</div>' : ''}
                                   </div>
                                   <div style="background: \${severityColor}; color: white; padding: 2px 8px; border-radius: 12px; font-size: 10px; font-weight: 600; margin-left: 8px;">
-                                      \${severityPercent}%
+                                      \${safetyScoreDisplay}%
                                   </div>
                               </div>
                           </div>
@@ -1306,9 +1311,11 @@ export const generateMapHTML = (accessToken?: string): string => {
                  userMarker.setLngLat([lng, lat]);
               }
               
-              // FlyTo on first load only
-                            if (isFirstLoad || forceCenter) {
+              // Fly on first load, otherwise ease to new location
+                            if (isFirstLoad) {
                                 map.flyTo({ center: [lng, lat], zoom: zoom || 14 });
+                            } else {
+                                map.easeTo({ center: [lng, lat], zoom: zoom || map.getZoom() });
                             }
 
                             // Update accuracy ring if we have accuracy in meters

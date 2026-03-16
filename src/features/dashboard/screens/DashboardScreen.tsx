@@ -51,7 +51,7 @@ export default function DashboardScreen({ navigation }: any) {
     };
 
     fetchGroupData();
-  }, [state.user, state.token]);
+  }, [state.user?.touristId, state.user?.role, state.token]);
 
   useEffect(() => {
     const fetchLocation = async () => {
@@ -161,6 +161,7 @@ export default function DashboardScreen({ navigation }: any) {
   // --- Socket Logic ---
   const [alerts, setAlerts] = useState<TouristAlert[]>([]);
   const [socketConnected, setSocketConnected] = useState(false);
+  const locationSubRef = useRef<Location.LocationSubscription | null>(null);
 
   // Function to get current location for periodic updates
   const getLocationForUpdates = async () => {
@@ -171,12 +172,14 @@ export default function DashboardScreen({ navigation }: any) {
         return { lat: loc.coords.latitude, lng: loc.coords.longitude };
       }
     } catch (e) {
-      console.error("Error getting location:", e);
+      console.log("Error getting location for update", e);
     }
     return null;
   };
 
   useEffect(() => {
+    let statusInterval: NodeJS.Timeout | null = null;
+
     const initializeSocket = async () => {
       const touristId = state.user?.touristId || "guest";
 
@@ -188,16 +191,45 @@ export default function DashboardScreen({ navigation }: any) {
           coords = { lat: loc.coords.latitude, lng: loc.coords.longitude };
         }
       } catch (e) {
-        console.error("Error getting location:", e);
+        console.log("Error getting location", e);
       }
 
       touristSocket.connect(touristId, coords);
 
-      // Start periodic location updates (every 45 seconds)
-      touristSocket.startPeriodicLocationUpdates(getLocationForUpdates);
+      // Start real-time location tracking for safety score updates
+      try {
+        const { status } = await Location.getForegroundPermissionsAsync();
+        if (status === "granted") {
+          console.log(
+            "📍 Starting real-time location tracking for safety score",
+          );
+          const sub = await Location.watchPositionAsync(
+            {
+              accuracy: Location.Accuracy.High,
+              timeInterval: 5000, // Check every 5 seconds
+              distanceInterval: 100, // Update every 100 meters
+            },
+            (loc) => {
+              console.log("📍 Location changed, sending update to backend");
+              // Update global context so map updates immediately
+              setCurrentLocation(loc);
+
+              touristSocket.updateLocation({
+                lat: loc.coords.latitude,
+                lng: loc.coords.longitude,
+              });
+            },
+          );
+          locationSubRef.current = sub;
+        }
+      } catch (e) {
+        console.log("Error starting location watch", e);
+        // Fallback to periodic if watch fails
+        touristSocket.startPeriodicLocationUpdates(getLocationForUpdates);
+      }
 
       // Check connection status periodically
-      const statusInterval = setInterval(() => {
+      statusInterval = setInterval(() => {
         setSocketConnected(touristSocket.getConnectionStatus());
       }, 2000);
 
@@ -214,17 +246,23 @@ export default function DashboardScreen({ navigation }: any) {
         handleSafetyScoreAlert(alertData);
       });
 
-      return () => clearInterval(statusInterval);
     };
 
-    if (state.user) {
+    if (state.user?.touristId) {
       initializeSocket();
     }
 
     return () => {
+      if (locationSubRef.current) {
+        locationSubRef.current.remove();
+        locationSubRef.current = null;
+      }
+      if (statusInterval) {
+        clearInterval(statusInterval);
+      }
       touristSocket.disconnect();
     };
-  }, [state.user]);
+  }, [state.user?.touristId]);
 
   const handleIncomingAlert = async (alertData: TouristAlert) => {
     setAlerts((prev) => [alertData, ...prev]);

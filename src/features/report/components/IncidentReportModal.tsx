@@ -15,6 +15,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import { reportIncident, IncidentType } from '../../../utils/incidentApi';
 import { useApp } from '../../../context/AppContext';
+import touristSocketService from '../../../services/touristSocketService';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -75,16 +76,31 @@ export default function IncidentReportModal({
                 severity,
             });
 
-            Alert.alert('Incident Reported', response.message || 'Your report has been submitted successfully.', [
-                { text: 'OK', onPress: () => { 
-                    resetForm(); 
-                    onClose();
-                    // Trigger immediate refresh in parent
-                    if (onIncidentSubmitted) {
-                        onIncidentSubmitted();
-                    }
-                } }
-            ]);
+            console.log(
+                '[IncidentReport] Requesting safety score update after incident report',
+            );
+            if (latitude && longitude) {
+                touristSocketService.updateLocation({ lat: latitude, lng: longitude });
+            }
+            touristSocketService.requestSafetyScoreUpdate();
+
+            Alert.alert(
+                'Incident Reported',
+                response.message || 'Your report has been submitted successfully.',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => {
+                            resetForm();
+                            onClose();
+                            // Trigger immediate refresh in parent
+                            if (onIncidentSubmitted) {
+                                onIncidentSubmitted();
+                            }
+                        },
+                    },
+                ],
+            );
         } catch (error: any) {
             Alert.alert('Error', error.message || 'Failed to submit report. Please try again.');
         } finally {

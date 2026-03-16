@@ -71,18 +71,30 @@ class TouristSocketService {
   private isConnected: boolean = false;
   private touristId: string | null = null;
   private locationUpdateInterval: NodeJS.Timeout | null = null;
-
+  
+  private listeners: Record<string, Function[]> = {};
+  private pendingListeners: Array<{ event: string; callback: Function }> = [];
+  
+  // Track all active socket listeners for reconnection
+  private activeSocketListeners: Map<string, Set<Function>> = new Map();
+  
   /**
    * Initialize and connect to the socket server
    * @param {string} touristId - Unique tourist ID from your auth system
    * @param {LocationCoords} initialLocation - { lat: number, lng: number }
    */
   connect(touristId: string, initialLocation: LocationCoords) {
-    if (this.socket && this.isConnected) {
+    this.touristId = touristId;
+
+    // If socket already exists, do not create another instance
+    if (this.socket) {
+      // Ensure connection attempt continues if socket exists but is not connected yet
+      if (!this.isConnected && !this.socket.connected) {
+        console.log("[TouristSocket] 🔄 Socket exists but disconnected, reconnecting...");
+        this.socket.connect();
+      }
       return;
     }
-
-    this.touristId = touristId;
 
     // Create socket connection
     // Start with polling for better compatibility, then upgrade to websocket
@@ -97,36 +109,69 @@ class TouristSocketService {
 
     // Handle connection event
     this.socket.on("connect", () => {
+      console.log(
+        `[TouristSocket] ✅ Connected to server with socket ID: ${this.socket?.id}`,
+      );
       this.isConnected = true;
 
       // Register as tourist
+      console.log(
+        `[TouristSocket] 📝 Registering as tourist: ${this.touristId}`,
+      );
       this.socket?.emit("registerTourist", {
         role: "tourist",
         touristId: this.touristId,
         location: initialLocation,
       });
+      
+      // Re-attach ALL active listeners (for reconnection scenarios)
+      this.reattachAllListeners();
+      
+      // Attach any pending listeners that were added before connection
+      this.attachPendingListeners();
     });
 
     // Handle registration confirmation
     this.socket.on("registrationConfirmed", (data: any) => {
-      // Registration confirmed silently
+      console.log(
+        "[TouristSocket] ✅ Registration confirmed by backend:",
+        data,
+      );
+    });
+
+    // Handle risk grid updates
+    this.socket.on("riskGridUpdated", (gridData: any) => {
+      console.log(`Risk grid update broadcasted: ${gridData.gridId}`);
+      this.emit("riskGridUpdated", gridData);
+    });
+
+    // Handle safety score updates globally so app-level listeners always receive them
+    this.socket.on("safetyScoreUpdate", (data: SafetyScoreData) => {
+      this.emit("safetyScoreUpdate", data);
     });
 
     // Handle connection errors
     this.socket.on("connect_error", (error: any) => {
-      console.error("❌ Connection error:", error);
-      console.error("❌ Error details:", error.message, error.description);
+      console.error("[TouristSocket] ❌ Connection error:", error);
+      console.error(
+        "[TouristSocket] ❌ Error details:",
+        error.message,
+        error.description,
+      );
+      console.error(
+        `[TouristSocket] ❌ Attempting to connect to: ${SOCKET_URL}`,
+      );
       this.isConnected = false;
-
-      // Provide helpful debugging info
     });
 
     // Handle disconnection
     this.socket.on("disconnect", (reason: any) => {
+      console.warn(`[TouristSocket] ⚠️ Disconnected from server. Reason: ${reason}`);
       this.isConnected = false;
 
       // Auto-reconnect if server disconnected
       if (reason === "io server disconnect") {
+        console.log("[TouristSocket] 🔄 Server disconnected, attempting to reconnect...");
         this.socket?.connect();
       }
     });
@@ -138,7 +183,9 @@ class TouristSocketService {
    */
   onAuthorityAlert(callback: (alert: TouristAlert) => void) {
     if (!this.socket) {
-      console.warn("Socket not initialized when adding listener");
+      // Queue the listener to be attached when socket connects
+      this.pendingListeners.push({ event: "authorityAlert", callback });
+      return;
     }
 
     this.socket?.off("authorityAlert");
@@ -155,24 +202,53 @@ class TouristSocketService {
   onSafetyScoreUpdate(callback: (data: SafetyScoreData) => void) {
     if (!this.socket) {
       console.warn(
-        "Socket not initialized when adding safetyScoreUpdate listener",
+        "[TouristSocket] ⚠️ Socket not initialized, queuing safetyScoreUpdate listener",
       );
-      console.warn("Make sure to call connect() before setting up listeners");
-      return () => {};
+      // Queue the listener to be attached when socket connects
+      this.pendingListeners.push({ event: "safetyScoreUpdate", callback });
+      
+      // Return cleanup function that will work even if queued
+      return () => {
+        this.pendingListeners = this.pendingListeners.filter(
+          (l) => !(l.event === "safetyScoreUpdate" && l.callback === callback)
+        );
+      };
     }
+
+    console.log(
+      "[TouristSocket] ✅ Attaching safetyScoreUpdate listener to socket",
+    );
 
     // Define the wrapper function to call callback
     const listener = (data: SafetyScoreData) => {
+      console.log(
+        "[TouristSocket] 📥 safetyScoreUpdate event received from backend:",
+        data,
+      );
       callback(data);
     };
 
     // Add new listener (supports multiple listeners now)
     this.socket.on("safetyScoreUpdate", listener);
+    
+    // Track this listener for reconnection
+    if (!this.activeSocketListeners.has("safetyScoreUpdate")) {
+      this.activeSocketListeners.set("safetyScoreUpdate", new Set());
+    }
+    this.activeSocketListeners.get("safetyScoreUpdate")!.add(listener);
+    console.log(
+      `[TouristSocket] 📌 Tracking safetyScoreUpdate listener (total: ${this.activeSocketListeners.get("safetyScoreUpdate")!.size})`,
+    );
 
     // Return cleanup function
     return () => {
       if (this.socket) {
         this.socket.off("safetyScoreUpdate", listener);
+        // Remove from active listeners tracking
+        this.activeSocketListeners.get("safetyScoreUpdate")?.delete(listener);
+        console.log(
+          "[TouristSocket] 🧹 Removed safetyScoreUpdate listener",
+        );
       }
     };
   }
@@ -183,7 +259,9 @@ class TouristSocketService {
    */
   onSafetyScoreAlert(callback: (alert: SafetyScoreAlert) => void) {
     if (!this.socket) {
-      console.warn("Socket not initialized when adding listener");
+      // Queue the listener to be attached when socket connects
+      this.pendingListeners.push({ event: "safetyScoreAlert", callback });
+      return;
     }
 
     this.socket?.off("safetyScoreAlert");
@@ -198,9 +276,21 @@ class TouristSocketService {
    */
   updateLocation(location: LocationCoords) {
     if (!this.socket) {
+      console.warn(
+        "[TouristSocket] ⚠️ Socket not initialized, cannot update location",
+      );
       return;
     }
 
+    if (!this.isConnected) {
+      console.warn(
+        "[TouristSocket] ⚠️ Socket not connected, queueing location update",
+      );
+    }
+
+    console.log(
+      `[TouristSocket] 📍 Updating location: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+    );
     this.socket.emit("updateTouristLocation", {
       location: location,
     });
@@ -249,7 +339,31 @@ class TouristSocketService {
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
+      // Clear active listeners tracking on explicit disconnect
+      this.activeSocketListeners.clear();
+      this.pendingListeners = [];
     }
+  }
+    requestSafetyScoreUpdate() {
+    if (!this.socket) {
+      console.error(
+        "[TouristSocket] ❌ Socket not initialized, cannot request safety score update",
+      );
+      return;
+    }
+
+    if (!this.isConnected) {
+      console.warn(
+        "[TouristSocket] ⚠️ Socket not connected yet, cannot request safety score update",
+      );
+      return;
+    }
+
+    console.log(
+      "[TouristSocket] 🔄 Requesting immediate safety score update from backend",
+    );
+    this.socket.emit("requestSafetyScoreUpdate");
+    console.log("[TouristSocket] ✅ requestSafetyScoreUpdate event emitted");
   }
 
   /**
@@ -264,6 +378,89 @@ class TouristSocketService {
    */
   isInitialized() {
     return this.socket !== null;
+  }
+  
+  /**
+   * Re-attach all active listeners (called on reconnect)
+   */
+  private reattachAllListeners() {
+    if (!this.socket || this.activeSocketListeners.size === 0) {
+      return;
+    }
+    
+    console.log(`📡 Re-attaching ${this.activeSocketListeners.size} active listener type(s) after reconnect`);
+    
+    for (const [event, listeners] of this.activeSocketListeners.entries()) {
+      console.log(`📡 Re-attaching ${listeners.size} listener(s) for event: ${event}`);
+      for (const listener of listeners) {
+        this.socket.on(event, listener as any);
+      }
+    }
+  }
+  
+  /**
+   * Attach any listeners that were added before socket was connected
+   */
+  private attachPendingListeners() {
+    if (!this.socket || this.pendingListeners.length === 0) {
+      return;
+    }
+    
+    console.log(`📡 Attaching ${this.pendingListeners.length} pending listener(s)`);
+    
+    // Attach each pending listener
+    for (const { event, callback } of this.pendingListeners) {
+      if (event === "authorityAlert") {
+        this.socket.off("authorityAlert");
+        this.socket.on("authorityAlert", callback as any);
+        // Track for reconnection
+        if (!this.activeSocketListeners.has(event)) {
+          this.activeSocketListeners.set(event, new Set());
+        }
+        this.activeSocketListeners.get(event)!.add(callback);
+      } else if (event === "safetyScoreUpdate") {
+        this.socket.on("safetyScoreUpdate", callback as any);
+        // Track for reconnection
+        if (!this.activeSocketListeners.has(event)) {
+          this.activeSocketListeners.set(event, new Set());
+        }
+        this.activeSocketListeners.get(event)!.add(callback);
+      } else if (event === "safetyScoreAlert") {
+        this.socket.off("safetyScoreAlert");
+        this.socket.on("safetyScoreAlert", callback as any);
+        // Track for reconnection
+        if (!this.activeSocketListeners.has(event)) {
+          this.activeSocketListeners.set(event, new Set());
+        }
+        this.activeSocketListeners.get(event)!.add(callback);
+      }
+    }
+    
+    // Clear the pending listeners
+    this.pendingListeners = [];
+  }
+  
+    on(event: string, callback: Function) {
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+
+    // Return cleanup function
+    return () => {
+      this.listeners[event] = this.listeners[event].filter(
+        (cb) => cb !== callback,
+      );
+    };
+  }
+
+  /**
+   * Emit internal service event
+   */
+  private emit(event: string, data: any) {
+    if (this.listeners[event]) {
+      this.listeners[event].forEach((cb) => cb(data));
+    }
   }
 }
 

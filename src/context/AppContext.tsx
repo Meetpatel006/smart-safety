@@ -45,6 +45,9 @@ import {
   requestNotificationPermissionStatus,
   scheduleNotification,
 } from "../utils/notificationsCompat";
+import touristSocketService, {
+  SafetyScoreData,
+} from "../services/touristSocketService";
 import * as Sentry from "@sentry/react-native";
 
 const decodeBase64 = (str: string): string => {
@@ -781,6 +784,46 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [hydrated, state.offline, state.user?.touristId]);
+
+  // Listen for real-time safety score updates
+  useEffect(() => {
+    // Only subscribe if we have a logged-in user with an ID
+    if (!hydrated || !state.user?.touristId) return;
+
+    console.log(
+      "[AppContext] Setting up safety score listener for user:",
+      state.user.touristId,
+    );
+
+    // Subscribe to globally forwarded safety score updates
+    const unsubscribe = touristSocketService.on(
+      "safetyScoreUpdate",
+      (data: SafetyScoreData) => {
+        setState((s) => {
+          const currentScore = s.computedSafetyScore ?? s.user?.safetyScore ?? null;
+          if (currentScore === data.safetyScore) {
+            return s;
+          }
+
+          console.log(
+            "[AppContext] Received real-time safety score update:",
+            data.safetyScore,
+          );
+
+          return {
+            ...s,
+            computedSafetyScore: data.safetyScore,
+            user: s.user ? { ...s.user, safetyScore: data.safetyScore } : s.user,
+          };
+        });
+      },
+    );
+
+    return () => {
+      console.log("[AppContext] Cleaning up safety score listener");
+      if (unsubscribe) unsubscribe();
+    };
+  }, [hydrated, state.user?.touristId]);
 
   // Day change detection: refresh geofences when the day changes (for itinerary geofences)
   useEffect(() => {

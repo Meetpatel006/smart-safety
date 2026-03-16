@@ -30,6 +30,7 @@ import {
   StyleBottomSheet,
   DirectionsBottomSheet,
   LegendBottomSheet
+  
 } from '../../map/components/MapboxMap/ui'
 import DirectionsTopPanel from '../../map/components/MapboxMap/ui/DirectionsTopPanel'
 import NavigationView from '../../../components/NavigationView'
@@ -42,7 +43,7 @@ const REFRESH_INTERVAL_MS = 60000 // 60 seconds
 export default function EmergencyScreen({ navigation }: any) {
   const { state } = useApp()
   const { currentLocation, setCurrentLocation, setCurrentAddress } = useLocation()
-  const { isTracking, setMapRef } = usePathDeviation()
+  const { isTracking, setMapRef, startJourney } = usePathDeviation()
 
   // Map state
   const [mapReady, setMapReady] = useState(false)
@@ -69,10 +70,17 @@ export default function EmergencyScreen({ navigation }: any) {
   const [itineraryWaypoints, setItineraryWaypoints] = useState<any[]>([])
 
   const itineraryRouteKeyRef = React.useRef<string | null>(null)
+  const autoStartInFlightRef = React.useRef(false)
+  const lastStartedRouteKeyRef = React.useRef<string | null>(null)
+  const lastFailedRouteKeyRef = React.useRef<string | null>(null)
   const itineraryProfile: RoutingProfile = 'driving'
 
   const currentRoute = allRoutes[selectedRouteIndex] || null
   const activeTrip = React.useMemo(() => selectActiveTrip(state.trips), [state.trips])
+  const autoStartSource: 'directions' | 'itinerary' | null =
+    directionsMode && currentRoute ? 'directions' : itineraryRoute ? 'itinerary' : null
+  const autoStartRoute = autoStartSource === 'directions' ? currentRoute : itineraryRoute
+  const autoStartProfile = autoStartSource === 'directions' ? currentProfile : itineraryProfile
 
   // Geofences
   const [geoFences, setGeoFences] = useState<GeoFence[]>([])
@@ -171,6 +179,20 @@ export default function EmergencyScreen({ navigation }: any) {
       type: 'clearRoute'
     }))
   }, [allRoutes, selectedRouteIndex, currentProfile, itineraryRoute, itineraryWaypoints, itineraryProfile, directionsMode, mapReady])
+
+  // Send location updates to WebView when current location changes
+  useEffect(() => {
+    if (mapReady && webViewRef.current && currentLocation) {
+      webViewRef.current.postMessage(
+        JSON.stringify({
+          type: 'updateLocation',
+          latitude: currentLocation.coords.latitude,
+          longitude: currentLocation.coords.longitude,
+          accuracy: currentLocation.coords.accuracy,
+        }),
+      )
+    }
+  }, [currentLocation, mapReady])
 
   function getCurrentDayIndex(tripStartDate: string, totalDays: number): number {
     const tripStart = new Date(tripStartDate)
@@ -281,6 +303,91 @@ export default function EmergencyScreen({ navigation }: any) {
       })
       .filter(Boolean)
   }
+
+  const buildAutoStartRouteKey = (
+    route: Route,
+    source: 'directions' | 'itinerary',
+  ): string | null => {
+    const coords = route.geometry?.coordinates
+    if (!Array.isArray(coords) || coords.length < 2) return null
+
+    const first = coords[0]
+    const last = coords[coords.length - 1]
+    if (!first || !last) return null
+
+    const [firstLng, firstLat] = first
+    const [lastLng, lastLat] = last
+    if (![firstLng, firstLat, lastLng, lastLat].every((value) => Number.isFinite(value))) {
+      return null
+    }
+
+    return [
+      source,
+      route.distance.toFixed(2),
+      route.duration.toFixed(2),
+      `${firstLng.toFixed(6)},${firstLat.toFixed(6)}`,
+      `${lastLng.toFixed(6)},${lastLat.toFixed(6)}`,
+    ].join(':')
+  }
+
+  useEffect(() => {
+    if (isTracking || !autoStartSource || !autoStartRoute) {
+      return
+    }
+
+    if (autoStartInFlightRef.current) {
+      return
+    }
+
+    const routeKey = buildAutoStartRouteKey(autoStartRoute, autoStartSource)
+    if (!routeKey) {
+      console.warn('[EmergencyScreen] Skipping auto-start: invalid route geometry')
+      return
+    }
+
+    if (
+      lastStartedRouteKeyRef.current === routeKey ||
+      lastFailedRouteKeyRef.current === routeKey
+    ) {
+      return
+    }
+
+    const coords = autoStartRoute.geometry?.coordinates
+    if (!Array.isArray(coords) || coords.length < 2) {
+      console.warn('[EmergencyScreen] Skipping auto-start: route has fewer than 2 coordinates')
+      return
+    }
+
+    const origin = coords[0]
+    const destination = coords[coords.length - 1]
+    const travelMode =
+      autoStartProfile === 'walking'
+        ? 'walking'
+        : autoStartProfile === 'cycling'
+          ? 'cycling'
+          : 'driving'
+
+    autoStartInFlightRef.current = true
+    ;(async () => {
+      try {
+        await startJourney(
+          {
+            origin: { lat: origin[1], lng: origin[0] },
+            destination: { lat: destination[1], lng: destination[0] },
+            travelMode,
+          },
+          autoStartRoute,
+        )
+        lastStartedRouteKeyRef.current = routeKey
+        lastFailedRouteKeyRef.current = null
+      } catch (error) {
+        lastFailedRouteKeyRef.current = routeKey
+        console.warn('[EmergencyScreen] Auto-start journey failed:', error)
+      } finally {
+        autoStartInFlightRef.current = false
+      }
+    })()
+  }, [isTracking, autoStartSource, autoStartRoute, autoStartProfile, startJourney])
 
   useEffect(() => {
     if (!mapReady || directionsMode) return

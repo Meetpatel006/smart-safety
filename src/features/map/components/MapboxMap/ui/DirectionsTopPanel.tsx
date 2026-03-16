@@ -37,6 +37,7 @@ export default function DirectionsTopPanel({
 
   // Routing profile
   const [routingProfile, setRoutingProfile] = useState<RoutingProfile>('driving');
+  const distanceLimitAlertShownRef = React.useRef(false);
 
   // Initialize with current location as origin
   useEffect(() => {
@@ -100,6 +101,41 @@ export default function DirectionsTopPanel({
       handleGetDirections();
     }
   }, [origin, destination, routingProfile]);
+
+  const straightLineDistanceKm = React.useMemo(() => {
+    if (!origin || !destination) return 0;
+
+    const R = 6371; // km
+    const dLat = (destination.latitude - origin.latitude) * Math.PI / 180;
+    const dLon = (destination.longitude - origin.longitude) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(origin.latitude * Math.PI / 180) * Math.cos(destination.latitude * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }, [origin, destination]);
+
+  const isDistanceLimited = straightLineDistanceKm > 1000;
+
+  useEffect(() => {
+    const isUnsupportedMode =
+      isDistanceLimited && (routingProfile === 'walking' || routingProfile === 'cycling');
+
+    if (!isUnsupportedMode) {
+      distanceLimitAlertShownRef.current = false;
+      return;
+    }
+
+    setRoutingProfile('driving');
+
+    if (!distanceLimitAlertShownRef.current) {
+      Alert.alert(
+        'Distance Limit',
+        `The selected route is too long for ${routingProfile}. Switched to driving mode.`,
+      );
+      distanceLimitAlertShownRef.current = true;
+    }
+  }, [isDistanceLimited, routingProfile]);
 
   const handleSwapLocations = () => {
     const temp = origin;
@@ -170,34 +206,7 @@ export default function DirectionsTopPanel({
             if (mode === 'cycling') iconName = 'bike';
 
             const isSelected = routingProfile === mode;
-
-            // Haversine distance calculation to check if too far for walking/cycling
-            const getStraightLineDistance = () => {
-              if (!origin || !destination) return 0;
-              const R = 6371; // km
-              const dLat = (destination.latitude - origin.latitude) * Math.PI / 180;
-              const dLon = (destination.longitude - origin.longitude) * Math.PI / 180;
-              const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(origin.latitude * Math.PI / 180) * Math.cos(destination.latitude * Math.PI / 180) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-              return R * c;
-            };
-
-            const distanceKm = getStraightLineDistance();
-            const isTooFar = distanceKm > 1000; // 1000km threshold
-            const isDisabled = isTooFar && (mode === 'walking' || mode === 'cycling');
-
-            // Auto-switch to driving if current mode becomes disabled
-            useEffect(() => {
-              if (isDisabled && isSelected) {
-                setRoutingProfile('driving');
-                Alert.alert(
-                  'Distance Limit',
-                  `The selected route is too long for ${mode}. Switched to driving mode.`
-                );
-              }
-            }, [distanceKm, mode]);
+            const isDisabled = isDistanceLimited && (mode === 'walking' || mode === 'cycling');
 
             return (
               <TouchableOpacity

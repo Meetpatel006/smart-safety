@@ -9,12 +9,12 @@ import Constants from "expo-constants";
 export const SERVER_URL =
   Constants.expoConfig?.extra?.SERVER_URL ||
   process.env.SERVER_URL ||
-  // "http://192.168.1.22:5000"; // Your computer's local IP
-"https://smart-tourist-safety-app-backend-1.onrender.com";
+  "http://10.90.249.240:5000"; // Your computer's local IP
+// "https://smart-tourist-safety-app-backend-1.onrender.com";
 
 // AI model URLs for getting safety score predictions
 export const GEO_MODEL_URL =
-  Constants.expoConfig?.extra?.GEO_MODEL_URL ||
+Constants.expoConfig?.extra?.GEO_MODEL_URL ||
   process.env.GEO_MODEL_URL ||
   "https://gcet--geofence-safety-api-fastapi-app.modal.run/predict";
 export const WEATHER_MODEL_URL =

@@ -3,6 +3,7 @@ import { StyleSheet, Platform, Alert, Dimensions, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { useApp } from '../../../context/AppContext';
+import touristSocketService from '../../../services/touristSocketService';
 
 // Import path deviation context
 import { usePathDeviation } from '../../../context/PathDeviationContext';
@@ -330,6 +331,82 @@ export default function MapboxMap({
     }
     return;
   }, [mapReady, showCurrentLocation]);
+
+  // Watch user location when map is ready and not in tracking mode (journey)
+  useEffect(() => {
+    let locationSubscription: Location.LocationSubscription | null = null;
+
+    const startLocationWatch = async () => {
+      if (!showCurrentLocation || !locationPermissionGranted || isTracking || !mapReady) return;
+
+      try {
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 5,
+          },
+          (newLocation) => {
+            setLocation(newLocation);
+
+            // Notify parent
+            if (onLocationChange) {
+              onLocationChange(newLocation);
+            }
+
+            // Send to WebView
+            if (webViewRef.current) {
+              try {
+                webViewRef.current.postMessage(
+                  JSON.stringify({
+                    type: 'updateLocation',
+                    latitude: newLocation.coords.latitude,
+                    longitude: newLocation.coords.longitude,
+                    accuracy: newLocation.coords.accuracy,
+                  }),
+                );
+              } catch (postErr) {
+                const message = JSON.stringify({
+                  type: 'updateLocation',
+                  latitude: newLocation.coords.latitude,
+                  longitude: newLocation.coords.longitude,
+                  accuracy: newLocation.coords.accuracy,
+                });
+                try {
+                  webViewRef.current.injectJavaScript(`window.postMessage(${message}, '*');`);
+                } catch (injectErr) {
+                  // ignore
+                }
+              }
+            }
+
+            // Update socket service (if available)
+            try {
+              touristSocketService.updateLocation({ lat: newLocation.coords.latitude, lng: newLocation.coords.longitude });
+              // Request safety score update based on new location
+              touristSocketService.requestSafetyScoreUpdate();
+            } catch (e) {
+              // Non-fatal
+            }
+          },
+        );
+      } catch (err) {
+        console.warn('[MapboxMap] Failed to start location watch', err);
+      }
+    };
+
+    startLocationWatch();
+
+    return () => {
+      if (locationSubscription) {
+        try {
+          locationSubscription.remove();
+        } catch (e) {
+          // ignore
+        }
+      }
+    };
+  }, [mapReady, showCurrentLocation, locationPermissionGranted, isTracking, onLocationChange]);
 
 // Get current location
   const getCurrentLocation = async () => {
