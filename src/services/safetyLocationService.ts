@@ -37,7 +37,14 @@ export async function sendSafetyLocationUpdate(
   payload: SafetyLocationPayload,
 ): Promise<SafetyLocationResponse | null> {
   try {
-    const response = await fetch(`${SAFETY_API_BASE}/safety/location`, {
+    const endpoint = `${SAFETY_API_BASE}/safety/location`;
+    console.info(
+      '[SafetyTracking] 📍 Sending location update',
+      `userId=${payload.userId}`,
+      `lat=${payload.latitude.toFixed(5)}, lng=${payload.longitude.toFixed(5)}`,
+      `→ ${endpoint}`,
+    );
+    const response = await fetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -48,16 +55,20 @@ export async function sendSafetyLocationUpdate(
     if (!response.ok) {
       const body = await response.text();
       console.warn(
-        "[SafetyTracking] Location update failed:",
+        '[SafetyTracking] ⚠️ Location update failed:',
         response.status,
         body,
       );
       return null;
     }
 
-    return (await response.json()) as SafetyLocationResponse;
+    const result = (await response.json()) as SafetyLocationResponse;
+    console.info(
+      '[SafetyTracking] ✅ Location accepted. Events:', result.events?.length ?? 0,
+    );
+    return result;
   } catch (error) {
-    console.warn("[SafetyTracking] Location update error:", error);
+    console.warn("[SafetyTracking] ❌ Location update network error:", error);
     return null;
   }
 }

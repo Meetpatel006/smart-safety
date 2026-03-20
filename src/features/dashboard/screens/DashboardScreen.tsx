@@ -287,7 +287,6 @@ export default function DashboardScreen({ navigation }: any) {
       }
       // Stop background tracking when leaving the dashboard/logging out.
       stopTouristBackgroundTrackingAsync().catch(() => {});
-      touristSocket.disconnect();
     };
   }, [state.user?.touristId]);
 

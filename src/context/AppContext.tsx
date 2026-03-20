@@ -1192,6 +1192,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         }
       },
       async logout() {
+        touristSocketService.disconnect();
         await remove(STORAGE_KEY);
         setState(defaultState);
         // Clear Sentry user context on logout
