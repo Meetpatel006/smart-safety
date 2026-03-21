@@ -14,6 +14,6 @@ export function showToast(message: string, duration?: number) {
     listeners.forEach((cb) => cb({ message, duration }))
   } catch (e) {
     // swallow - non-critical
-    // console.warn('showToast error', e)
+    console.warn('showToast error', e)
   }
 }
