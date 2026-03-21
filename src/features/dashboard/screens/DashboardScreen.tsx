@@ -1,5 +1,5 @@
-import { ScrollView, View, StyleSheet, Alert } from "react-native";
-import { Text, Avatar, Card, Button } from "react-native-paper";
+import { ScrollView, View, StyleSheet, Alert, TouchableOpacity, Modal } from "react-native";
+import { Text, Avatar, Card, Button, IconButton, Badge } from "react-native-paper";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import * as Location from "expo-location";
 import { useApp } from "../../../context/AppContext";
@@ -24,7 +24,11 @@ import * as Haptics from "expo-haptics";
 import {
   configureNotificationHandler,
   scheduleNotification,
+  requestNotificationPermissionStatus,
+  getNotificationPermissionStatus,
 } from "../../../utils/notificationsCompat";
+import { showToast } from "../../../utils/toast";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Configure notifications for critical alerts
 configureNotificationHandler();
@@ -167,6 +171,30 @@ export default function DashboardScreen({ navigation }: any) {
   const [alerts, setAlerts] = useState<TouristAlert[]>([]);
   const [socketConnected, setSocketConnected] = useState(false);
   const locationSubRef = useRef<Location.LocationSubscription | null>(null);
+  
+  // --- Notification Modal State ---
+  const [showNotificationModal, setShowNotificationModal] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [dontAskAgain, setDontAskAgain] = useState(false);
+
+  // Storage keys
+  const DONT_ASK_PUSH_NOTIF = "dont_ask_push_notification";
+
+  // Load "don't ask again" preference
+  useEffect(() => {
+    const loadPreference = async () => {
+      try {
+        const value = await AsyncStorage.getItem(DONT_ASK_PUSH_NOTIF);
+        if (value === "true") {
+          setDontAskAgain(true);
+          console.log("ℹ️ User chose not to be asked about push notifications");
+        }
+      } catch (error) {
+        console.error("Error loading preference:", error);
+      }
+    };
+    loadPreference();
+  }, []);
 
   // Function to get current location for periodic updates
   const getLocationForUpdates = async () => {
@@ -181,6 +209,26 @@ export default function DashboardScreen({ navigation }: any) {
     }
     return null;
   };
+
+  // Check notification permissions on mount (but don't request yet)
+  useEffect(() => {
+    const checkPermissions = async () => {
+      try {
+        const currentStatus = await getNotificationPermissionStatus();
+        console.log("🔔 Current notification permission:", currentStatus);
+        
+        if (currentStatus === "granted") {
+          console.log("✅ Push notifications are enabled");
+        } else {
+          console.log("⚠️ Push notifications not enabled - user will only see in-app toasts");
+        }
+      } catch (error) {
+        console.error("🔔 Error checking notification permissions:", error);
+      }
+    };
+    
+    checkPermissions();
+  }, []);
 
   useEffect(() => {
     let statusInterval: NodeJS.Timeout | null = null;
@@ -292,49 +340,97 @@ export default function DashboardScreen({ navigation }: any) {
 
   const handleIncomingAlert = async (alertData: TouristAlert) => {
     setAlerts((prev) => [alertData, ...prev]);
+    
+    // Increment unread count
+    setUnreadCount((prev) => prev + 1);
 
-    // 6 min expiration (persist for 6 minutes)
+    // Calculate expiration time from authority-provided expiresAt
+    let expirationMs = 6 * 60 * 1000; // Default 6 minutes fallback
+    
+    if (alertData.expiresAt) {
+      const expiresAtTime = new Date(alertData.expiresAt).getTime();
+      const currentTime = Date.now();
+      expirationMs = Math.max(0, expiresAtTime - currentTime);
+    }
+
+    // Auto-remove alert when it expires
     setTimeout(
       () => {
         setAlerts((prev) =>
           prev.filter((a) => a.alertId !== alertData.alertId),
         );
       },
-      6 * 60 * 1000,
+      expirationMs,
     );
 
-    // Function to send notification
+    // Haptic feedback based on priority (always works, no permission needed)
+    try {
+      if (alertData.priority === "critical") {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      } else if (alertData.priority === "high") {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      } else {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    } catch (error) {}
+
+    // ALWAYS show in-app toast notification (no permission needed)
+    const priorityEmoji = 
+      alertData.priority === "critical" ? "🚨" :
+      alertData.priority === "high" ? "⚠️" :
+      alertData.priority === "medium" ? "⚡" : "ℹ️";
+    
+    showToast(
+      `${priorityEmoji} ${alertData.title}: ${alertData.message}`,
+      6000 // Show for 6 seconds
+    );
+
+    // Check if user has granted push notification permission
+    const permissionStatus = await getNotificationPermissionStatus();
+
+    // Function to send push notification (only if permission granted)
     const sendNotification = async () => {
-      await scheduleNotification({
-        content: {
-          title: `🚨 ${alertData.title}`,
-          body: alertData.message,
-          data: alertData,
-        },
-        trigger: null,
-      });
+      if (permissionStatus !== "granted") {
+        return false;
+      }
+
+      try {
+        const success = await scheduleNotification({
+          content: {
+            title: `🚨 ${alertData.title}`,
+            body: `${alertData.message}${alertData.actionRequired ? `\n\nAction Required: ${alertData.actionRequired}` : ""}`,
+            data: alertData,
+            sound: true,
+          },
+          trigger: null,
+        });
+        return success;
+      } catch (error) {
+        return false;
+      }
     };
 
-    // Schedule notifications: Immediate, 2 min, 4 min
-    // 1. Immediate
-    await sendNotification();
+    // Schedule push notifications only if permission granted: Immediate, 2 min, 4 min
+    if (permissionStatus === "granted") {
+      // 1. Immediate
+      await sendNotification();
 
-    // 2. After 2 minutes
-    setTimeout(
-      () => {
-        // Check if alert is still relevant (optional, but good practice)
-        sendNotification();
-      },
-      2 * 60 * 1000,
-    );
+      // 2. After 2 minutes
+      setTimeout(
+        () => {
+          sendNotification();
+        },
+        2 * 60 * 1000,
+      );
 
-    // 3. After 4 minutes
-    setTimeout(
-      () => {
-        sendNotification();
-      },
-      4 * 60 * 1000,
-    );
+      // 3. After 4 minutes
+      setTimeout(
+        () => {
+          sendNotification();
+        },
+        4 * 60 * 1000,
+      );
+    }
   };
 
   const handleSafetyScoreAlert = async (alertData: SafetyScoreAlert) => {
@@ -422,6 +518,24 @@ export default function DashboardScreen({ navigation }: any) {
               </Text>
             </View>
           </View>
+          
+          {/* Notification Bell Icon */}
+          <View style={styles.notificationIconContainer}>
+            <TouchableOpacity onPress={() => setShowNotificationModal(true)}>
+              <MaterialCommunityIcons
+                name={unreadCount > 0 ? "bell-badge" : "bell-outline"}
+                size={28}
+                color={unreadCount > 0 ? "#EF4444" : "#6B7280"}
+              />
+              {unreadCount > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>
+                    {unreadCount > 99 ? "99+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.sosSection}>
@@ -448,65 +562,115 @@ export default function DashboardScreen({ navigation }: any) {
           <Weather />
         </View>
 
-        {alerts.length > 0 && (
-          <View style={styles.section}>
-            <Text
-              variant="titleMedium"
-              style={{ marginBottom: 10, fontWeight: "bold" }}
-            >
-              Active Alerts
-            </Text>
-            {alerts.map((alert) => (
-              <Card
-                key={alert.alertId}
-                style={{
-                  marginBottom: 10,
-                  borderLeftWidth: 5,
-                  borderLeftColor: getAlertPriorityColor(alert.priority),
+      </ScrollView>
+
+      {/* Notification Modal */}
+      <Modal
+        visible={showNotificationModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowNotificationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text variant="headlineSmall" style={styles.modalTitle}>
+                All Notifications
+              </Text>
+              <TouchableOpacity onPress={() => setShowNotificationModal(false)}>
+                <MaterialCommunityIcons name="close" size={24} color="#1F2937" />
+              </TouchableOpacity>
+            </View>
+
+            {alerts.length > 0 && (
+              <TouchableOpacity
+                onPress={() => {
+                  setUnreadCount(0);
+                  showToast("✅ All notifications marked as read", 3000);
                 }}
+                style={styles.markAllReadButton}
               >
-                <Card.Content>
-                  <Text variant="titleSmall" style={{ fontWeight: "bold" }}>
-                    {alert.title}
+                <Text style={styles.markAllReadText}>Mark All as Read</Text>
+              </TouchableOpacity>
+            )}
+
+            <ScrollView style={styles.modalScroll}>
+              {alerts.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <MaterialCommunityIcons
+                    name="bell-off-outline"
+                    size={64}
+                    color="#D1D5DB"
+                  />
+                  <Text style={styles.emptyText}>No notifications</Text>
+                  <Text style={styles.emptySubtext}>
+                    You'll see alerts here when they arrive
                   </Text>
-                  <Text variant="bodyMedium" style={{ marginTop: 4 }}>
-                    {alert.message}
-                  </Text>
-                  <View
+                </View>
+              ) : (
+                alerts.map((alert) => (
+                  <Card
+                    key={alert.alertId}
                     style={{
-                      flexDirection: "row",
-                      justifyContent: "space-between",
-                      marginTop: 8,
+                      marginBottom: 12,
+                      borderLeftWidth: 5,
+                      borderLeftColor: getAlertPriorityColor(alert.priority),
                     }}
                   >
-                    <Text variant="bodySmall" style={{ color: "#666" }}>
-                      {alert.authorityName}
-                    </Text>
-                    <Text variant="bodySmall" style={{ color: "#666" }}>
-                      {new Date(alert.timestamp).toLocaleTimeString([], {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
-                    </Text>
-                  </View>
-                  {alert.actionRequired && (
-                    <Text
-                      variant="labelMedium"
-                      style={{
-                        marginTop: 8,
-                        color: getAlertPriorityColor(alert.priority),
-                        fontWeight: "bold",
-                      }}
-                    >
-                      Action: {alert.actionRequired}
-                    </Text>
-                  )}
-                </Card.Content>
-              </Card>
-            ))}
+                    <Card.Content>
+                      <View style={styles.modalAlertHeader}>
+                        <Text variant="titleSmall" style={{ fontWeight: "bold", flex: 1 }}>
+                          {alert.title}
+                        </Text>
+                        <View style={[styles.priorityBadge, { backgroundColor: getAlertPriorityColor(alert.priority) }]}>
+                          <Text style={styles.priorityText}>
+                            {alert.priority.toUpperCase()}
+                          </Text>
+                        </View>
+                      </View>
+                      <Text variant="bodyMedium" style={{ marginTop: 4 }}>
+                        {alert.message}
+                      </Text>
+                      
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          justifyContent: "space-between",
+                          marginTop: 8,
+                        }}
+                      >
+                        <Text variant="bodySmall" style={{ color: "#666" }}>
+                          {alert.authorityName}
+                        </Text>
+                        <Text variant="bodySmall" style={{ color: "#666" }}>
+                          {new Date(alert.timestamp).toLocaleString([], {
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </Text>
+                      </View>
+                      {alert.actionRequired && (
+                        <Text
+                          variant="labelMedium"
+                          style={{
+                            marginTop: 8,
+                            color: getAlertPriorityColor(alert.priority),
+                            fontWeight: "bold",
+                          }}
+                        >
+                          Action: {alert.actionRequired}
+                        </Text>
+                      )}
+                    </Card.Content>
+                  </Card>
+                ))
+              )}
+            </ScrollView>
           </View>
-        )}
-      </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -588,5 +752,97 @@ const styles = StyleSheet.create({
   },
   section: {
     width: "100%",
+  },
+  notificationIconContainer: {
+    position: "relative",
+    marginLeft: 12,
+  },
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -6,
+    backgroundColor: "#EF4444",
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: "80%",
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E5E7EB",
+  },
+  modalTitle: {
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  modalScroll: {
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#6B7280",
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    marginTop: 8,
+  },
+  markAllReadButton: {
+    alignSelf: "flex-end",
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    marginRight: 20,
+    marginTop: 12,
+  },
+  markAllReadText: {
+    color: "#3B82F6",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  modalAlertHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  priorityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  priorityText: {
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "700",
   },
 });

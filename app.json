@@ -31,6 +31,15 @@
           "locationAlwaysAndWhenInUsePermission": "This app needs access to location to share your current location in emergency situations."
         }
       ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#EF4444",
+          "sounds": [],
+          "mode": "production"
+        }
+      ],
       "@rnmapbox/maps",
       [
         "@sentry/react-native/expo",
