@@ -11,6 +11,20 @@ export interface SafetyLocationPayload {
   userId: string;
   touristName?: string;
   mobileNumber?: string;
+  role?: string;
+  groupId?: string;
+  emergencyContact?: { name?: string; phone?: string };
+  dayWiseItinerary?: Array<{
+    dayNumber: number;
+    date: string;
+    nodes: Array<{
+      type?: string;
+      name?: string;
+      locationName?: string;
+      scheduledTime?: string;
+      activityDetails?: string;
+    }>;
+  }>;
   latitude: number;
   longitude: number;
   timestamp: string;

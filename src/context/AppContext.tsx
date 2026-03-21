@@ -718,6 +718,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           userId: String(userId),
           touristName: stateRef.current.user?.name || undefined,
           mobileNumber: stateRef.current.user?.phone || undefined,
+          role: stateRef.current.user?.role || undefined,
+          groupId: stateRef.current.user?.groupId || undefined,
+          emergencyContact: stateRef.current.user?.emergencyContact
+            ? {
+                name: stateRef.current.user.emergencyContact.name,
+                phone: stateRef.current.user.emergencyContact.phone,
+              }
+            : undefined,
+          dayWiseItinerary: stateRef.current.user?.dayWiseItinerary?.map((day) => ({
+            dayNumber: day.dayNumber,
+            date: day.date,
+            nodes: day.nodes.map((node) => ({
+              type: node.type,
+              name: node.name,
+              locationName: node.address,
+              scheduledTime: node.scheduledTime,
+              activityDetails: node.description,
+            })),
+          })),
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           timestamp: new Date().toISOString(),
