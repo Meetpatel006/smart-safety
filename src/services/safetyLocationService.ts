@@ -9,6 +9,8 @@ const SAFETY_API_BASE =
 
 export interface SafetyLocationPayload {
   userId: string;
+  touristName?: string;
+  mobileNumber?: string;
   latitude: number;
   longitude: number;
   timestamp: string;

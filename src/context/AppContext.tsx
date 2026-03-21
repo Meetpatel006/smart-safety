@@ -716,6 +716,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
         const response = await sendSafetyLocationUpdate({
           userId: String(userId),
+          touristName: stateRef.current.user?.name || undefined,
+          mobileNumber: stateRef.current.user?.phone || undefined,
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
           timestamp: new Date().toISOString(),
