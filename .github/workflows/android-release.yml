@@ -27,7 +27,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: '24.9.0'
 
       - name: Derive version from tag
         id: version
@@ -82,19 +82,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: '24.9.0'
  
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install dependencies with Bun
+      - name: Install dependencies with npm
         run: |
-          if [ -f bun.lock ] || [ -f bun.lockb ]; then
-            bun install --frozen-lockfile
+          if [ -f package-lock.json ]; then
+            npm ci
           else
-            bun install
+            npm install
           fi
 
       - name: Create .env file
@@ -135,7 +130,7 @@ jobs:
 
       - name: Expo prebuild
         run: |
-          bunx expo prebuild --non-interactive
+          npx expo prebuild --non-interactive
           echo "Prebuild completed. Checking generated files..."
           ls -la android/
 
@@ -162,7 +157,7 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: |
           echo "Testing JavaScript bundling..."
-          bunx react-native bundle \
+          npx react-native bundle \
             --platform android \
             --dev false \
             --entry-file index.js \

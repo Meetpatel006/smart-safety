@@ -1,7 +1,7 @@
 {
   "expo": {
     "sdkVersion": "54.0.0",
-    "name": "SIH Smart Safety",
+    "name": "Smart Safety",
     "slug": "smart-safety",
     "version": "1.2.2",
     "scheme": "sihsmart",
