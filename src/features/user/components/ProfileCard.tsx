@@ -9,8 +9,10 @@ export default function ProfileCard() {
   const { state } = useApp()
   const [showQR, setShowQR] = useState(false)
 
-  // Use the actual tourist ID from state or generate a fallback
-  const touristId = state.user?.touristId || `TID${new Date().getFullYear()}001234`
+  const rawTouristId = (state.user?.touristId || '').trim()
+  const looksLikeDataUrl = rawTouristId.startsWith('data:image/')
+  // Guard against accidentally receiving an image data URL in touristId.
+  const touristId = (!looksLikeDataUrl && rawTouristId) || `TID${new Date().getFullYear()}001234`
   const userName = state.user?.name || "Tourist"
   const isVerified = true
 

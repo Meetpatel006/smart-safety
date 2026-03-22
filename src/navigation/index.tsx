@@ -286,7 +286,7 @@ function MainTabs() {
                       fontWeight: "600",
                     }}
                   >
-                    Map
+                    Settings
                   </Text>
                 </>
               )}

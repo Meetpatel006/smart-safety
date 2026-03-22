@@ -9,6 +9,7 @@ import { NativeStackNavigationProp } from "@react-navigation/native-stack"
 import { RootStackParamList } from "../../../navigation"
 import { getAlertConfig, saveAlertConfig, getAlertState, setGlobalMute } from "../../../utils/alertHelpers"
 import { getSOSQueue } from "../../../utils/offlineQueue"
+import { getTouristQR } from "../../../utils/api"
 import SafetyScoreCard from "../../dashboard/components/SafetyScoreCard"
 import { Alert } from "react-native"
 
@@ -19,6 +20,69 @@ export default function SettingsScreen() {
   const [vibration, setVibration] = useState(true)
   const [muteAllAlerts, setMuteAllAlerts] = useState(false)
   const [showQR, setShowQR] = useState(false)
+  const [backendQrValue, setBackendQrValue] = useState<string | null>(null)
+  const [qrError, setQrError] = useState<string | null>(null)
+
+  const rawTouristId = (state.user?.touristId || "").trim()
+  const looksLikeDataUrl = rawTouristId.startsWith("data:image/")
+  const localQrValue = (!looksLikeDataUrl && rawTouristId) || state.user?.phone || "USER_ID"
+  const qrValue = backendQrValue || localQrValue
+  const touristIdLabel = (!looksLikeDataUrl && rawTouristId) || "Tourist ID: Not Available"
+
+  useEffect(() => {
+    let isMounted = true
+
+    const preloadBackendQr = async () => {
+      if (!rawTouristId || looksLikeDataUrl) {
+        if (isMounted) {
+          setBackendQrValue(null)
+        }
+        return
+      }
+
+      try {
+        const data = await getTouristQR(rawTouristId)
+        if (!isMounted) return
+        setBackendQrValue(data?.scanUrl || null)
+      } catch {
+        if (isMounted) {
+          setBackendQrValue(null)
+        }
+      }
+    }
+
+    preloadBackendQr()
+
+    return () => {
+      isMounted = false
+    }
+  }, [rawTouristId, looksLikeDataUrl])
+
+  const handleOpenQr = async () => {
+    setShowQR(true)
+    setQrError(null)
+
+    if (!rawTouristId || looksLikeDataUrl) {
+      setBackendQrValue(null)
+      return
+    }
+
+    if (backendQrValue) {
+      return
+    }
+
+    try {
+      const data = await getTouristQR(rawTouristId)
+      if (data?.scanUrl) {
+        setBackendQrValue(data.scanUrl)
+      } else {
+        setBackendQrValue(null)
+      }
+    } catch (error: any) {
+      setBackendQrValue(null)
+      setQrError(error?.message || "Failed to load backend QR. Showing local QR instead.")
+    }
+  }
 
   useEffect(() => {
     getAlertConfig().then(cfg => {
@@ -113,7 +177,7 @@ export default function SettingsScreen() {
               <Text style={styles.actionButtonText}>Edit Profile</Text>
             </TouchableOpacity>
             <View style={styles.actionDivider} />
-            <TouchableOpacity style={styles.actionButton} onPress={() => setShowQR(true)}>
+            <TouchableOpacity style={styles.actionButton} onPress={handleOpenQr}>
               <QrCode size={18} color="#3B82F6" />
               <Text style={styles.actionButtonText}>My QR</Text>
             </TouchableOpacity>
@@ -238,31 +302,41 @@ export default function SettingsScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <View style={styles.modalHandle} />
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>My QR Code</Text>
-              <TouchableOpacity onPress={() => setShowQR(false)} style={styles.closeButton}>
+              <View>
+                <Text style={styles.modalTitle}>My QR Code</Text>
+                <Text style={styles.modalSubtitle}>Secure identity pass</Text>
+              </View>
+              <TouchableOpacity onPress={() => setShowQR(false)} style={styles.modalCloseIconButton}>
                 <X size={24} color="#1f2937" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.qrContainer}>
-              <QRCode
-                value={state.user?.touristId || state.user?.phone || "USER_ID"}
-                size={200}
-              />
+            <View style={styles.qrWrapper}>
+              <View style={styles.qrContainer}>
+                <QRCode
+                  value={qrValue}
+                  size={200}
+                />
+              </View>
             </View>
 
-            <Text style={styles.qrTouristId}>
-              {state.user?.touristId || "Tourist ID: Not Available"}
-            </Text>
+            <View style={styles.idChip}>
+              <Text style={styles.idChipLabel}>Tourist ID</Text>
+              <Text style={styles.qrTouristId}>{touristIdLabel}</Text>
+            </View>
+
             <Text style={styles.qrDescription}>
-              Show this QR code for quick identification at checkpoints
+              Show this code at checkpoints for quick verification.
             </Text>
+
+            {qrError && <Text style={styles.qrErrorText}>{qrError}</Text>}
 
             <Button
               mode="contained"
               onPress={() => setShowQR(false)}
-              style={styles.closeButton}
+              style={styles.primaryButton}
               buttonColor="#3B82F6"
             >
               Close
@@ -279,7 +353,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAF8F5',
   },
-
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 60,
@@ -490,52 +563,112 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    backgroundColor: 'rgba(17, 24, 39, 0.72)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 24,
+    borderRadius: 28,
     padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
+    shadowColor: '#111827',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  modalHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 999,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     width: '100%',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: '700',
     color: '#1F2937',
   },
-  qrContainer: {
-    padding: 24,
+  modalSubtitle: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6B7280',
+    marginTop: 2,
+  },
+  modalCloseIconButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F3F4F6',
-    borderRadius: 16,
-    marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  qrWrapper: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  qrContainer: {
+    padding: 18,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 18,
+    elevation: 8,
+  },
+  idChip: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  idChipLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748B',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    marginBottom: 2,
   },
   qrTouristId: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 8,
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
   },
   qrDescription: {
     fontSize: 13,
     color: '#6B7280',
     textAlign: 'center',
-    marginBottom: 24,
+    marginBottom: 18,
     lineHeight: 20,
   },
-  closeButton: {
+  qrErrorText: {
+    fontSize: 12,
+    color: '#DC2626',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  primaryButton: {
     width: '100%',
     borderRadius: 12,
   },

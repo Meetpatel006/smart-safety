@@ -63,6 +63,37 @@ export const loginWithCodes = async (guideId: string, touristId: string, groupAc
   }
 };
 
+export type TouristQRResponse = {
+  message: string;
+  touristId: string;
+  scanUrl?: string;
+  qrToken?: string;
+  qrImageDataUrl?: string;
+  preview?: {
+    name?: string;
+    role?: string;
+    nationality?: string | null;
+  };
+  blockchain?: {
+    eventId?: string;
+    regTxHash?: string;
+  };
+};
+
+export const getTouristQR = async (touristId: string): Promise<TouristQRResponse> => {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/auth/qr/${encodeURIComponent(touristId)}`, {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    });
+    const res = await handleResponse(response);
+    return res;
+  } catch (e: any) {
+    console.error("API: getTouristQR error", { touristId, error: e?.message || e });
+    throw e;
+  }
+};
+
 export const register = async (userData) => {
   try {
     const response = await fetch(`${SERVER_URL}/api/auth/register`, {
