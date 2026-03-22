@@ -12,6 +12,7 @@ import * as SplashScreen from "expo-splash-screen"
 import { View, Text, ActivityIndicator, AppState } from "react-native"
 import React from "react"
 import { configureNotificationHandler } from "./src/utils/notificationsCompat"
+import { requestNotificationPermission } from "./src/utils/notificationPermissions"
 import * as Sentry from "@sentry/react-native"
 
 // Ensure background tasks are defined at startup.
@@ -176,6 +177,14 @@ function AppContent() {
     async function prepare() {
       try {
         console.log('App: Starting initialization...')
+        // Request runtime notification permissions if needed
+        try {
+          const granted = await requestNotificationPermission()
+          console.log('Notification permission granted:', granted)
+        } catch (e) {
+          console.warn('Failed to request notification permission:', e)
+        }
+
         await new Promise(resolve => setTimeout(resolve, 1000))
         console.log('App: Initialization complete')
       } catch (e) {
