@@ -13,93 +13,12 @@ import { View, Text, ActivityIndicator, AppState } from "react-native"
 import React from "react"
 import { configureNotificationHandler } from "./src/utils/notificationsCompat"
 import { requestNotificationPermission } from "./src/utils/notificationPermissions"
-import * as Sentry from "@sentry/react-native"
 
 // Ensure background tasks are defined at startup.
 import "./src/services/backgroundLocation";
 import { setAppStateForBackgroundTasks } from "./src/services/backgroundLocation";
-
-Sentry.init({
-  dsn: "https://f11af5eb8d307747f6863fc91cfaf82a@o4510890860740608.ingest.us.sentry.io/4510890863558656",
-  debug: false,
-  enableLogs: true,
-  logsOrigin: 'all',
-  enableAutoSessionTracking: true,
-  sessionTrackingIntervalMillis: 30000,
-  enableNativeCrashHandling: true,
-  enableAutoPerformanceTracing: true,
-  tracesSampleRate: 1.0,
-  attachStacktrace: true,
-  enableCaptureFailedRequests: true,
-  beforeBreadcrumb(breadcrumb, hint) {
-    return breadcrumb;
-  },
-  beforeSend(event, hint) {
-    return event;
-  },
-})
 SplashScreen.preventAutoHideAsync()
 
-// Manually capture console logs for Sentry
-const originalConsoleLog = console.log;
-const originalConsoleWarn = console.warn;
-const originalConsoleError = console.error;
-
-console.log = (...args) => {
-  originalConsoleLog(...args);
-  Sentry.logger.info(args.map(arg => 
-    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-  ).join(' '));
-};
-
-console.warn = (...args) => {
-  originalConsoleWarn(...args);
-  Sentry.logger.warn(args.map(arg => 
-    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-  ).join(' '));
-};
-
-console.error = (...args) => {
-  originalConsoleError(...args);
-  Sentry.logger.error(args.map(arg => 
-    typeof arg === 'object' ? JSON.stringify(arg) : String(arg)
-  ).join(' '));
-};
-
-// Set up global error handlers
-if (typeof ErrorUtils !== 'undefined') {
-  const originalHandler = ErrorUtils.getGlobalHandler();
-  
-  ErrorUtils.setGlobalHandler((error, isFatal) => {
-    // Log to Sentry
-    Sentry.captureException(error, {
-      level: isFatal ? 'fatal' : 'error',
-      tags: {
-        type: 'global_error',
-        isFatal: isFatal ? 'yes' : 'no',
-      },
-    });
-    originalHandler && originalHandler(error, isFatal);
-  });
-}
-
-const handleUnhandledRejection = (event: any) => {
-  const error = event.reason || event;
-  console.error('Unhandled Promise Rejection:', error);
-  Sentry.captureException(error, {
-    level: 'error',
-    tags: {
-      type: 'unhandled_promise_rejection',
-    },
-  });
-};
-
-const originalPromiseReject = Promise.reject;
-Promise.reject = function(...args) {
-  const result = originalPromiseReject.apply(this, args);
-  result.catch((error) => {});
-  return result;
-};
 configureNotificationHandler()
 
 const navTheme = {
@@ -112,24 +31,20 @@ const navTheme = {
 
 class ErrorBoundary extends React.Component<
   { children: React.ReactNode },
-  { hasError: boolean; eventId: string | null }
+  { hasError: boolean }
 > {
   constructor(props: { children: React.ReactNode }) {
     super(props)
-    this.state = { hasError: false, eventId: null }
+    this.state = { hasError: false }
   }
 
   static getDerivedStateFromError(_: Error) {
-    return { hasError: true, eventId: null }
+    return { hasError: true }
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('App Error:', error, errorInfo)
-    Sentry.withScope((scope) => {
-      scope.setExtras(errorInfo as any);
-      const eventId = Sentry.captureException(error);
-      this.setState({ eventId });
-    });
+    // In production you could hook this into a logging service.
   }
 
   render() {
@@ -145,11 +60,6 @@ class ErrorBoundary extends React.Component<
           <Text style={{ fontSize: 18, textAlign: 'center', marginBottom: 20 }}>
             Something went wrong. Please restart the app.
           </Text>
-          {this.state.eventId && (
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 10 }}>
-              Error ID: {this.state.eventId}
-            </Text>
-          )}
         </View>
       )
     }
@@ -236,10 +146,10 @@ function AppContent() {
   )
 }
 
-export default Sentry.wrap(function App() {
+export default function App() {
   return (
     <ErrorBoundary>
       <AppContent />
     </ErrorBoundary>
   )
-});
+}

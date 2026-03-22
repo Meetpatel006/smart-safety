@@ -23,6 +23,7 @@ import { useApp } from "../../../context/AppContext";
 import { useLocation } from "../../../context/LocationContext";
 import { t } from "../../../context/translations";
 import { triggerSOS } from "../../../utils/api";
+import touristSocketService from "../../../services/touristSocketService";
 import { queueSOS } from "../../../utils/offlineQueue";
 import { sendSMS } from "../../../utils/sms";
 import { queueSMS } from "../../../utils/smsQueue";
@@ -296,6 +297,9 @@ export default function PanicActions({
 
       console.log("[PanicActions] Triggering SOS:", label);
       await triggerSOS(currentToken, sosData);
+
+      // Ask backend for an immediate post-SOS score push (extra safety net)
+      touristSocketService.requestSafetyScoreUpdate();
 
       try {
         const recipients = [

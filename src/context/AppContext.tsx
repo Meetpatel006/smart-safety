@@ -48,7 +48,6 @@ import {
 import touristSocketService, {
   SafetyScoreData,
 } from "../services/touristSocketService";
-import * as Sentry from "@sentry/react-native";
 
 const decodeBase64 = (str: string): string => {
   return Buffer.from(str, "base64").toString("binary");
@@ -231,7 +230,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const stateRef = useRef<AppState>(state);
   const safetyNotificationSentAtRef = useRef<Record<string, number>>({});
 
-  const SAFETY_LOCATION_INTERVAL_MS = 5 * 60 * 1000;
+  const SAFETY_LOCATION_INTERVAL_MS = 1 * 60 * 1000;
   const SAFETY_NOTIFICATION_COOLDOWN_MS = 24 * 60 * 60 * 1000;
 
   const getSafetyNotificationTitle = (event: SafetyEvent): string => {
@@ -444,15 +443,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                   token: parsed.token,
                   trips,
                 }));
-                
-                // Set Sentry user context for error tracking
-                Sentry.setUser({
-                  id: userData.touristId,
-                  email: userData.email,
-                  username: userData.name,
-                  phone: userData.phone,
-                  role: userData.role,
-                });
               }
             }
           } catch (e: any) {
@@ -990,15 +980,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             contacts: contactsFromApi || s.contacts,
           }));
           
-          // Set Sentry user context for error tracking
-          Sentry.setUser({
-            id: userData.touristId,
-            email: userData.email,
-            username: userData.name,
-            phone: userData.phone,
-            role: userData.role,
-          });
-          
           return { ok: true, message: "Login successful" };
         } catch (error: any) {
           // Check if this is a group member trying to login with email/password
@@ -1077,15 +1058,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             trips,
             contacts: contactsFromApi || s.contacts,
           }));
-          
-          // Set Sentry user context for error tracking
-          Sentry.setUser({
-            id: userData.touristId,
-            email: userData.email,
-            username: userData.name,
-            phone: userData.phone,
-            role: userData.role,
-          });
           
           try {
             console.log("✅ 3-code login successful");
@@ -1216,8 +1188,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         touristSocketService.disconnect();
         await remove(STORAGE_KEY);
         setState(defaultState);
-        // Clear Sentry user context on logout
-        Sentry.setUser(null);
       },
       async updateProfile(patch) {
         setState((s) => ({

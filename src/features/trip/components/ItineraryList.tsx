@@ -417,14 +417,6 @@ const ItineraryList = forwardRef<{ openNew: () => void }, ItineraryListProps>(
               <Text style={styles.progressText}>
                 {trip.notes || "Add trip details"}
               </Text>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: isPast(trip) ? "100%" : "70%" },
-                  ]}
-                />
-              </View>
 
               {/* View Itinerary Button - Only for group members with multiple days */}
               {isGroupMember && trip.dayWiseItinerary && trip.dayWiseItinerary.length > 1 && (
@@ -1160,17 +1152,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#1F2937",
     marginBottom: 10,
-  },
-  progressBar: {
-    height: 6,
-    backgroundColor: "#E5E7EB",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  progressFill: {
-    height: "100%",
-    backgroundColor: "#3B82F6",
-    borderRadius: 3,
   },
   // Card Actions
   cardActions: {
