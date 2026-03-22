@@ -61,6 +61,32 @@ export interface SafetyScoreAlert {
   safetyScoreData: SafetyScoreData;
 }
 
+export interface SOSAssignedAcknowledgement {
+  alertId: string;
+  status: string;
+  assignedUnit: string | { authorityId: string; fullName: string; role?: string };
+  assignedRole?: string;
+  assignedTo?: Array<{ authorityId: string; fullName: string; role?: string }>;
+  acknowledgedAt: string;
+  message: string;
+  etaMinutes?: number;
+  etaLabel?: string;
+  etaArrivalAt?: string;
+}
+
+export interface SOSStatusUpdate {
+  alertId: string;
+  status: "new" | "acknowledged" | "responding" | "resolved" | "closed";
+  assignedTo?: Array<{ authorityId: string; fullName: string; role?: string }>;
+  responseDate?: string;
+  responseTime?: string;
+  resolvedDate?: string;
+  message: string;
+  etaMinutes?: number;
+  etaLabel?: string;
+  etaArrivalAt?: string;
+}
+
 interface LocationCoords {
   lat: number;
   lng: number;
@@ -271,6 +297,57 @@ class TouristSocketService {
   }
 
   /**
+   * Listen for SOS assigned acknowledgement from authority
+   * Fires when an authority assigns a unit to the tourist's SOS alert
+   * @param {function} callback - Function to handle the acknowledgement
+   */
+  onSOSAssignedAcknowledgement(callback: (data: SOSAssignedAcknowledgement) => void) {
+    if (!this.socket) {
+      this.pendingListeners.push({ event: "sosAssignedAcknowledgement", callback });
+      return;
+    }
+
+    this.socket.off("sosAssignedAcknowledgement");
+    this.activeSocketListeners.delete("sosAssignedAcknowledgement");
+    
+    const listener = (data: SOSAssignedAcknowledgement) => {
+      callback(data);
+    };
+    
+    this.socket.on("sosAssignedAcknowledgement", listener);
+
+    if (!this.activeSocketListeners.has("sosAssignedAcknowledgement")) {
+      this.activeSocketListeners.set("sosAssignedAcknowledgement", new Set());
+    }
+    this.activeSocketListeners.get("sosAssignedAcknowledgement")!.add(listener);
+  }
+
+  /**
+   * Listen for SOS status updates (e.g. resolved)
+   * @param {function} callback - Function to handle status updates
+   */
+  onSOSStatusUpdate(callback: (data: SOSStatusUpdate) => void) {
+    if (!this.socket) {
+      this.pendingListeners.push({ event: "sosStatusUpdate", callback });
+      return;
+    }
+
+    this.socket.off("sosStatusUpdate");
+    this.activeSocketListeners.delete("sosStatusUpdate");
+    
+    const listener = (data: SOSStatusUpdate) => {
+      callback(data);
+    };
+    
+    this.socket.on("sosStatusUpdate", listener);
+
+    if (!this.activeSocketListeners.has("sosStatusUpdate")) {
+      this.activeSocketListeners.set("sosStatusUpdate", new Set());
+    }
+    this.activeSocketListeners.get("sosStatusUpdate")!.add(listener);
+  }
+
+  /**
    * Update tourist location in real-time
    * @param {LocationCoords} location - { lat: number, lng: number }
    */
@@ -391,6 +468,8 @@ class TouristSocketService {
     console.log(`📡 Re-attaching ${this.activeSocketListeners.size} active listener type(s) after reconnect`);
     
     for (const [event, listeners] of this.activeSocketListeners.entries()) {
+      // Remove existing listeners for this event first to avoid stacking
+      this.socket.off(event);
       console.log(`📡 Re-attaching ${listeners.size} listener(s) for event: ${event}`);
       for (const listener of listeners) {
         this.socket.on(event, listener as any);
@@ -429,6 +508,20 @@ class TouristSocketService {
         this.socket.off("safetyScoreAlert");
         this.socket.on("safetyScoreAlert", callback as any);
         // Track for reconnection
+        if (!this.activeSocketListeners.has(event)) {
+          this.activeSocketListeners.set(event, new Set());
+        }
+        this.activeSocketListeners.get(event)!.add(callback);
+      } else if (event === "sosAssignedAcknowledgement") {
+        this.socket.off("sosAssignedAcknowledgement");
+        this.socket.on("sosAssignedAcknowledgement", callback as any);
+        if (!this.activeSocketListeners.has(event)) {
+          this.activeSocketListeners.set(event, new Set());
+        }
+        this.activeSocketListeners.get(event)!.add(callback);
+      } else if (event === "sosStatusUpdate") {
+        this.socket.off("sosStatusUpdate");
+        this.socket.on("sosStatusUpdate", callback as any);
         if (!this.activeSocketListeners.has(event)) {
           this.activeSocketListeners.set(event, new Set());
         }

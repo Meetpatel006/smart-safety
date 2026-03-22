@@ -14,6 +14,8 @@ import GroupStatusCard from "../../trip/components/GroupStatusCard";
 import touristSocket, {
   TouristAlert,
   SafetyScoreAlert,
+  SOSAssignedAcknowledgement,
+  SOSStatusUpdate,
 } from "../../../services/touristSocketService";
 import {
   drainPendingTouristLocations,
@@ -177,6 +179,19 @@ export default function DashboardScreen({ navigation }: any) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [dontAskAgain, setDontAskAgain] = useState(false);
 
+  // --- SOS Notifications (for bell icon) ---
+  interface SOSNotification {
+    id: string;
+    type: "sos_acknowledged" | "sos_responding" | "sos_resolved";
+    title: string;
+    message: string;
+    unitName: string;
+    unitRole: string;
+    etaInfo: string;
+    timestamp: number;
+  }
+  const [sosNotifications, setSosNotifications] = useState<SOSNotification[]>([]);
+
   // Storage keys
   const DONT_ASK_PUSH_NOTIF = "dont_ask_push_notification";
 
@@ -317,6 +332,16 @@ export default function DashboardScreen({ navigation }: any) {
       // Listen for safety score alerts
       touristSocket.onSafetyScoreAlert((alertData) => {
         handleSafetyScoreAlert(alertData);
+      });
+
+      // Listen for SOS assigned acknowledgement from authority
+      touristSocket.onSOSAssignedAcknowledgement((data) => {
+        handleSOSAcknowledgement(data);
+      });
+
+      // Listen for SOS status updates (e.g. resolved)
+      touristSocket.onSOSStatusUpdate((data) => {
+        handleSOSStatusUpdate(data);
       });
 
     };
@@ -471,6 +496,120 @@ export default function DashboardScreen({ navigation }: any) {
     }
   };
 
+  const handleSOSAcknowledgement = async (data: SOSAssignedAcknowledgement) => {
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+    let unitName = "";
+    let unitRole = "";
+    if (typeof data.assignedUnit === "string") {
+      unitName = data.assignedUnit;
+      unitRole = data.assignedRole || "";
+    } else if (data.assignedUnit && typeof data.assignedUnit === "object") {
+      unitName = (data.assignedUnit as any).fullName || "";
+      unitRole = (data.assignedUnit as any).role || "";
+    }
+
+    const etaInfo = (data as any).etaLabel
+      || ((data as any).etaMinutes != null ? `ETA: ${(data as any).etaMinutes} min` : "");
+
+    const parts: string[] = ["✅ SOS Acknowledged"];
+    if (unitName) parts.push(`Unit: ${unitName}`);
+    if (unitRole) parts.push(`(${unitRole})`);
+    if (etaInfo) parts.push(etaInfo);
+    showToast(parts.join(" | "), 8000);
+
+    const notifParts: string[] = [data.message || "A response unit has been assigned."];
+    if (unitName) notifParts.push(`Unit: ${unitName}`);
+    if (etaInfo) notifParts.push(etaInfo);
+
+    await scheduleNotification({
+      content: {
+        title: "✅ SOS Acknowledged",
+        body: notifParts.join("\n"),
+        data,
+      },
+      trigger: null,
+    });
+
+    setSosNotifications((prev) => [{
+      id: `sos-ack-${data.alertId}-${Date.now()}`,
+      type: "sos_acknowledged",
+      title: "✅ SOS Acknowledged",
+      message: data.message || "A response unit has been assigned.",
+      unitName,
+      unitRole,
+      etaInfo,
+      timestamp: Date.now(),
+    }, ...prev]);
+    setUnreadCount((prev) => prev + 1);
+  };
+
+  const handleSOSStatusUpdate = async (data: SOSStatusUpdate) => {
+    if (data.status === "responding") {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+
+      const etaInfo = (data as any).etaLabel
+        || ((data as any).etaMinutes != null ? `ETA: ${(data as any).etaMinutes} min` : "");
+
+      let unitName = "";
+      if (data.assignedTo && data.assignedTo.length > 0) {
+        const last = data.assignedTo[data.assignedTo.length - 1];
+        unitName = last.fullName || "";
+      }
+
+      const parts = ["🚨 Help is on the way"];
+      if (unitName) parts.push(`Unit: ${unitName}`);
+      if (etaInfo) parts.push(etaInfo);
+      showToast(parts.join(" | "), 8000);
+
+      await scheduleNotification({
+        content: {
+          title: "🚨 Responding",
+          body: parts.slice(1).join("\n") || "Help is on the way",
+          data,
+        },
+        trigger: null,
+      });
+
+      setSosNotifications((prev) => [{
+        id: `sos-resp-${data.alertId}-${Date.now()}`,
+        type: "sos_responding",
+        title: "🚨 Help is on the way",
+        message: `Unit ${unitName} is responding`,
+        unitName,
+        unitRole: "",
+        etaInfo,
+        timestamp: Date.now(),
+      }, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    } else if (data.status === "resolved") {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+
+      showToast(`✅ ${data.message || "Your SOS alert has been resolved"}`, 8000);
+
+      await scheduleNotification({
+        content: {
+          title: "✅ SOS Resolved",
+          body: data.message || "Your SOS alert has been resolved",
+          data,
+        },
+        trigger: null,
+      });
+
+      setSosNotifications((prev) => [{
+        id: `sos-resolved-${data.alertId}-${Date.now()}`,
+        type: "sos_resolved",
+        title: "✅ SOS Resolved",
+        message: data.message || "Your SOS alert has been resolved.",
+        unitName: "",
+        unitRole: "",
+        etaInfo: "",
+        timestamp: Date.now(),
+      }, ...prev]);
+      setUnreadCount((prev) => prev + 1);
+    }
+  };
+
   const getAlertPriorityColor = (priority: string) => {
     switch (priority) {
       case "critical":
@@ -582,7 +721,7 @@ export default function DashboardScreen({ navigation }: any) {
               </TouchableOpacity>
             </View>
 
-            {alerts.length > 0 && (
+            {(alerts.length > 0 || sosNotifications.length > 0) && (
               <TouchableOpacity
                 onPress={() => {
                   setUnreadCount(0);
@@ -595,7 +734,7 @@ export default function DashboardScreen({ navigation }: any) {
             )}
 
             <ScrollView style={styles.modalScroll}>
-              {alerts.length === 0 ? (
+              {alerts.length === 0 && sosNotifications.length === 0 ? (
                 <View style={styles.emptyState}>
                   <MaterialCommunityIcons
                     name="bell-off-outline"
@@ -608,7 +747,60 @@ export default function DashboardScreen({ navigation }: any) {
                   </Text>
                 </View>
               ) : (
-                alerts.map((alert) => (
+                <>
+                  {/* SOS Notifications */}
+                  {sosNotifications.map((notif) => {
+                    const isAcknowledged = notif.type === "sos_acknowledged";
+                    const isResponding = notif.type === "sos_responding";
+                    const isResolved = notif.type === "sos_resolved";
+                    const iconColor = isResolved ? "#10B981" : isResponding ? "#F97316" : "#3B82F6";
+                    const iconName = isResolved ? "check-circle" : isResponding ? "car-emergency" : "account-check";
+                    const borderColor = isResolved ? "#10B981" : isResponding ? "#F97316" : "#3B82F6";
+
+                    return (
+                      <Card
+                        key={notif.id}
+                        style={{
+                          marginBottom: 12,
+                          borderLeftWidth: 5,
+                          borderLeftColor: borderColor,
+                        }}
+                      >
+                        <Card.Content>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <MaterialCommunityIcons name={iconName as any} size={24} color={iconColor} />
+                            <Text variant="titleSmall" style={{ fontWeight: "bold", flex: 1 }}>
+                              {notif.title}
+                            </Text>
+                          </View>
+                          <Text variant="bodyMedium" style={{ marginTop: 6 }}>
+                            {notif.message}
+                          </Text>
+                          {notif.unitName ? (
+                            <Text variant="bodySmall" style={{ marginTop: 4, color: "#6B7280" }}>
+                              Unit: {notif.unitName}{notif.unitRole ? ` (${notif.unitRole})` : ""}
+                            </Text>
+                          ) : null}
+                          {notif.etaInfo ? (
+                            <Text variant="bodySmall" style={{ marginTop: 2, color: "#F97316", fontWeight: "bold" }}>
+                              {notif.etaInfo}
+                            </Text>
+                          ) : null}
+                          <Text variant="bodySmall" style={{ marginTop: 6, color: "#9CA3AF" }}>
+                            {new Date(notif.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </Text>
+                        </Card.Content>
+                      </Card>
+                    );
+                  })}
+
+                  {/* Authority Alerts */}
+                  {alerts.length > 0 && (
+                    <Text variant="titleSmall" style={{ fontWeight: "bold", color: "#6B7280", marginBottom: 8, marginTop: 4 }}>
+                      Authority Alerts
+                    </Text>
+                  )}
+                  {alerts.map((alert) => (
                   <Card
                     key={alert.alertId}
                     style={{
@@ -665,7 +857,8 @@ export default function DashboardScreen({ navigation }: any) {
                       )}
                     </Card.Content>
                   </Card>
-                ))
+                  ))}
+                </>
               )}
             </ScrollView>
           </View>
