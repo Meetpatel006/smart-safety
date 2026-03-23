@@ -8,6 +8,7 @@ import {
   useState,
 } from "react";
 import geofenceService from "../features/map/services/geofenceService";
+import * as itineraryDeviation from "../features/map/services/itineraryDeviationMonitor";
 import { appendTransition } from "../features/map/store/transitionStore";
 import { syncTransitions } from "../features/map/services/syncTransitions";
 import { Alert } from "react-native";
@@ -497,6 +498,45 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // start geofence monitoring; transitions will be logged on enter/exit
         await geofenceService.startMonitoring({ intervalMs: 30000 });
 
+        // Start itinerary deviation monitoring if user has itinerary
+        if (state.user?.dayWiseItinerary && state.user.dayWiseItinerary.length > 0) {
+          try {
+            // Get today's date at midnight in device timezone
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Find today's itinerary
+            const todayItinerary = state.user.dayWiseItinerary.find(day => {
+              const dayDate = new Date(day.date);
+              dayDate.setHours(0, 0, 0, 0);
+              return dayDate.getTime() === today.getTime();
+            });
+
+            if (todayItinerary && todayItinerary.nodes && todayItinerary.nodes.length > 0) {
+              // Extract locations from today's itinerary
+              const locations = todayItinerary.nodes
+                .filter(node => node.location?.coordinates && node.location.coordinates.length === 2)
+                .map(node => ({
+                  name: node.name,
+                  coords: [node.location!.coordinates![1], node.location!.coordinates![0]] as [number, number], // [lat, lng]
+                  dayNumber: todayItinerary.dayNumber,
+                }));
+
+              if (locations.length > 0) {
+                console.log(`[AppContext] Starting itinerary deviation monitor for ${locations.length} locations`);
+                itineraryDeviation.setCurrentDayItinerary(locations);
+                await itineraryDeviation.startMonitoring();
+              } else {
+                console.log('[AppContext] No valid locations in today\'s itinerary');
+              }
+            } else {
+              console.log('[AppContext] No itinerary for today');
+            }
+          } catch (error) {
+            console.warn('[AppContext] Failed to start itinerary deviation monitoring:', error);
+          }
+        }
+
         geofenceService.on("enter", ({ fence, location }) => {
           try {
             showToast(`Entered: ${fence.name} (${fence.category || "zone"})`);
@@ -639,6 +679,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         geofenceService.off("exit", () => {});
         geofenceService.off("primary", () => {});
       } catch (e) {}
+      try {
+        itineraryDeviation.stopMonitoring();
+      } catch (e) {
+        console.warn('[AppContext] Failed to stop itinerary deviation monitoring:', e);
+      }
       try {
         if (syncInterval) clearInterval(syncInterval);
       } catch (e) {}

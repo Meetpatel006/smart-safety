@@ -1615,6 +1615,12 @@ export const generateMapHTML = (accessToken?: string): string => {
            }
           
           function getGeofenceStyle(fence) {
+              // Detect itinerary geofences by multiple signals
+              const isItinerary = fence.sourceType === 'itinerary' ||
+                  fence.metadata?.sourceType === 'itinerary' ||
+                  (fence.category || '').toLowerCase().includes('itinerary') ||
+                  fence.visualStyle?.zoneType === 'itinerary_geofence';
+
               // Use backend visualStyle if available, otherwise fallback to legacy logic
               if (fence.visualStyle) {
                   const vs = fence.visualStyle;
@@ -1642,10 +1648,9 @@ export const generateMapHTML = (accessToken?: string): string => {
                       }
                   }
                   
-                  // Force itinerary geofences to blue regardless of visualStyle.color
-                  const zoneType = vs.zoneType || '';
-                  if (zoneType === 'itinerary_geofence') {
-                      color = '#3b82f6'; // Blue for itinerary geofences
+                  // Force itinerary geofences to green to distinguish from other zones
+                  if (isItinerary) {
+                      color = '#16a34a'; // Green for itinerary geofences
                   }
                   
                   return {
@@ -1657,6 +1662,14 @@ export const generateMapHTML = (accessToken?: string): string => {
                       borderStyle: vs.borderStyle || 'solid',
                       iconType: vs.iconType,
                       renderPriority: vs.renderPriority || 2
+                  };
+              }
+              
+              // Itinerary geofences without visualStyle get green styling
+              if (isItinerary) {
+                  return {
+                      fillColor: '#16a34a', fillOpacity: 0.25, fillPattern: 'solid',
+                      borderColor: '#16a34a', borderWidth: 2, borderStyle: 'solid'
                   };
               }
               

@@ -173,9 +173,29 @@ export default function MapboxMap({
         visualStyle: f.visualStyle || getDefaultVisualStyle(f)
       }));
       setAllGeoFences(dataWithStyle);
-      const nearby = filterFencesByDistance(dataWithStyle, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
-      setLoadedGeoFences(nearby);
-      console.log(`Loaded ${dataWithStyle.length} total fences, filtered to ${nearby.length} within ${NEARBY_FENCE_RADIUS_KM}km`);
+
+      // Separate itinerary geofences from others - don't filter itinerary by distance
+      // since they represent planned stops that may be far from current location
+      const itineraryFences = dataWithStyle.filter((f: GeoFence) =>
+        f.metadata?.sourceType === 'itinerary' ||
+        f.category === 'Itinerary Geofence' ||
+        f.source === 'itinerary'
+      );
+      const nonItineraryFences = dataWithStyle.filter((f: GeoFence) =>
+        f.metadata?.sourceType !== 'itinerary' &&
+        f.category !== 'Itinerary Geofence' &&
+        f.source !== 'itinerary'
+      );
+
+      // Only filter non-itinerary fences by distance
+      const nearbyNonItinerary = filterFencesByDistance(nonItineraryFences, userLat, userLng, NEARBY_FENCE_RADIUS_KM);
+
+      // Combine: all itinerary fences + nearby non-itinerary fences (dedup by id)
+      const nearbyIds = new Set(nearbyNonItinerary.map((f: GeoFence) => f.id));
+      const combined = [...nearbyNonItinerary, ...itineraryFences.filter((f: GeoFence) => !nearbyIds.has(f.id))];
+
+      setLoadedGeoFences(combined);
+      console.log(`Loaded ${dataWithStyle.length} total fences, showing ${combined.length} (${itineraryFences.length} itinerary + ${nearbyNonItinerary.length} nearby)`);
     } catch (err) {
       console.warn('Failed to load/filter geo-fences:', err);
       setAllGeoFences([]);
@@ -187,6 +207,20 @@ export default function MapboxMap({
   const getDefaultVisualStyle = (fence: GeoFence) => {
     const category = (fence.category || '').toLowerCase();
     const riskLevel = (fence.riskLevel || '').toLowerCase();
+    
+    // Detect itinerary geofences
+    if (category.includes('itinerary') || fence.source === 'itinerary' || fence.metadata?.sourceType === 'itinerary') {
+      return {
+        zoneType: 'itinerary_geofence',
+        borderStyle: 'solid',
+        borderWidth: 2,
+        fillOpacity: 0.25,
+        fillPattern: 'solid',
+        iconType: 'shield',
+        renderPriority: 2,
+        color: '#16a34a'
+      };
+    }
     
     // Determine zone type from category
     if (category.includes('danger') || category.includes('hazard')) {
@@ -211,6 +245,18 @@ export default function MapboxMap({
         iconType: 'incident-marker',
         renderPriority: 2,
         gridSize: 500
+      };
+    }
+
+    if (category.includes('geofence') || category.includes('destination') || category.includes('tourist')) {
+      return {
+        zoneType: 'geofence',
+        borderStyle: 'solid',
+        borderWidth: 2,
+        fillOpacity: 0.25,
+        fillPattern: 'solid',
+        iconType: 'shield',
+        renderPriority: 2
       };
     }
     

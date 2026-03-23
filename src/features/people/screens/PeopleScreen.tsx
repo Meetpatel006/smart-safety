@@ -46,7 +46,7 @@ export default function PeopleScreen({ navigation }: any) {
 
     Alert.alert(
       "Send Welcome Emails",
-      `Send welcome emails with login codes to all ${people.length} member${people.length === 1 ? '' : 's'}?`,
+      `Send welcome emails with login codes to all ${people.length} member${people.length === 1 ? '' : 's'} now? You can resend anytime.`,
       [
         {
           text: "Cancel",
@@ -69,13 +69,9 @@ export default function PeopleScreen({ navigation }: any) {
                 Alert.alert("Error", response.message || "Failed to send emails")
               }
             } catch (err: any) {
-              // Differentiate between informational messages and actual errors
-              const errorMsg = err.message || "Failed to send welcome emails. Please try again."
-              const isInfoMessage = errorMsg.toLowerCase().includes("already received")
-              
               Alert.alert(
-                isInfoMessage ? "Information" : "Email Sending Failed",
-                errorMsg,
+                "Email Sending Failed",
+                err.message || "Failed to send welcome emails. Please try again.",
                 [{ text: "OK" }]
               )
             } finally {

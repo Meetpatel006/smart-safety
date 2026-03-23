@@ -7,7 +7,7 @@ export const getTrackingEnhancementScript = (): string => {
   return `
     // Path Deviation Tracking State
     let trackingActive = false;
-    let userTrackingMarker = null;
+    let lastTrackedLocation = null;
     let deviationCircle = null;
     let userTrailLine = null;
     let userTrailPoints = [];
@@ -73,23 +73,7 @@ export const getTrackingEnhancementScript = (): string => {
         });
       }
 
-      // Create custom user tracking marker with direction indicator
-      if (!userTrackingMarker) {
-        const el = document.createElement('div');
-        el.className = 'user-tracking-marker';
-        el.innerHTML = \`
-          <div class="user-marker-pulse"></div>
-          <div class="user-marker-inner">
-            <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="10" cy="10" r="8" fill="#3B82F6" stroke="white" stroke-width="2"/>
-              <path d="M10 5 L10 12 L13 10" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none"/>
-            </svg>
-          </div>
-        \`;
-
-        userTrackingMarker = new mapboxgl.Marker({ element: el })
-          .setLngLat([0, 0]);
-      }
+      // No extra marker here: keep a single location marker from the base map layer.
     }
 
     /**
@@ -107,9 +91,7 @@ export const getTrackingEnhancementScript = (): string => {
      */
     function stopTracking() {
       trackingActive = false;
-      if (userTrackingMarker) {
-        userTrackingMarker.remove();
-      }
+      lastTrackedLocation = null;
       hideDeviationCircle();
       clearUserTrail();
       console.log('[Map] Tracking mode deactivated');
@@ -121,22 +103,7 @@ export const getTrackingEnhancementScript = (): string => {
     function updateUserTracking(lng, lat, bearing, speed) {
       if (!trackingActive) return;
 
-      // Update marker position
-      if (userTrackingMarker) {
-        userTrackingMarker.setLngLat([lng, lat]);
-        if (!userTrackingMarker._element.parentNode) {
-          userTrackingMarker.addTo(map);
-        }
-
-        // Rotate marker based on bearing
-        if (bearing !== undefined && bearing !== null) {
-          const markerEl = userTrackingMarker.getElement();
-          const svg = markerEl.querySelector('svg');
-          if (svg) {
-            svg.style.transform = \`rotate(\${bearing}deg)\`;
-          }
-        }
-      }
+      lastTrackedLocation = { lng, lat };
 
       // Add to trail
       userTrailPoints.push([lng, lat]);
@@ -223,13 +190,12 @@ export const getTrackingEnhancementScript = (): string => {
      * Re-center map on user's current location
      */
     function recenterOnUser() {
-      if (!trackingActive || !userTrackingMarker) {
+      if (!trackingActive || !lastTrackedLocation) {
         return;
       }
-      
-      const lngLat = userTrackingMarker.getLngLat();
+
       map.easeTo({
-        center: [lngLat.lng, lngLat.lat],
+        center: [lastTrackedLocation.lng, lastTrackedLocation.lat],
         zoom: 16,
         duration: 800,
         essential: true
@@ -303,38 +269,5 @@ export const getTrackingEnhancementScript = (): string => {
     window.addEventListener('message', handleTrackingMessage);
     console.log('[Map Tracking] Handler registered');
 
-    // Add CSS for tracking marker
-    const style = document.createElement('style');
-    style.textContent = \`
-      .user-tracking-marker {
-        width: 40px;
-        height: 40px;
-        position: relative;
-      }
-      
-      .user-marker-inner {
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 2;
-      }
-      
-      .user-marker-pulse {
-        position: absolute;
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: rgba(59, 130, 246, 0.3);
-        animation: tracking-pulse 2s ease-out infinite;
-        z-index: 1;
-      }
-      
-      @keyframes tracking-pulse {
-        0% { transform: scale(0.8); opacity: 1; }
-        100% { transform: scale(2); opacity: 0; }
-      }
-    \`;
-    document.head.appendChild(style);
   `;
 };

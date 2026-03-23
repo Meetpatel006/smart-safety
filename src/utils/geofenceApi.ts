@@ -88,6 +88,18 @@ function getDateKeyInTimezone(input: Date, timeZone: string): string {
   return `${year}-${month}-${day}`
 }
 
+/**
+ * Get the device's current timezone, falling back to Asia/Kolkata for India-based users
+ */
+function getDeviceTimezone(): string {
+  try {
+    // Intl.DateTimeFormat().resolvedOptions().timeZone returns the IANA timezone
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Kolkata'
+  } catch {
+    return 'Asia/Kolkata'
+  }
+}
+
 function isScheduledForToday(scheduledDate: any, timeZone: string): boolean {
   if (!scheduledDate) return false
   const parsed = new Date(scheduledDate)
@@ -239,11 +251,12 @@ export async function fetchDynamicGeofences(
       ? data.geofences.filter(fence => fence && fence.name).map(geofenceDestinationToGeoFence)
       : []
 
-    // Day-wise filtering for itinerary geofences (show only current day in IST)
+    // Day-wise filtering for itinerary geofences (show only current day in device timezone)
+    const deviceTimezone = getDeviceTimezone()
     const itineraryGeofences = geofences.filter((f: any) => f?.metadata?.sourceType === 'itinerary')
     const staticGeofences = geofences.filter((f: any) => f?.metadata?.sourceType !== 'itinerary')
     const todayItineraryGeofences = itineraryGeofences.filter((f: any) =>
-      isScheduledForToday(f?.metadata?.scheduledDate, 'Asia/Kolkata')
+      isScheduledForToday(f?.metadata?.scheduledDate, deviceTimezone)
     )
 
     // Keep itinerary fences without a scheduled date as fallback to avoid accidental hiding
